@@ -32,4 +32,7 @@
 .\stm3210c-eval\main.o: ..\..\..\Utilities\STM32_EVAL\stm3210c_eval/stm3210c_eval.h
 .\stm3210c-eval\main.o: ..\..\..\Utilities\STM32_EVAL\stm32_eval.h
 .\stm3210c-eval\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\stm3210c-eval\main.o: ..\sys\delay.h
+.\stm3210c-eval\main.o: ..\sys\sys.h
 .\stm3210c-eval\main.o: ..\bsp_breathing.h
+.\stm3210c-eval\main.o: ..\ws2812b.h
