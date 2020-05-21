@@ -1,6 +1,15 @@
 
 #include "bsp_breathing.h"
 
+#define LED_ACT  	GPIO_Pin_13      //运行状态  PE13	TIM1_Channel_3
+#define LED_LINK 	GPIO_Pin_11      //网络状态  PE11  TIM1_Channel_2 
+#define LED_PWR  	GPIO_Pin_14     //电源灯 		PE14	TIM1_Channel_4
+																																//#define TIM_Channel_1                      ((uint16_t)0x0000)
+																																//#define TIM_Channel_2                      ((uint16_t)0x0004)
+																																//#define TIM_Channel_3                      ((uint16_t)0x0008)
+																																//#define TIM_Channel_4                      ((uint16_t)0x000C)
+
+
 
 //控制输出波形的频率
 __IO uint16_t period_class = 10;
@@ -57,10 +66,8 @@ void TIM1_UP_IRQHandler(void)
 
  /**
   * @brief  配置TIM复用输出PWM时用到的I/O
-  * @param  无
-  * @retval 无
   */
-static void TIMx_GPIO_Config(void) 
+void Breath_GPIO_Config(void) 
 { 
 	GPIO_InitTypeDef GPIO_InitStructure;		
 	/*  clock enable */
@@ -77,10 +84,59 @@ static void TIMx_GPIO_Config(void)
 
 }
 
+void LED_ACT_GPIO_Config() 
+{ 
+	GPIO_InitTypeDef GPIO_InitStructure;		
+	/*  clock enable */
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE | RCC_APB2Periph_AFIO, ENABLE );
+	
+			//GPIO_PinRemapConfig(GPIO_PartialRemap_TIM1, ENABLE);  
+	GPIO_PinRemapConfig(GPIO_FullRemap_TIM1, ENABLE);
+		
+	  /* 配置呼吸灯用到的引脚 */
+  GPIO_InitStructure.GPIO_Pin =  LED_ACT;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;	// 复用推挽输出
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init( GPIOE, &GPIO_InitStructure );
+
+}
+
+void LED_LINK_GPIO_Config() 
+{ 
+	GPIO_InitTypeDef GPIO_InitStructure;		
+	/*  clock enable */
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE | RCC_APB2Periph_AFIO, ENABLE );
+	
+			//GPIO_PinRemapConfig(GPIO_PartialRemap_TIM1, ENABLE);  
+	GPIO_PinRemapConfig(GPIO_FullRemap_TIM1, ENABLE);
+		
+	  /* 配置呼吸灯用到的引脚 */
+  GPIO_InitStructure.GPIO_Pin =  LED_LINK;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;	// 复用推挽输出
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init( GPIOE, &GPIO_InitStructure );
+
+}
+
+void LED_PWR_GPIO_Config() 
+{ 
+	GPIO_InitTypeDef GPIO_InitStructure;		
+	/*  clock enable */
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE | RCC_APB2Periph_AFIO, ENABLE );
+	
+			//GPIO_PinRemapConfig(GPIO_PartialRemap_TIM1, ENABLE);  
+	GPIO_PinRemapConfig(GPIO_FullRemap_TIM1, ENABLE);
+		
+	  /* 配置呼吸灯用到的引脚 */
+  GPIO_InitStructure.GPIO_Pin =  LED_PWR;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;	// 复用推挽输出
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init( GPIOE, &GPIO_InitStructure );
+
+}
 /**
   * @brief  配置TIM输出的PWM信号的模式，如周期、极性
-  */
-
+*/
 static void TIMx_Mode_Config(void)
 {
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
@@ -165,21 +221,21 @@ static void TIMx_Mode_Config(void)
 	
   TIM_OCInitStructure.TIM_Pulse = 0;				 						  			//设置初始PWM脉冲宽度为0	 	  
 
-		TIM_OC2Init(TIM1, &TIM_OCInitStructure);
-    TIM_OC3Init(TIM1, &TIM_OCInitStructure);
-    TIM_OC4Init(TIM1, &TIM_OCInitStructure);	 									//使能通道
+	TIM_OC2Init(TIM1, &TIM_OCInitStructure);
+  TIM_OC3Init(TIM1, &TIM_OCInitStructure);
+  TIM_OC4Init(TIM1, &TIM_OCInitStructure);	 									//使能通道
 		
-		TIM_OC2PreloadConfig (TIM1, TIM_OCPreload_Enable );						//使能预装载
-		TIM_OC3PreloadConfig (TIM1, TIM_OCPreload_Enable );	
-		TIM_OC4PreloadConfig (TIM1, TIM_OCPreload_Enable );	
+	TIM_OC2PreloadConfig (TIM1, TIM_OCPreload_Enable );						//使能预装载
+	TIM_OC3PreloadConfig (TIM1, TIM_OCPreload_Enable );	
+	TIM_OC4PreloadConfig (TIM1, TIM_OCPreload_Enable );	
 
-	  TIM_CCxCmd(TIM1, TIM_Channel_2, ENABLE);
-    TIM_CCxCmd(TIM1, TIM_Channel_3, ENABLE);
-    TIM_CCxCmd(TIM1, TIM_Channel_4, ENABLE);
+	TIM_CCxCmd(TIM1, TIM_Channel_2, ENABLE);
+  TIM_CCxCmd(TIM1, TIM_Channel_3, ENABLE);
+  TIM_CCxCmd(TIM1, TIM_Channel_4, ENABLE);
 
-  TIM_ARRPreloadConfig(TIM1, ENABLE);			 										//使能TIM重载寄存器ARR
+	TIM_ARRPreloadConfig(TIM1, ENABLE);			 										//使能TIM重载寄存器ARR
 
-  TIM_Cmd(TIM1, ENABLE);                   										//使能定时器	
+	TIM_Cmd(TIM1, ENABLE);                   										//使能定时器	
 	
 	//TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);										//使能update中断	
 	TIM_CtrlPWMOutputs(TIM1, ENABLE);
@@ -189,13 +245,67 @@ static void TIMx_Mode_Config(void)
 /**
   * @brief  TIM 呼吸灯初始化
   *         配置PWM模式和GPIO
-  * @param  无
-  * @retval 无
   */
-void TIMx_Breathing_Init(void)
+void LED_Breathing_Init(void)
 {
-	TIMx_GPIO_Config();
 	TIMx_Mode_Config();	
 }
 
 /*********************************************END OF FILE**********************/
+
+
+void LED_ACT_Breathing(void)
+{
+	LED_ACT_GPIO_Config(); 
+	TIMx_Mode_Config();	
+}
+
+void LED_LINK_Breathing(void)
+{
+	LED_LINK_GPIO_Config();
+	TIMx_Mode_Config();
+}
+
+void LED_PWR_Breathing(void)
+{
+	LED_PWR_GPIO_Config();
+	TIMx_Mode_Config();
+}
+
+void LED_ACT_OFF(void)
+{
+		GPIO_InitTypeDef GPIO_InitStructure;		
+		/*  clock enable */
+		RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE, ENABLE );
+			
+			/* 配置呼吸灯用到的引脚 */
+		GPIO_InitStructure.GPIO_Pin =  LED_ACT;
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;	
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init( GPIOE, &GPIO_InitStructure ); 
+		GPIO_SetBits(GPIOE, GPIO_Pin_13);	
+}
+
+void LED_LINK_OFF(void)
+{
+		GPIO_InitTypeDef GPIO_InitStructure;		
+		/*  clock enable */
+		RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE, ENABLE );
+		GPIO_InitStructure.GPIO_Pin =  LED_LINK;
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;	
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init( GPIOE, &GPIO_InitStructure ); 
+		GPIO_SetBits(GPIOE, GPIO_Pin_11);
+}
+
+void LED_PWR_OFF(void)
+{
+		GPIO_InitTypeDef GPIO_InitStructure;		
+		/*  clock enable */
+		RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOE, ENABLE );
+		GPIO_InitStructure.GPIO_Pin =  LED_PWR;
+		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;	
+		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+		GPIO_Init( GPIOE, &GPIO_InitStructure ); 
+		GPIO_SetBits(GPIOE, GPIO_Pin_14);
+}

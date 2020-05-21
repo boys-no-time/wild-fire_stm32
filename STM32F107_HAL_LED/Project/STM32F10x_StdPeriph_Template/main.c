@@ -43,21 +43,21 @@ int main(void)
 	uart_print();
   printf("\n\r %s", MESSAGE1);
 	
-	TIMx_Breathing_Init();		//呼吸灯主函数
-	printf("breath start ! \n\r");
+	WS2812_Led_Configuration();					//初始化灯带GPIO，PWM+DMA驱动WS2812灯带
 	
-	WS2812_Led_Configuration();					//初始化TIM3，PWM+DMA驱动WS2812灯带
+//呼吸灯主函数
+	printf("breath start ! \n\r");
+	SIGN_LED_ACT_ON;										//开启运行状态灯
 
-	printf("DMA start ! \n\r");
-  /* Infinite loop */
+	SIGN_LED_PWR_ON;										//开启电源状态灯
+
+	SIGN_LED_LINK_ON;										//开启网络状态灯
+	
 	
 	while(1)
 	{
-			//WS2812_Led_Flash(47);									//灯带LED数量
-			//DOOR_LED_FLASH_ON;												//灯带闪亮效果开启
-	
-		 //WS2812_Led_Breathing(47);							//灯带LED数量	
-		DOOR_LED_BREATH_ON;										//灯带呼吸效果开启
+		//DOOR_LED_FLASH_ON;										//灯带闪亮效果开启
+		DOOR_LED_BREATH_ON;												//灯带呼吸效果开启
 	}
 	
 }
