@@ -16,6 +16,12 @@ fatal: Could not read from remote repository.
 ssh-agent bash
 ssh-add "/c/Users/Administrator/.ssh/my_github"
 
+ssh-agent bash
+ssh-add "/c/Users/Administrator/.ssh/my_gitlab"
+ssh-add "/c/Users/Administrator/.ssh/my_github"
+
+ssh-add "/c/Users/linux_pan/.ssh/my_github"
+
 5、重命名远程仓库名称
 先在GitHub上Rename仓库名称，然后同步更改本地仓库名称，最后执行下面指令设置仓库地址，将本地与远程仓库对接：
 git remote set-url origin https://github.com/boys-no-time/wild-fire_stm32.git
