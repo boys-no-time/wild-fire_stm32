@@ -17,9 +17,25 @@
 
 # 忽略所有.o和 .a文件.
 
-	*.[oa]
+*.[oa]
 
-Project.*
+*.[od]
+*.crf
+*.bin
+*.map
+*.htm
+*.dep
+out
+*.i
+Insight/
+DebugConfig/
+Listing/
+RTE/
+obj/
+release/
+*.lst
+*.uvguix.*
+*.uvoptx
 
 #	配置语法：以斜杠“/”开头表示目录；以星号“*”通配多个字符；
 #	以问号“?”通配单个字符以方括号“[]”包含单个字符的匹配列表；
