@@ -113,6 +113,7 @@ void Timer3_1_init(void)
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 	
 	TIM_OC3Init(TIM3, &TIM_OCInitStructure);
+	TIM_OC3PreloadConfig(TIM3,TIM_OCPreload_Enable);
 	
 	/* configure DMA */
 	/* DMA clock enable */
