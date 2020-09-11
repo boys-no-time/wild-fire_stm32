@@ -1,0 +1,19 @@
+一. 控制板
+    1. 服务器下发升级指令；
+    2. 相关信息发送给mailbox，升级线程接收这个信息并处理；
+    3. 升级线程连接服务器，获取firmware, 写入FLASH_BACKUP_START;
+    4. 最后在FLASH_BOOT_FLAG_ADDR处写入升级标志;
+    5. bootloader启动时检查FLASH_BOOT_FLAG_ADDR处的升级标志，如果有，把FLASH_BACKUP_START处内容复制到
+       FLASH_APP_START;
+    6. 然后清除升级标志, 重启。
+    
+二. 机构板
+    0. 由于不具备Ethernet，所以firmware由控制板下载。
+    1. 下载过程分段传给机构板，写入FLASH_BACKUP_START；
+    2. 最后在FLASH_BOOT_FLAG_ADDR处写入升级标志;
+    3. bootloader启动时检查FLASH_BOOT_FLAG_ADDR处的升级标志，如果有，把FLASH_BACKUP_START处内容复制到
+       FLASH_APP_START;
+    4. 然后清除升级标志, 重启。
+    
+    
+    

@@ -1,0 +1,21 @@
+#
+# WANING!!! only put public settings into this file! if you have own ignore requirement, please put into file of .git/info/exclude!
+#
+
+*.[od]
+*.crf
+*.bin
+*.map
+*.htm
+*.dep
+out
+*.i
+Insight/
+workspace/DebugConfig/
+workspace/Listing/
+workspace/RTE/
+workspace/obj/
+workspace/release/
+workspace/*.lst
+workspace/*.uvguix.*
+workspace/*.uvoptx

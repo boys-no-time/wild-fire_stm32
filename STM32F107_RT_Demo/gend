@@ -1,0 +1,88 @@
+#! /bin/bash
+
+if [ $# -lt 1 ]; then
+	echo "Generate dependency file for C source. Copyright(c) 2020 McKing"
+	echo "Usage: $0 source_file [dest_file]"
+	echo "       you MUST edit edit INC paths manually!"
+	exit 1
+fi
+
+host=`uname`
+src=$1
+dest=$2
+
+if [ -z "$dest" ]; then
+	dest=${src/%.c/.i} #replace ext name
+fi
+#echo $src $dest
+
+#newkeybox on linux =====================================================================
+if [ $host == "Linux" ]; then
+TOP_DIR=.
+
+APP_DIR=${TOP_DIR}/apps
+MIDWARE_DIR=${TOP_DIR}/midware
+LIB_DIR=${TOP_DIR}/lib
+BOARD_DIR=${TOP_DIR}/board
+RTOS_DIR=${TOP_DIR}/rtos
+SCRIPTS_DIR=${TOP_DIR}/scripts
+
+BSP_DIR=${BOARD_DIR}/bsp
+CHIP_DIR=${BOARD_DIR}/chip
+HAL_DIR=${BOARD_DIR}/hal
+
+CMSIS_DIR=${CHIP_DIR}/stm32f107/CMSIS
+CMSIS_CORE_DIR=${CMSIS_DIR}/CM3/CoreSupport
+CMSIS_SUPPORT_DIR=${CMSIS_DIR}/CM3/DeviceSupport/ST/STM32F10x
+DEVICE_START_DIR=${CMSIS_SUPPORT_DIR}/startup/gcc_ride7
+
+BSP_DRIVER_DIR=${CHIP_DIR}/stm32f107/Driver
+BSP_DRIVER_SRC_DIR=${BSP_DRIVER_DIR}/src
+
+MQTT_DIR=${MIDWARE_DIR}/MQTT
+SET_DIR=${MIDWARE_DIR}/setting
+
+RTT_DIR=${RTOS_DIR}/rtt
+FREERTOS_DIR=${RTOS_DIR}/freertos
+OSAL_DIR=${RTOS_DIR}/osal
+
+RTT_CMPNT_DIR=${RTT_DIR}/components
+RTT_CM3_DIR=${RTT_DIR}/libcpu/arm/cortex-m3
+RTT_ARM_COM_DIR=${RTT_DIR}/libcpu/arm/common
+RTT_KERNEL_DIR=${RTT_DIR}/kernel
+RTT_DFS_DIR=${RTT_CMPNT_DIR}/dfs
+RTT_DRIVER_DIR=${RTT_CMPNT_DIR}/drivers
+RTT_FINSH_DIR=${RTT_CMPNT_DIR}/finsh
+RTT_NET_DIR=${RTT_CMPNT_DIR}/net
+
+FAT_DIR=${RTT_DFS_DIR}/filesystems/elmfat
+
+LWIP_DIR=${RTT_NET_DIR}/lwip-1.4.1/src
+LWIP_INC_DIR=${LWIP_DIR}/include
+
+INC_CMSIS="-I${CMSIS_CORE_DIR} -I${CMSIS_SUPPORT_DIR}"
+INC_DRIVER="-I${BSP_DRIVER_DIR}/inc -I${BSP_DIR}"
+INC_HAL=-I${HAL_DIR}
+INC_OSAL=-I${OSAL_DIR}
+INC_MIDWARE="-I${MIDWARE_DIR} -I${MIDWARE_DIR}/MQTT -I${MIDWARE_DIR}/setting"
+INC_APP=-I${APP_DIR}
+INC_RTT="-I${RTT_DIR}/include -I${RTT_DFS_DIR}/include -I${RTT_FINSH_DIR} -I${RTT_DRIVER_DIR}/include"
+INC_LWIP="-I${LWIP_DIR} -I${LWIP_INC_DIR} -I${LWIP_INC_DIR}/ipv4  -I${LWIP_DIR}/arch/include -I${LWIP_INC_DIR}/netif"
+INC_FAT=-I${FAT_DIR}
+
+INC_ALL="-I. ${INC_CMSIS} ${INC_DRIVER} ${INC_HAL} ${INC_MIDWARE} ${INC_APP} ${INC_RTT} ${INC_LWIP} ${INC_FAT} ${INC_OSAL}"
+CFLAGS="-DSTM32F10X_CL -DUSE_STDPERIPH_DRIVER -DPROJ_NEWKEYBOX"
+
+else
+
+#inodes-sdk on Keil =====================================================================
+#run script in 'src' folder
+INC_SRC="-I../src/app -I../src/basic -I../src/driver -I../src/include -I../src/porting -I../src/system"
+INC_SYS="-I./RTE/_inodes-sdk -ID:/Tools/Keil/ARM/PACK/Keil/STM32F0xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32F0xx/Include -ID:/Tools/Keil/ARM/CMSIS/Include"
+INC_ALL="-I. ${INC_SRC} ${INC_SYS}"
+CFLAGS="-DSTM32F030xC -DUSE_STDPERIPH_DRIVER -DPROJ_NEWKEYBOX"
+fi
+
+echo "gcc -E ${CFLAGS} ${INC_ALL} -o $dest $src"
+gcc -E ${CFLAGS} ${INC_ALL} -o $dest $src
+
