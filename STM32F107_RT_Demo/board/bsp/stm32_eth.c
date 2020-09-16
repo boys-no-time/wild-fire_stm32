@@ -3217,15 +3217,12 @@ static void GPIO_ConfigurationE(void)
 #endif /* RMII_MODE */
 
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
     /* MDIO */
     {
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-
         /* MDC */
         GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
         GPIO_Init(GPIOC, &GPIO_InitStructure);
-
         /* MDIO */
         GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
         GPIO_Init(GPIOA, &GPIO_InitStructure);

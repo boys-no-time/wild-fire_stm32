@@ -99,7 +99,7 @@ void nextai_dataout_config(void)
  */
 void rt_hw_board_init(void)
 {
-    /* NVIC Configuration */
+    /* Set the Vector Table base location */
     NVIC_ConfigurationB();
 
     /* Configure the SysTick */

@@ -36,12 +36,6 @@ void rt_system_tick_init(void)
 }
 
 /**
- * @addtogroup Clock
- */
-
-/**@{*/
-
-/**
  * This function will return current tick from operating system startup
  *
  * @return current tick

@@ -17,12 +17,12 @@
 
 #include "inodes_include.h"
 
-/* USART1 */
+/* USART1 	Wifi */
 #define UART1_GPIO_TX        GPIO_Pin_9
 #define UART1_GPIO_RX        GPIO_Pin_10
 #define UART1_GPIO           GPIOA
 
-/* USART2 */
+/* USART2 	RS485-MCU */
 #if defined(STM32F10X_LD) || defined(STM32F10X_MD) || defined(STM32F10X_CL)
 #define UART2_GPIO_TX	    GPIO_Pin_5
 #define UART2_GPIO_RX	    GPIO_Pin_6
@@ -38,7 +38,7 @@
 #define UART2_GPIO        GPIOA
 #endif
 
-/* UART4 */
+/* UART4 debug */
 #define UART4_GPIO_TX        GPIO_Pin_10
 #define UART4_GPIO_RX        GPIO_Pin_11
 #define UART4_GPIO           GPIOC
@@ -66,7 +66,6 @@ static rt_err_t stm32_configure(struct rt_serial_device *serial, struct serial_c
     } else if (cfg->data_bits == DATA_BITS_9) {
         USART_InitStructure.USART_WordLength = USART_WordLength_9b;
     }
-
     if (cfg->stop_bits == STOP_BITS_1) {
         USART_InitStructure.USART_StopBits = USART_StopBits_1;
     } else if (cfg->stop_bits == STOP_BITS_2) {
@@ -179,19 +178,21 @@ void USART1_IRQHandler(void)
     struct stm32_uart *uart;
 
     uart = &uart1;
-
     /* enter interrupt */
     rt_interrupt_enter();
+	
+/* clear interrupt 接收到数据*/	
     if (USART_GetITStatus(uart->uart_device, USART_IT_RXNE) != RESET) {
+			
         rt_hw_serial_isr(&serial1, RT_SERIAL_EVENT_RX_IND);
-        /* clear interrupt */
         USART_ClearITPendingBit(uart->uart_device, USART_IT_RXNE);
     }
-
+/* clear interrupt TC=发送结束 */
     if (USART_GetITStatus(uart->uart_device, USART_IT_TC) != RESET) {
-        /* clear interrupt */
+       
         USART_ClearITPendingBit(uart->uart_device, USART_IT_TC);
     }
+/* 溢出错误 */ 		
     if (USART_GetFlagStatus(uart->uart_device, USART_FLAG_ORE) == SET) {
         stm32_getc(&serial1);
     }
@@ -255,13 +256,15 @@ void UART4_IRQHandler(void)
 
     /* enter interrupt */
     rt_interrupt_enter();
+	
+/* clear interrupt */	
     if (USART_GetITStatus(uart->uart_device, USART_IT_RXNE) != RESET) {
+			
         rt_hw_serial_isr(&serial4, RT_SERIAL_EVENT_RX_IND);
-        /* clear interrupt */
         USART_ClearITPendingBit(uart->uart_device, USART_IT_RXNE);
     }
     if (USART_GetITStatus(uart->uart_device, USART_IT_TC) != RESET) {
-        /* clear interrupt */
+/* clear interrupt */
         USART_ClearITPendingBit(uart->uart_device, USART_IT_TC);
     }
     if (USART_GetFlagStatus(uart->uart_device, USART_FLAG_ORE) == SET) {
@@ -283,12 +286,7 @@ static void RCC_ConfigurationU(void)
 
 #if defined(RT_USING_UART2)
 #if (defined(STM32F10X_LD) || defined(STM32F10X_MD) || defined(STM32F10X_CL))
-    /* Enable AFIO and GPIOD clock */
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOD, ENABLE);
-    /* Enable the USART2 Pins Software Remapping */
-    GPIO_PinRemapConfig(GPIO_Remap_USART2, ENABLE);
-#else
-    /* Enable AFIO and GPIOA clock */
+    /* Enable AFIO and GPIOD clock */ 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA, ENABLE);
 #endif
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);

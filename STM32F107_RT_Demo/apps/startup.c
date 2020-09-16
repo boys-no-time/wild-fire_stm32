@@ -56,13 +56,13 @@ static void inodes_print_clocks(void)
  */
 void rtthread_startup(void)
 {
-    /* init board */
+    /* init board hardware */
     rt_hw_board_init();
 
-    /* init tick */
+    /* init tick null function*/
     rt_system_tick_init();
 
-    /* init kernel object */
+    /* init kernel object null function */
     rt_system_object_init();
 
     /* init timer system */
