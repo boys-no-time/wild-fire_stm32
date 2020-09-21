@@ -105,6 +105,21 @@ void LED_ACT_OFFON(uint8_t cmd,uint8_t on)
 
 }
 
+void rt_hw_console_output(const char *str)
+{
+    rt_enter_critical();
+		while(*str!='\0')
+		{
+			if(*str=='\n')
+			{
+					USART_SendData(DBG_UART, '\r');
+					while (USART_GetFlagStatus(DBG_UART, USART_FLAG_TC) == RESET);
+			}
+			USART_SendData(DBG_UART, *str++);
+			while (USART_GetFlagStatus(DBG_UART, USART_FLAG_TC) == RESET);
+		}
+}
+
 void rt_hw_board_init()
 {
     /* System Clock Update */
@@ -129,7 +144,12 @@ void rt_hw_board_init()
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();
 #endif
-
+//	rt_hw_usart_init();
+//  
+		DBG_Usart_Init();
+//		rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
+		rt_kprintf("\r\nMain booting ....\r\n");
+	
 		Hal_Led_Init();
 		
 }

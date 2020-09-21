@@ -115,11 +115,12 @@
 //#define RT_USING_TINY_SIZE
 // </c>
 // </h>
-
+//#define RT_USING_DEVICE
 // <h>Console Configuration
 // <c1>Using console
 //  <i>Using console
 #define RT_USING_CONSOLE
+#define RT_CONSOLE_DEVICE_NAME	"uart4"
 // </c>
 // <o>the buffer size of console <1-1024>
 //  <i>the buffer size of console
