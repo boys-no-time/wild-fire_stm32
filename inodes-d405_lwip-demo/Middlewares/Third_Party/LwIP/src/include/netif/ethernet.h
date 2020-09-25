@@ -41,11 +41,11 @@
 #ifndef LWIP_HDR_NETIF_ETHERNET_H
 #define LWIP_HDR_NETIF_ETHERNET_H
 
-#include "lwip/opt.h"
+#include "../lwip/opt.h"
 
-#include "lwip/pbuf.h"
-#include "lwip/netif.h"
-#include "lwip/prot/ethernet.h"
+#include "../lwip/pbuf.h"
+#include "../lwip/netif.h"
+#include "../lwip/prot/ethernet.h"
 
 #ifdef __cplusplus
 extern "C" {
