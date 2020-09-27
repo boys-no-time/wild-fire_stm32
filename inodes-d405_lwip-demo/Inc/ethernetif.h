@@ -20,8 +20,8 @@
 #ifndef __ETHERNETIF_H__
 #define __ETHERNETIF_H__
 
-#include "../lwip/err.h"
-#include "../lwip/netif.h"
+#include "lwip/err.h"
+#include "lwip/netif.h"
 
 /* Within 'USER CODE' section, code will be kept by default at each generation */
 /* USER CODE BEGIN 0 */

@@ -20,14 +20,19 @@
 /* Includes ------------------------------------------------------------------*/
 #include "lwip.h"
 #include "lwip/init.h"
-#include "lwip/netif.h"
+#include "ethernetif.h"
+#include "netif/ethernet.h"
+//#include "lwip/netif.h"
+
 #if defined ( __CC_ARM )  /* MDK ARM Compiler */
 #include "lwip/sio.h"
 #endif /* MDK ARM Compiler */
-#include "ethernetif.h"
+
+
 
 /* USER CODE BEGIN 0 */
-
+#include <stdio.h>
+#include "usart.h"
 /* USER CODE END 0 */
 /* Private function prototypes -----------------------------------------------*/
 /* ETH Variables initialization ----------------------------------------------*/
@@ -63,9 +68,11 @@ void MX_LWIP_Init(void)
   netmask.addr = 0;
   gw.addr = 0;
 
+  printf(" netif_add start ! \r\n");
   /* add the network interface (IPv4/IPv6) without RTOS */
   netif_add(&gnetif, &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &ethernet_input);
 
+  printf(" netif_add sucess ! \r\n");
   /* Registers the default network interface */
   netif_set_default(&gnetif);
 

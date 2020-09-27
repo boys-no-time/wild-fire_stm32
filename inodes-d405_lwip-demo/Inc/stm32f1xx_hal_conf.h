@@ -183,15 +183,15 @@
 
 /* Section 2: PHY configuration section */
 
-/* LAN8720A_PHY_ADDRESS Address*/
-#define LAN8720A_PHY_ADDRESS           0x0U
+/* PHY_LAN8720A_PHY_ADDRESS Address*/
+#define PHY_LAN8720A_PHY_ADDRESS           0x0U
 /* PHY Reset delay these values are based on a 1 ms Systick interrupt*/
-#define PHY_RESET_DELAY                 0x000FFFFFU
+#define PHY_RESET_DELAY                    0x000000FFU						//0x000FFFFFU
 /* PHY Configuration delay */
-#define PHY_CONFIG_DELAY                0x00FFFFFFU
+#define PHY_CONFIG_DELAY                   0x00000FFFU//0x00FFFFFFU
 
-#define PHY_READ_TO                     0x0004FFFFU
-#define PHY_WRITE_TO                    0x0004FFFFU
+#define PHY_READ_TO                        0x0000FFFFU
+#define PHY_WRITE_TO                       0x0000FFFFU
 
 /* Section 3: Common PHY Registers */
 

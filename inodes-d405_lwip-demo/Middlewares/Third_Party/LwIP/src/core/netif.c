@@ -49,7 +49,7 @@
  */
 
 #include "lwip/opt.h"
-
+#include "lwip.h"
 #include <string.h>
 
 #include "lwip/def.h"

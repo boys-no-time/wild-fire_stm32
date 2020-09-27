@@ -58,7 +58,7 @@ extern "C" {
 
 #if LWIP_IPV4 && LWIP_ARP /* don't build if not configured for use in lwipopts.h */
 
-#include "../lwip/prot/etharp.h"
+#include "lwip/prot/etharp.h"
 
 /** 1 seconds period */
 #define ARP_TMR_INTERVAL 1000

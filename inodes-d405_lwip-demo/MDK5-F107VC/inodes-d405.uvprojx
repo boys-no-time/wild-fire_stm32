@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F107xC</Define>
               <Undefine></Undefine>
-              <IncludePath>..\Drivers\STM32F1xx_HAL_Driver\Inc;..\Drivers\STM32F1xx_HAL_Driver\Inc\Legacy;..\Drivers\CMSIS\Device;..\Drivers\CMSIS\Include;..\Middlewares\Third_Party\LwIP\src\include\lwip\apps;..\Middlewares\Third_Party\LwIP\src\include\lwip\priv;..\Middlewares\Third_Party\LwIP\src\include\lwip\prot;..\Middlewares\Third_Party\LwIP\src\include\netif\ppp;..\Middlewares\Third_Party\LwIP\src\include\netif;..\Middlewares\Third_Party\LwIP\src\include\posix\sys;..\Middlewares\Third_Party\LwIP\src\include\posix;..\Middlewares\Third_Party\LwIP\system\arch;..\Middlewares\Third_Party\LwIP\src\include\lwip;..\Inc;..\Middlewares\Third_Party\LwIP\src\include</IncludePath>
+              <IncludePath>..\Inc;..\Drivers\STM32F1xx_HAL_Driver\Inc\Legacy;..\Drivers\STM32F1xx_HAL_Driver\Inc;..\Drivers\CMSIS\Device;..\Drivers\CMSIS\Include;..\Middlewares\Third_Party\LwIP\src\include;..\Middlewares\Third_Party\LwIP\system;..\Middlewares\Third_Party\LwIP\src\include\netif\ppp;..\Middlewares\Third_Party\LwIP\src\include\lwip;..\Middlewares\Third_Party\LwIP\src\include\lwip\apps;..\Middlewares\Third_Party\LwIP\src\include\lwip\priv;..\Middlewares\Third_Party\LwIP\src\include\lwip\prot;..\Middlewares\Third_Party\LwIP\src\include\netif;..\Middlewares\Third_Party\LwIP\src\include\posix;..\Middlewares\Third_Party\LwIP\src\include\posix\sys;..\Middlewares\Third_Party\LwIP\system\arch;..\App;..\Middlewares\Third_Party\LwIP\system</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -496,17 +496,12 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>BSP</GroupName>
+          <GroupName>HAL_SYS</GroupName>
           <Files>
             <File>
               <FileName>gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\gpio.c</FilePath>
-            </File>
-            <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\main.c</FilePath>
             </File>
             <File>
               <FileName>stm32f1xx_hal_msp.c</FileName>
@@ -528,15 +523,30 @@
               <FileType>1</FileType>
               <FilePath>..\Src\usart.c</FilePath>
             </File>
+            <File>
+              <FileName>retarget.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\retarget.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>App</GroupName>
           <Files>
             <File>
+              <FileName>helloworld.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\helloworld.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Src\main.c</FilePath>
+              <FilePath>..\App\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>App.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\App.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -774,5 +784,20 @@
     <components/>
     <files/>
   </RTE>
+
+  <LayerInfo>
+    <Layers>
+      <Layer>
+        <LayName>&lt;Project Info&gt;</LayName>
+        <LayDesc></LayDesc>
+        <LayUrl></LayUrl>
+        <LayKeys></LayKeys>
+        <LayCat></LayCat>
+        <LayLic></LayLic>
+        <LayTarg>0</LayTarg>
+        <LayPrjMark>1</LayPrjMark>
+      </Layer>
+    </Layers>
+  </LayerInfo>
 
 </Project>
