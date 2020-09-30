@@ -2,153 +2,205 @@
 ; commandline ArmCC [--c99 --list --split_sections --debug -c --asm --interleave --gnu -o.\objects\timeouts.o --asm_dir=.\Listings\ --list_dir=.\Listings\ --depend=.\objects\timeouts.d --cpu=Cortex-M3 --apcs=interwork -O1 --diag_suppress=9931 -I..\Inc -I..\Drivers\STM32F1xx_HAL_Driver\Inc\Legacy -I..\Drivers\STM32F1xx_HAL_Driver\Inc -I..\Drivers\CMSIS\Device -I..\Drivers\CMSIS\Include -I..\Middlewares\Third_Party\LwIP\src\include -I..\Middlewares\Third_Party\LwIP\system -I..\Middlewares\Third_Party\LwIP\src\include\netif\ppp -I..\Middlewares\Third_Party\LwIP\src\include\lwip -I..\Middlewares\Third_Party\LwIP\src\include\lwip\apps -I..\Middlewares\Third_Party\LwIP\src\include\lwip\priv -I..\Middlewares\Third_Party\LwIP\src\include\lwip\prot -I..\Middlewares\Third_Party\LwIP\src\include\netif -I..\Middlewares\Third_Party\LwIP\src\include\posix -I..\Middlewares\Third_Party\LwIP\src\include\posix\sys -I..\Middlewares\Third_Party\LwIP\system\arch -I..\App -I..\Middlewares\Third_Party\LwIP\system -I.\RTE\_f107vc -IC:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Device\Include -IC:\Keil_v5\ARM\CMSIS\Include -D__UVISION_VERSION=530 -DSTM32F10X_CL -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F107xC --omf_browse=.\objects\timeouts.crf ..\Middlewares\Third_Party\LwIP\src\core\timeouts.c]
                           THUMB
 
-                          AREA ||i.cyclic_timer||, CODE, READONLY, ALIGN=2
+                          AREA ||i.lwip_cyclic_timer||, CODE, READONLY, ALIGN=2
 
-                  cyclic_timer PROC
-;;;163    static void
-;;;164    cyclic_timer(void *arg)
+                  lwip_cyclic_timer PROC
+;;;231    void
+;;;232    lwip_cyclic_timer(void *arg)
 000000  b510              PUSH     {r4,lr}
-;;;165    {
+;;;233    {
 000002  4604              MOV      r4,r0
-;;;166      const struct lwip_cyclic_timer* cyclic = (const struct lwip_cyclic_timer*)arg;
-;;;167    #if LWIP_DEBUG_TIMERNAMES
-;;;168      LWIP_DEBUGF(TIMERS_DEBUG, ("tcpip: %s()\n", cyclic->handler_name));
-;;;169    #endif
-;;;170      cyclic->handler();
+;;;234      u32_t now;
+;;;235      u32_t next_timeout_time;
+;;;236      const struct lwip_cyclic_timer *cyclic = (const struct lwip_cyclic_timer *)arg;
+;;;237    
+;;;238    #if LWIP_DEBUG_TIMERNAMES
+;;;239      LWIP_DEBUGF(TIMERS_DEBUG, ("tcpip: %s()\n", cyclic->handler_name));
+;;;240    #endif
+;;;241      cyclic->handler();
 000004  6860              LDR      r0,[r4,#4]
 000006  4780              BLX      r0
-;;;171      sys_timeout(cyclic->interval_ms, cyclic_timer, arg);
-000008  4622              MOV      r2,r4
-00000a  6820              LDR      r0,[r4,#0]
-00000c  e8bd4010          POP      {r4,lr}
-000010  4901              LDR      r1,|L1.24|
-000012  f7ffbffe          B.W      sys_timeout
-;;;172    }
-;;;173    
+;;;242    
+;;;243      now = sys_now();
+000008  f7fffffe          BL       sys_now
+;;;244      next_timeout_time = (u32_t)(current_timeout_due_time + cyclic->interval_ms);  /* overflow handled by TIME_LESS_THAN macro */ 
+00000c  4a0a              LDR      r2,|L1.56|
+00000e  6821              LDR      r1,[r4,#0]
+000010  6852              LDR      r2,[r2,#4]  ; current_timeout_due_time
+000012  188b              ADDS     r3,r1,r2
+;;;245      if (TIME_LESS_THAN(next_timeout_time, now)) {
+000014  1a1a              SUBS     r2,r3,r0
+000016  f1b24f00          CMP      r2,#0x80000000
+00001a  d306              BCC      |L1.42|
+;;;246        /* timer would immediately expire again -> "overload" -> restart without any correction */
+;;;247    #if LWIP_DEBUG_TIMERNAMES
+;;;248        sys_timeout_abs((u32_t)(now + cyclic->interval_ms), lwip_cyclic_timer, arg, cyclic->handler_name);
+;;;249    #else
+;;;250        sys_timeout_abs((u32_t)(now + cyclic->interval_ms), lwip_cyclic_timer, arg);
+00001c  4622              MOV      r2,r4
+00001e  4408              ADD      r0,r0,r1
+000020  e8bd4010          POP      {r4,lr}
+000024  4905              LDR      r1,|L1.60|
+000026  f7ffbffe          B.W      sys_timeout_abs
+                  |L1.42|
+;;;251    #endif
+;;;252    
+;;;253      } else {
+;;;254        /* correct cyclic interval with handler execution delay and sys_check_timeouts jitter */
+;;;255    #if LWIP_DEBUG_TIMERNAMES
+;;;256        sys_timeout_abs(next_timeout_time, lwip_cyclic_timer, arg, cyclic->handler_name);
+;;;257    #else
+;;;258        sys_timeout_abs(next_timeout_time, lwip_cyclic_timer, arg);
+00002a  4622              MOV      r2,r4
+00002c  e8bd4010          POP      {r4,lr}
+000030  4902              LDR      r1,|L1.60|
+000032  4618              MOV      r0,r3
+000034  f7ffbffe          B.W      sys_timeout_abs
+;;;259    #endif
+;;;260      }
+;;;261    }
+;;;262    
                           ENDP
 
-000016  0000              DCW      0x0000
-                  |L1.24|
-                          DCD      cyclic_timer
+                  |L1.56|
+                          DCD      ||.data||
+                  |L1.60|
+                          DCD      lwip_cyclic_timer
 
                           AREA ||i.sys_check_timeouts||, CODE, READONLY, ALIGN=2
 
                   sys_check_timeouts PROC
-;;;312    void
-;;;313    sys_check_timeouts(void)
-000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;314    {
-;;;315      if (next_timeout) {
-000004  4f14              LDR      r7,|L2.88|
-000006  6838              LDR      r0,[r7,#0]  ; next_timeout
-000008  2800              CMP      r0,#0
-00000a  d022              BEQ      |L2.82|
-;;;316        struct sys_timeo *tmptimeout;
-;;;317        u32_t diff;
-;;;318        sys_timeout_handler handler;
-;;;319        void *arg;
-;;;320        u8_t had_one;
-;;;321        u32_t now;
-;;;322    
-;;;323        now = sys_now();
-00000c  f7fffffe          BL       sys_now
-;;;324        /* this cares for wraparounds */
-;;;325        diff = now - timeouts_last_time;
-000010  6879              LDR      r1,[r7,#4]  ; timeouts_last_time
-000012  1a44              SUBS     r4,r0,r1
-;;;326        do {
-;;;327          PBUF_CHECK_FREE_OOSEQ();
-000014  f8df8044          LDR      r8,|L2.92|
-                  |L2.24|
-000018  f8980000          LDRB     r0,[r8,#0]  ; pbuf_free_ooseq_pending
-00001c  b108              CBZ      r0,|L2.34|
-00001e  f7fffffe          BL       pbuf_free_ooseq
-                  |L2.34|
-;;;328          had_one = 0;
-000022  2500              MOVS     r5,#0
-;;;329          tmptimeout = next_timeout;
-000024  6839              LDR      r1,[r7,#0]  ; next_timeout
-;;;330          if (tmptimeout && (tmptimeout->time <= diff)) {
-000026  b191              CBZ      r1,|L2.78|
-000028  6848              LDR      r0,[r1,#4]
-00002a  42a0              CMP      r0,r4
-00002c  d80f              BHI      |L2.78|
-;;;331            /* timeout has expired */
-;;;332            had_one = 1;
-00002e  2501              MOVS     r5,#1
-;;;333            timeouts_last_time += tmptimeout->time;
-000030  687a              LDR      r2,[r7,#4]  ; timeouts_last_time
-000032  4402              ADD      r2,r2,r0
-000034  607a              STR      r2,[r7,#4]  ; timeouts_last_time
-;;;334            diff -= tmptimeout->time;
-000036  1a24              SUBS     r4,r4,r0
-;;;335            next_timeout = tmptimeout->next;
-000038  6808              LDR      r0,[r1,#0]
-00003a  6038              STR      r0,[r7,#0]  ; next_timeout
-;;;336            handler = tmptimeout->h;
-00003c  688e              LDR      r6,[r1,#8]
-;;;337            arg = tmptimeout->arg;
-00003e  f8d1900c          LDR      r9,[r1,#0xc]
-;;;338    #if LWIP_DEBUG_TIMERNAMES
-;;;339            if (handler != NULL) {
-;;;340              LWIP_DEBUGF(TIMERS_DEBUG, ("sct calling h=%s arg=%p\n",
-;;;341                tmptimeout->handler_name, arg));
-;;;342            }
-;;;343    #endif /* LWIP_DEBUG_TIMERNAMES */
-;;;344            memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
-000042  2006              MOVS     r0,#6
-000044  f7fffffe          BL       memp_free
-;;;345            if (handler != NULL) {
-000048  b10e              CBZ      r6,|L2.78|
-;;;346    #if !NO_SYS
-;;;347              /* For LWIP_TCPIP_CORE_LOCKING, lock the core before calling the
-;;;348                 timeout handler function. */
-;;;349              LOCK_TCPIP_CORE();
-;;;350    #endif /* !NO_SYS */
-;;;351              handler(arg);
-00004a  4648              MOV      r0,r9
-00004c  47b0              BLX      r6
-                  |L2.78|
-;;;352    #if !NO_SYS
-;;;353              UNLOCK_TCPIP_CORE();
-;;;354    #endif /* !NO_SYS */
-;;;355            }
-;;;356            LWIP_TCPIP_THREAD_ALIVE();
-;;;357          }
-;;;358        /* repeat until all expired timers have been called */
-;;;359        } while (had_one);
-00004e  2d00              CMP      r5,#0
-000050  d1e2              BNE      |L2.24|
-                  |L2.82|
-;;;360      }
-;;;361    }
-000052  e8bd87f0          POP      {r4-r10,pc}
-;;;362    
+;;;351    void
+;;;352    sys_check_timeouts(void)
+000000  e92d41f0          PUSH     {r4-r8,lr}
+;;;353    {
+;;;354      u32_t now;
+;;;355    
+;;;356      LWIP_ASSERT_CORE_LOCKED();
+;;;357    
+;;;358      /* Process only timers expired at the start of the function. */
+;;;359      now = sys_now();
+000004  f7fffffe          BL       sys_now
+000008  4606              MOV      r6,r0
+;;;360    
+;;;361      do {
+;;;362        struct sys_timeo *tmptimeout;
+;;;363        sys_timeout_handler handler;
+;;;364        void *arg;
+;;;365    
+;;;366        PBUF_CHECK_FREE_OOSEQ();
+00000a  4f0f              LDR      r7,|L2.72|
+;;;367    
+;;;368        tmptimeout = next_timeout;
+00000c  4d0f              LDR      r5,|L2.76|
+                  |L2.14|
+00000e  7838              LDRB     r0,[r7,#0]            ;366  ; pbuf_free_ooseq_pending
+000010  b108              CBZ      r0,|L2.22|
+000012  f7fffffe          BL       pbuf_free_ooseq
+                  |L2.22|
+000016  6829              LDR      r1,[r5,#0]  ; next_timeout
+;;;369        if (tmptimeout == NULL) {
+000018  2900              CMP      r1,#0
+00001a  d012              BEQ      |L2.66|
+;;;370          return;
+;;;371        }
+;;;372    
+;;;373        if (TIME_LESS_THAN(now, tmptimeout->time)) {
+00001c  684a              LDR      r2,[r1,#4]
+00001e  1ab0              SUBS     r0,r6,r2
+000020  f1b04f00          CMP      r0,#0x80000000
+000024  d20d              BCS      |L2.66|
+;;;374          return;
+;;;375        }
+;;;376    
+;;;377        /* Timeout has expired */
+;;;378        next_timeout = tmptimeout->next;
+000026  6808              LDR      r0,[r1,#0]
+000028  6028              STR      r0,[r5,#0]  ; next_timeout
+;;;379        handler = tmptimeout->h;
+00002a  688c              LDR      r4,[r1,#8]
+;;;380        arg = tmptimeout->arg;
+00002c  f8d1800c          LDR      r8,[r1,#0xc]
+;;;381        current_timeout_due_time = tmptimeout->time;
+000030  606a              STR      r2,[r5,#4]  ; current_timeout_due_time
+;;;382    #if LWIP_DEBUG_TIMERNAMES
+;;;383        if (handler != NULL) {
+;;;384          LWIP_DEBUGF(TIMERS_DEBUG, ("sct calling h=%s t=%"U32_F" arg=%p\n",
+;;;385                                     tmptimeout->handler_name, sys_now() - tmptimeout->time, arg));
+;;;386        }
+;;;387    #endif /* LWIP_DEBUG_TIMERNAMES */
+;;;388        memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
+000032  2006              MOVS     r0,#6
+000034  f7fffffe          BL       memp_free
+;;;389        if (handler != NULL) {
+000038  2c00              CMP      r4,#0
+00003a  d0e8              BEQ      |L2.14|
+;;;390          handler(arg);
+00003c  4640              MOV      r0,r8
+00003e  47a0              BLX      r4
+000040  e7e5              B        |L2.14|
+                  |L2.66|
+;;;391        }
+;;;392        LWIP_TCPIP_THREAD_ALIVE();
+;;;393    
+;;;394        /* Repeat until all expired timers have been called */
+;;;395      } while (1);
+;;;396    }
+000042  e8bd81f0          POP      {r4-r8,pc}
+;;;397    
                           ENDP
 
-000056  0000              DCW      0x0000
-                  |L2.88|
-                          DCD      ||.data||
-                  |L2.92|
+000046  0000              DCW      0x0000
+                  |L2.72|
                           DCD      pbuf_free_ooseq_pending
+                  |L2.76|
+                          DCD      ||.data||
 
                           AREA ||i.sys_restart_timeouts||, CODE, READONLY, ALIGN=2
 
                   sys_restart_timeouts PROC
-;;;368    void
-;;;369    sys_restart_timeouts(void)
+;;;403    void
+;;;404    sys_restart_timeouts(void)
 000000  b510              PUSH     {r4,lr}
-;;;370    {
-;;;371      timeouts_last_time = sys_now();
-000002  f7fffffe          BL       sys_now
-000006  4901              LDR      r1,|L3.12|
-000008  6048              STR      r0,[r1,#4]  ; timeouts_last_time
-;;;372    }
-00000a  bd10              POP      {r4,pc}
-;;;373    
+;;;405    {
+;;;406      u32_t now;
+;;;407      u32_t base;
+;;;408      struct sys_timeo *t;
+;;;409    
+;;;410      if (next_timeout == NULL) {
+000002  4c08              LDR      r4,|L3.36|
+000004  6820              LDR      r0,[r4,#0]  ; next_timeout
+000006  2800              CMP      r0,#0
+000008  d00b              BEQ      |L3.34|
+;;;411        return;
+;;;412      }
+;;;413    
+;;;414      now = sys_now();
+00000a  f7fffffe          BL       sys_now
+;;;415      base = next_timeout->time;
+00000e  6821              LDR      r1,[r4,#0]  ; next_timeout
+000010  684a              LDR      r2,[r1,#4]
+;;;416    
+;;;417      for (t = next_timeout; t != NULL; t = t->next) {
+000012  e004              B        |L3.30|
+                  |L3.20|
+;;;418        t->time = (t->time - base) + now;
+000014  684b              LDR      r3,[r1,#4]
+000016  1a9b              SUBS     r3,r3,r2
+000018  4403              ADD      r3,r3,r0
+00001a  604b              STR      r3,[r1,#4]
+00001c  6809              LDR      r1,[r1,#0]            ;417
+                  |L3.30|
+00001e  2900              CMP      r1,#0                 ;417
+000020  d1f8              BNE      |L3.20|
+                  |L3.34|
+;;;419      }
+;;;420    }
+000022  bd10              POP      {r4,pc}
+;;;421    
                           ENDP
 
-                  |L3.12|
+                  |L3.36|
                           DCD      ||.data||
 
                           AREA ||i.sys_timeout||, CODE, READONLY, ALIGN=2
@@ -159,458 +211,483 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   sys_timeout PROC
-;;;203    void
-;;;204    sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
-000000  e92d41f0          PUSH     {r4-r8,lr}
-;;;205    #endif /* LWIP_DEBUG_TIMERNAMES */
-;;;206    {
-000004  4605              MOV      r5,r0
-000006  460f              MOV      r7,r1
-000008  4690              MOV      r8,r2
-;;;207      struct sys_timeo *timeout, *t;
-;;;208      u32_t now, diff;
-;;;209    
-;;;210      timeout = (struct sys_timeo *)memp_malloc(MEMP_SYS_TIMEOUT);
-00000a  2006              MOVS     r0,#6
-00000c  f7fffffe          BL       memp_malloc
-000010  4604              MOV      r4,r0
-;;;211      if (timeout == NULL) {
-000012  0020              MOVS     r0,r4
-000014  d015              BEQ      |L4.66|
-;;;212        LWIP_ASSERT("sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is empty", timeout != NULL);
-;;;213        return;
-;;;214      }
-;;;215    
-;;;216      now = sys_now();
-000016  f7fffffe          BL       sys_now
-;;;217      if (next_timeout == NULL) {
-00001a  4924              LDR      r1,|L4.172|
-00001c  680b              LDR      r3,[r1,#0]  ; next_timeout
-00001e  2b00              CMP      r3,#0
-000020  d018              BEQ      |L4.84|
-;;;218        diff = 0;
-;;;219        timeouts_last_time = now;
-;;;220      } else {
-;;;221        diff = now - timeouts_last_time;
-000022  684a              LDR      r2,[r1,#4]  ; timeouts_last_time
-000024  eba00602          SUB      r6,r0,r2
-                  |L4.40|
-;;;222      }
-;;;223    
-;;;224      timeout->next = NULL;
-000028  f04f0000          MOV      r0,#0
-00002c  6020              STR      r0,[r4,#0]
-;;;225      timeout->h = handler;
-00002e  60a7              STR      r7,[r4,#8]
-;;;226      timeout->arg = arg;
-000030  f8c4800c          STR      r8,[r4,#0xc]
-;;;227      timeout->time = msecs + diff;
-000034  eb050006          ADD      r0,r5,r6
-000038  6060              STR      r0,[r4,#4]
-;;;228    #if LWIP_DEBUG_TIMERNAMES
-;;;229      timeout->handler_name = handler_name;
-;;;230      LWIP_DEBUGF(TIMERS_DEBUG, ("sys_timeout: %p msecs=%"U32_F" handler=%s arg=%p\n",
-;;;231        (void *)timeout, msecs, handler_name, (void *)arg));
-;;;232    #endif /* LWIP_DEBUG_TIMERNAMES */
-;;;233    
-;;;234      if (next_timeout == NULL) {
-00003a  d10f              BNE      |L4.92|
-;;;235        next_timeout = timeout;
-00003c  600c              STR      r4,[r1,#0]  ; next_timeout
-                  |L4.62|
-;;;236        return;
-;;;237      }
-;;;238    
-;;;239      if (next_timeout->time > msecs) {
-;;;240        next_timeout->time -= msecs;
-;;;241        timeout->next = next_timeout;
-;;;242        next_timeout = timeout;
-;;;243      } else {
-;;;244        for (t = next_timeout; t != NULL; t = t->next) {
-;;;245          timeout->time -= t->time;
-;;;246          if (t->next == NULL || t->next->time > timeout->time) {
-;;;247            if (t->next != NULL) {
-;;;248              t->next->time -= timeout->time;
-;;;249            } else if (timeout->time > msecs) {
-;;;250              /* If this is the case, 'timeouts_last_time' and 'now' differs too much.
-;;;251                 This can be due to sys_check_timeouts() not being called at the right
-;;;252                 times, but also when stopping in a breakpoint. Anyway, let's assume
-;;;253                 this is not wanted, so add the first timer's time instead of 'diff' */
-;;;254              timeout->time = msecs + next_timeout->time;
-;;;255            }
-;;;256            timeout->next = t->next;
-;;;257            t->next = timeout;
-;;;258            break;
-;;;259          }
-;;;260        }
-;;;261      }
-;;;262    }
-00003e  e8bd81f0          POP      {r4-r8,pc}
-                  |L4.66|
-000042  e8bd41f0          POP      {r4-r8,lr}            ;212
-000046  a31a              ADR      r3,|L4.176|
-000048  f04f02d4          MOV      r2,#0xd4              ;212
-00004c  a125              ADR      r1,|L4.228|
-00004e  a035              ADR      r0,|L4.292|
-000050  f7ffbffe          B.W      __2printf
-                  |L4.84|
-000054  f04f0600          MOV      r6,#0                 ;218
-000058  6048              STR      r0,[r1,#4]            ;219  ; timeouts_last_time
-00005a  e7e5              B        |L4.40|
-                  |L4.92|
-00005c  6858              LDR      r0,[r3,#4]            ;239
-00005e  42a8              CMP      r0,r5                 ;239
-000060  d904              BLS      |L4.108|
-000062  1b40              SUBS     r0,r0,r5              ;240
-000064  6058              STR      r0,[r3,#4]            ;240
-000066  6023              STR      r3,[r4,#0]            ;241
-000068  600c              STR      r4,[r1,#0]            ;242  ; next_timeout
-00006a  e7e8              B        |L4.62|
-                  |L4.108|
-00006c  4618              MOV      r0,r3                 ;244
-00006e  e014              B        |L4.154|
-                  |L4.112|
-000070  684e              LDR      r6,[r1,#4]            ;246
-000072  4296              CMP      r6,r2                 ;246
-000074  d910              BLS      |L4.152|
-                  |L4.118|
-000076  6802              LDR      r2,[r0,#0]            ;247
-000078  b122              CBZ      r2,|L4.132|
-00007a  684a              LDR      r2,[r1,#4]            ;248
-00007c  6863              LDR      r3,[r4,#4]            ;248
-00007e  1ad2              SUBS     r2,r2,r3              ;248
-000080  604a              STR      r2,[r1,#4]            ;248
-000082  e005              B        |L4.144|
-                  |L4.132|
-000084  6861              LDR      r1,[r4,#4]            ;249
-000086  42a9              CMP      r1,r5                 ;249
-000088  d902              BLS      |L4.144|
-00008a  6859              LDR      r1,[r3,#4]            ;254
-00008c  4429              ADD      r1,r1,r5              ;254
-00008e  6061              STR      r1,[r4,#4]            ;254
-                  |L4.144|
-000090  6801              LDR      r1,[r0,#0]            ;256
-000092  6021              STR      r1,[r4,#0]            ;256
-000094  6004              STR      r4,[r0,#0]            ;257
-000096  e7d2              B        |L4.62|
-                  |L4.152|
-000098  4608              MOV      r0,r1                 ;244
-                  |L4.154|
-00009a  6861              LDR      r1,[r4,#4]            ;245
-00009c  6842              LDR      r2,[r0,#4]            ;245
-00009e  1a8a              SUBS     r2,r1,r2              ;245
-0000a0  6062              STR      r2,[r4,#4]            ;245
-0000a2  6801              LDR      r1,[r0,#0]            ;244
-0000a4  2900              CMP      r1,#0                 ;244
-0000a6  d0e6              BEQ      |L4.118|
-0000a8  e7e2              B        |L4.112|
-;;;263    
+;;;289    void
+;;;290    sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
+000000  b570              PUSH     {r4-r6,lr}
+;;;291    #endif /* LWIP_DEBUG_TIMERNAMES */
+;;;292    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+000006  4616              MOV      r6,r2
+;;;293      u32_t next_timeout_time;
+;;;294    
+;;;295      LWIP_ASSERT_CORE_LOCKED();
+;;;296    
+;;;297      LWIP_ASSERT("Timeout time too long, max is LWIP_UINT32_MAX/4 msecs", msecs <= (LWIP_UINT32_MAX / 4));
+000008  f1b44f80          CMP      r4,#0x40000000
+00000c  d306              BCC      |L4.28|
+00000e  a308              ADR      r3,|L4.48|
+000010  f2401229          MOV      r2,#0x129
+000014  a113              ADR      r1,|L4.100|
+000016  a021              ADR      r0,|L4.156|
+000018  f7fffffe          BL       __2printf
+                  |L4.28|
+;;;298    
+;;;299      next_timeout_time = (u32_t)(sys_now() + msecs); /* overflow handled by TIME_LESS_THAN macro */ 
+00001c  f7fffffe          BL       sys_now
+000020  4420              ADD      r0,r0,r4
+;;;300    
+;;;301    #if LWIP_DEBUG_TIMERNAMES
+;;;302      sys_timeout_abs(next_timeout_time, handler, arg, handler_name);
+;;;303    #else
+;;;304      sys_timeout_abs(next_timeout_time, handler, arg);
+000022  4632              MOV      r2,r6
+000024  4629              MOV      r1,r5
+000026  e8bd4070          POP      {r4-r6,lr}
+00002a  f7ffbffe          B.W      sys_timeout_abs
+;;;305    #endif
+;;;306    }
+;;;307    
                           ENDP
 
-0000aa  0000              DCW      0x0000
-                  |L4.172|
+00002e  0000              DCW      0x0000
+                  |L4.48|
+000030  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\timeouts"
+000034  6964646c
+000038  65776172
+00003c  65735c54
+000040  68697264
+000044  5f506172
+000048  74795c4c
+00004c  7749505c
+000050  7372635c
+000054  636f7265
+000058  5c74696d
+00005c  656f7574
+000060  73      
+000061  2e6300            DCB      ".c",0
+                  |L4.100|
+000064  54696d65          DCB      "Timeout time too long, max is LWIP_UINT32_MAX/4 msecs",0
+000068  6f757420
+00006c  74696d65
+000070  20746f6f
+000074  206c6f6e
+000078  672c206d
+00007c  61782069
+000080  73204c57
+000084  49505f55
+000088  494e5433
+00008c  325f4d41
+000090  582f3420
+000094  6d736563
+000098  7300    
+00009a  00                DCB      0
+00009b  00                DCB      0
+                  |L4.156|
+00009c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000a0  7274696f
+0000a4  6e202225
+0000a8  73222066
+0000ac  61696c65
+0000b0  64206174
+0000b4  206c696e
+0000b8  65202564
+0000bc  20696e20
+0000c0  25730a00
+
+                          AREA ||i.sys_timeout_abs||, CODE, READONLY, ALIGN=2
+
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                  sys_timeout_abs PROC
+;;;182    #else /* LWIP_DEBUG_TIMERNAMES */
+;;;183    sys_timeout_abs(u32_t abs_time, sys_timeout_handler handler, void *arg)
+000000  b570              PUSH     {r4-r6,lr}
+;;;184    #endif
+;;;185    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+000006  4616              MOV      r6,r2
+;;;186      struct sys_timeo *timeout, *t;
+;;;187    
+;;;188      timeout = (struct sys_timeo *)memp_malloc(MEMP_SYS_TIMEOUT);
+000008  2006              MOVS     r0,#6
+00000a  f7fffffe          BL       memp_malloc
+;;;189      if (timeout == NULL) {
+00000e  b188              CBZ      r0,|L5.52|
+;;;190        LWIP_ASSERT("sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is empty", timeout != NULL);
+;;;191        return;
+;;;192      }
+;;;193    
+;;;194      timeout->next = NULL;
+000010  2200              MOVS     r2,#0
+000012  6002              STR      r2,[r0,#0]
+;;;195      timeout->h = handler;
+000014  6085              STR      r5,[r0,#8]
+;;;196      timeout->arg = arg;
+000016  60c6              STR      r6,[r0,#0xc]
+;;;197      timeout->time = abs_time;
+000018  6044              STR      r4,[r0,#4]
+;;;198    
+;;;199    #if LWIP_DEBUG_TIMERNAMES
+;;;200      timeout->handler_name = handler_name;
+;;;201      LWIP_DEBUGF(TIMERS_DEBUG, ("sys_timeout: %p abs_time=%"U32_F" handler=%s arg=%p\n",
+;;;202                                 (void *)timeout, abs_time, handler_name, (void *)arg));
+;;;203    #endif /* LWIP_DEBUG_TIMERNAMES */
+;;;204    
+;;;205      if (next_timeout == NULL) {
+00001a  4a12              LDR      r2,|L5.100|
+00001c  6811              LDR      r1,[r2,#0]  ; next_timeout
+00001e  2900              CMP      r1,#0
+000020  d010              BEQ      |L5.68|
+;;;206        next_timeout = timeout;
+;;;207        return;
+;;;208      }
+;;;209      if (TIME_LESS_THAN(timeout->time, next_timeout->time)) {
+000022  684b              LDR      r3,[r1,#4]
+000024  f04f4500          MOV      r5,#0x80000000
+000028  1ae3              SUBS     r3,r4,r3
+00002a  42ab              CMP      r3,r5
+00002c  d315              BCC      |L5.90|
+;;;210        timeout->next = next_timeout;
+00002e  6001              STR      r1,[r0,#0]
+;;;211        next_timeout = timeout;
+000030  6010              STR      r0,[r2,#0]  ; next_timeout
+;;;212      } else {
+;;;213        for (t = next_timeout; t != NULL; t = t->next) {
+;;;214          if ((t->next == NULL) || TIME_LESS_THAN(timeout->time, t->next->time)) {
+;;;215            timeout->next = t->next;
+;;;216            t->next = timeout;
+;;;217            break;
+;;;218          }
+;;;219        }
+;;;220      }
+;;;221    }
+000032  bd70              POP      {r4-r6,pc}
+                  |L5.52|
+000034  e8bd4070          POP      {r4-r6,lr}            ;190
+000038  a30b              ADR      r3,|L5.104|
+00003a  22be              MOVS     r2,#0xbe              ;190
+00003c  a117              ADR      r1,|L5.156|
+00003e  a027              ADR      r0,|L5.220|
+000040  f7ffbffe          B.W      __2printf
+                  |L5.68|
+000044  6010              STR      r0,[r2,#0]            ;206  ; next_timeout
+000046  bd70              POP      {r4-r6,pc}
+                  |L5.72|
+000048  6853              LDR      r3,[r2,#4]            ;214
+00004a  1ae3              SUBS     r3,r4,r3              ;214
+00004c  42ab              CMP      r3,r5                 ;214
+00004e  d303              BCC      |L5.88|
+                  |L5.80|
+000050  680a              LDR      r2,[r1,#0]            ;215
+000052  6002              STR      r2,[r0,#0]            ;215
+000054  6008              STR      r0,[r1,#0]            ;216
+000056  bd70              POP      {r4-r6,pc}
+                  |L5.88|
+000058  4611              MOV      r1,r2                 ;213
+                  |L5.90|
+00005a  680a              LDR      r2,[r1,#0]            ;214
+00005c  2a00              CMP      r2,#0                 ;213
+00005e  d0f7              BEQ      |L5.80|
+000060  e7f2              B        |L5.72|
+;;;222    
+                          ENDP
+
+000062  0000              DCW      0x0000
+                  |L5.100|
                           DCD      ||.data||
-                  |L4.176|
-0000b0  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\timeouts"
-0000b4  6964646c
-0000b8  65776172
-0000bc  65735c54
-0000c0  68697264
-0000c4  5f506172
-0000c8  74795c4c
-0000cc  7749505c
-0000d0  7372635c
-0000d4  636f7265
-0000d8  5c74696d
-0000dc  656f7574
-0000e0  73      
-0000e1  2e6300            DCB      ".c",0
-                  |L4.228|
-0000e4  7379735f          DCB      "sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is "
-0000e8  74696d65
-0000ec  6f75743a
-0000f0  2074696d
-0000f4  656f7574
-0000f8  20213d20
-0000fc  4e554c4c
-000100  2c20706f
-000104  6f6c204d
-000108  454d505f
-00010c  5359535f
-000110  54494d45
-000114  4f555420
-000118  697320  
-00011b  656d7074          DCB      "empty",0
-00011f  7900    
-000121  00                DCB      0
-000122  00                DCB      0
-000123  00                DCB      0
-                  |L4.292|
-000124  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000128  7274696f
-00012c  6e202225
-000130  73222066
-000134  61696c65
-000138  64206174
-00013c  206c696e
-000140  65202564
-000144  20696e20
-000148  25730a00
+                  |L5.104|
+000068  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\timeouts"
+00006c  6964646c
+000070  65776172
+000074  65735c54
+000078  68697264
+00007c  5f506172
+000080  74795c4c
+000084  7749505c
+000088  7372635c
+00008c  636f7265
+000090  5c74696d
+000094  656f7574
+000098  73      
+000099  2e6300            DCB      ".c",0
+                  |L5.156|
+00009c  7379735f          DCB      "sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is "
+0000a0  74696d65
+0000a4  6f75743a
+0000a8  2074696d
+0000ac  656f7574
+0000b0  20213d20
+0000b4  4e554c4c
+0000b8  2c20706f
+0000bc  6f6c204d
+0000c0  454d505f
+0000c4  5359535f
+0000c8  54494d45
+0000cc  4f555420
+0000d0  697320  
+0000d3  656d7074          DCB      "empty",0
+0000d7  7900    
+0000d9  00                DCB      0
+0000da  00                DCB      0
+0000db  00                DCB      0
+                  |L5.220|
+0000dc  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000e0  7274696f
+0000e4  6e202225
+0000e8  73222066
+0000ec  61696c65
+0000f0  64206174
+0000f4  206c696e
+0000f8  65202564
+0000fc  20696e20
+000100  25730a00
 
                           AREA ||i.sys_timeouts_init||, CODE, READONLY, ALIGN=2
 
                   sys_timeouts_init PROC
-;;;174    /** Initialize this module */
-;;;175    void sys_timeouts_init(void)
+;;;263    /** Initialize this module */
+;;;264    void sys_timeouts_init(void)
 000000  b570              PUSH     {r4-r6,lr}
-;;;176    {
-;;;177      size_t i;
-;;;178      /* tcp_tmr() at index 0 is started on demand */
-;;;179      for (i = (LWIP_TCP ? 1 : 0); i < LWIP_ARRAYSIZE(lwip_cyclic_timers); i++) {
+;;;265    {
+;;;266      size_t i;
+;;;267      /* tcp_tmr() at index 0 is started on demand */
+;;;268      for (i = (LWIP_TCP ? 1 : 0); i < LWIP_ARRAYSIZE(lwip_cyclic_timers); i++) {
 000002  2401              MOVS     r4,#1
-;;;180        /* we have to cast via size_t to get rid of const warning
-;;;181          (this is OK as cyclic_timer() casts back to const* */
-;;;182        sys_timeout(lwip_cyclic_timers[i].interval_ms, cyclic_timer, LWIP_CONST_CAST(void*, &lwip_cyclic_timers[i]));
-000004  4d07              LDR      r5,|L5.36|
-                  |L5.6|
-000006  4908              LDR      r1,|L5.40|
+;;;269        /* we have to cast via size_t to get rid of const warning
+;;;270          (this is OK as cyclic_timer() casts back to const* */
+;;;271        sys_timeout(lwip_cyclic_timers[i].interval_ms, lwip_cyclic_timer, LWIP_CONST_CAST(void *, &lwip_cyclic_timers[i]));
+000004  4d05              LDR      r5,|L6.28|
+                  |L6.6|
+000006  4906              LDR      r1,|L6.32|
 000008  eb0502c4          ADD      r2,r5,r4,LSL #3
 00000c  f8550034          LDR      r0,[r5,r4,LSL #3]
 000010  f7fffffe          BL       sys_timeout
-000014  1c64              ADDS     r4,r4,#1              ;179
-000016  2c06              CMP      r4,#6                 ;179
-000018  d3f5              BCC      |L5.6|
-;;;183      }
-;;;184    
-;;;185      /* Initialise timestamp for sys_check_timeouts */
-;;;186      timeouts_last_time = sys_now();
-00001a  f7fffffe          BL       sys_now
-00001e  4903              LDR      r1,|L5.44|
-000020  6048              STR      r0,[r1,#4]  ; timeouts_last_time
-;;;187    }
-000022  bd70              POP      {r4-r6,pc}
-;;;188    
+000014  1c64              ADDS     r4,r4,#1              ;268
+000016  2c06              CMP      r4,#6                 ;268
+000018  d3f5              BCC      |L6.6|
+;;;272      }
+;;;273    }
+00001a  bd70              POP      {r4-r6,pc}
+;;;274    
                           ENDP
 
-                  |L5.36|
+                  |L6.28|
                           DCD      ||.constdata||
-                  |L5.40|
-                          DCD      cyclic_timer
-                  |L5.44|
-                          DCD      ||.data||
+                  |L6.32|
+                          DCD      lwip_cyclic_timer
 
                           AREA ||i.sys_timeouts_sleeptime||, CODE, READONLY, ALIGN=2
 
                   sys_timeouts_sleeptime PROC
-;;;380    u32_t
-;;;381    sys_timeouts_sleeptime(void)
+;;;425    u32_t
+;;;426    sys_timeouts_sleeptime(void)
 000000  b510              PUSH     {r4,lr}
-;;;382    {
-;;;383      u32_t diff;
-;;;384      if (next_timeout == NULL) {
-000002  4c09              LDR      r4,|L6.40|
+;;;427    {
+;;;428      u32_t now;
+;;;429    
+;;;430      LWIP_ASSERT_CORE_LOCKED();
+;;;431    
+;;;432      if (next_timeout == NULL) {
+000002  4c08              LDR      r4,|L7.36|
 000004  6820              LDR      r0,[r4,#0]  ; next_timeout
 000006  2800              CMP      r0,#0
-000008  d009              BEQ      |L6.30|
-;;;385        return 0xffffffff;
-;;;386      }
-;;;387      diff = sys_now() - timeouts_last_time;
+000008  d009              BEQ      |L7.30|
+;;;433        return SYS_TIMEOUTS_SLEEPTIME_INFINITE;
+;;;434      }
+;;;435      now = sys_now();
 00000a  f7fffffe          BL       sys_now
-00000e  6861              LDR      r1,[r4,#4]  ; timeouts_last_time
-000010  1a40              SUBS     r0,r0,r1
-;;;388      if (diff > next_timeout->time) {
-000012  6821              LDR      r1,[r4,#0]  ; next_timeout
-000014  6849              LDR      r1,[r1,#4]
-000016  4281              CMP      r1,r0
-000018  d204              BCS      |L6.36|
-;;;389        return 0;
+;;;436      if (TIME_LESS_THAN(next_timeout->time, now)) {
+00000e  6821              LDR      r1,[r4,#0]  ; next_timeout
+000010  6849              LDR      r1,[r1,#4]
+000012  1a08              SUBS     r0,r1,r0
+000014  f1b04f00          CMP      r0,#0x80000000
+000018  d300              BCC      |L7.28|
+;;;437        return 0;
 00001a  2000              MOVS     r0,#0
-;;;390      } else {
-;;;391        return next_timeout->time - diff;
-;;;392      }
-;;;393    }
+                  |L7.28|
+;;;438      } else {
+;;;439        u32_t ret = (u32_t)(next_timeout->time - now);
+;;;440        LWIP_ASSERT("invalid sleeptime", ret <= LWIP_MAX_TIMEOUT);
+;;;441        return ret;
+;;;442      }
+;;;443    }
 00001c  bd10              POP      {r4,pc}
-                  |L6.30|
-00001e  f04f30ff          MOV      r0,#0xffffffff        ;385
+                  |L7.30|
+00001e  f04f30ff          MOV      r0,#0xffffffff        ;433
 000022  bd10              POP      {r4,pc}
-                  |L6.36|
-000024  1a08              SUBS     r0,r1,r0              ;391
-000026  bd10              POP      {r4,pc}
-;;;394    
+;;;444    
                           ENDP
 
-                  |L6.40|
+                  |L7.36|
                           DCD      ||.data||
 
                           AREA ||i.sys_untimeout||, CODE, READONLY, ALIGN=2
 
                   sys_untimeout PROC
-;;;272    void
-;;;273    sys_untimeout(sys_timeout_handler handler, void *arg)
+;;;316    void
+;;;317    sys_untimeout(sys_timeout_handler handler, void *arg)
 000000  b430              PUSH     {r4,r5}
-;;;274    {
+;;;318    {
 000002  460b              MOV      r3,r1
-;;;275      struct sys_timeo *prev_t, *t;
-;;;276    
-;;;277      if (next_timeout == NULL) {
-000004  4d10              LDR      r5,|L7.72|
+;;;319      struct sys_timeo *prev_t, *t;
+;;;320    
+;;;321      LWIP_ASSERT_CORE_LOCKED();
+;;;322    
+;;;323      if (next_timeout == NULL) {
+000004  4d0d              LDR      r5,|L8.60|
 000006  6829              LDR      r1,[r5,#0]  ; next_timeout
 000008  2900              CMP      r1,#0
-00000a  d01b              BEQ      |L7.68|
-;;;278        return;
-;;;279      }
-;;;280    
-;;;281      for (t = next_timeout, prev_t = NULL; t != NULL; prev_t = t, t = t->next) {
+00000a  d015              BEQ      |L8.56|
+;;;324        return;
+;;;325      }
+;;;326    
+;;;327      for (t = next_timeout, prev_t = NULL; t != NULL; prev_t = t, t = t->next) {
 00000c  2200              MOVS     r2,#0
-00000e  e017              B        |L7.64|
-                  |L7.16|
-;;;282        if ((t->h == handler) && (t->arg == arg)) {
+00000e  e011              B        |L8.52|
+                  |L8.16|
+;;;328        if ((t->h == handler) && (t->arg == arg)) {
 000010  688c              LDR      r4,[r1,#8]
 000012  4284              CMP      r4,r0
-000014  d112              BNE      |L7.60|
+000014  d10c              BNE      |L8.48|
 000016  68cc              LDR      r4,[r1,#0xc]
 000018  429c              CMP      r4,r3
-00001a  d10f              BNE      |L7.60|
-;;;283          /* We have a match */
-;;;284          /* Unlink from previous in list */
-;;;285          if (prev_t == NULL) {
-00001c  b15a              CBZ      r2,|L7.54|
-;;;286            next_timeout = t->next;
-;;;287          } else {
-;;;288            prev_t->next = t->next;
+00001a  d109              BNE      |L8.48|
+;;;329          /* We have a match */
+;;;330          /* Unlink from previous in list */
+;;;331          if (prev_t == NULL) {
+00001c  b12a              CBZ      r2,|L8.42|
+;;;332            next_timeout = t->next;
+;;;333          } else {
+;;;334            prev_t->next = t->next;
 00001e  6808              LDR      r0,[r1,#0]
 000020  6010              STR      r0,[r2,#0]
-                  |L7.34|
-;;;289          }
-;;;290          /* If not the last one, add time of this one back to next */
-;;;291          if (t->next != NULL) {
-000022  6808              LDR      r0,[r1,#0]
-000024  b118              CBZ      r0,|L7.46|
-;;;292            t->next->time += t->time;
-000026  6842              LDR      r2,[r0,#4]
-000028  684b              LDR      r3,[r1,#4]
-00002a  441a              ADD      r2,r2,r3
-00002c  6042              STR      r2,[r0,#4]
-                  |L7.46|
-;;;293          }
-;;;294          memp_free(MEMP_SYS_TIMEOUT, t);
-00002e  bc30              POP      {r4,r5}
-000030  2006              MOVS     r0,#6
-000032  f7ffbffe          B.W      memp_free
-                  |L7.54|
-000036  6808              LDR      r0,[r1,#0]            ;286
-000038  6028              STR      r0,[r5,#0]            ;286  ; next_timeout
-00003a  e7f2              B        |L7.34|
-                  |L7.60|
-00003c  460a              MOV      r2,r1                 ;281
-00003e  6809              LDR      r1,[r1,#0]            ;281
-                  |L7.64|
-000040  2900              CMP      r1,#0                 ;281
-000042  d1e5              BNE      |L7.16|
-                  |L7.68|
-;;;295          return;
-;;;296        }
-;;;297      }
-;;;298      return;
-;;;299    }
-000044  bc30              POP      {r4,r5}
-000046  4770              BX       lr
-;;;300    
+                  |L8.34|
+;;;335          }
+;;;336          memp_free(MEMP_SYS_TIMEOUT, t);
+000022  bc30              POP      {r4,r5}
+000024  2006              MOVS     r0,#6
+000026  f7ffbffe          B.W      memp_free
+                  |L8.42|
+00002a  6808              LDR      r0,[r1,#0]            ;332
+00002c  6028              STR      r0,[r5,#0]            ;332  ; next_timeout
+00002e  e7f8              B        |L8.34|
+                  |L8.48|
+000030  460a              MOV      r2,r1                 ;327
+000032  6809              LDR      r1,[r1,#0]            ;327
+                  |L8.52|
+000034  2900              CMP      r1,#0                 ;327
+000036  d1eb              BNE      |L8.16|
+                  |L8.56|
+;;;337          return;
+;;;338        }
+;;;339      }
+;;;340      return;
+;;;341    }
+000038  bc30              POP      {r4,r5}
+00003a  4770              BX       lr
+;;;342    
                           ENDP
 
-                  |L7.72|
+                  |L8.60|
                           DCD      ||.data||
 
                           AREA ||i.tcp_timer_needed||, CODE, READONLY, ALIGN=2
 
                   tcp_timer_needed PROC
-;;;146    void
-;;;147    tcp_timer_needed(void)
-000000  4808              LDR      r0,|L8.36|
-;;;148    {
-;;;149      /* timer is off but needed again? */
-;;;150      if (!tcpip_tcp_timer_active && (tcp_active_pcbs || tcp_tw_pcbs)) {
+;;;165    void
+;;;166    tcp_timer_needed(void)
+000000  4808              LDR      r0,|L9.36|
+;;;167    {
+;;;168      LWIP_ASSERT_CORE_LOCKED();
+;;;169    
+;;;170      /* timer is off but needed again? */
+;;;171      if (!tcpip_tcp_timer_active && (tcp_active_pcbs || tcp_tw_pcbs)) {
 000002  6881              LDR      r1,[r0,#8]  ; tcpip_tcp_timer_active
 000004  2900              CMP      r1,#0
-000006  d10c              BNE      |L8.34|
-000008  4907              LDR      r1,|L8.40|
-00000a  4a08              LDR      r2,|L8.44|
+000006  d10c              BNE      |L9.34|
+000008  4907              LDR      r1,|L9.40|
+00000a  4a08              LDR      r2,|L9.44|
 00000c  6809              LDR      r1,[r1,#0]  ; tcp_active_pcbs
 00000e  6812              LDR      r2,[r2,#0]  ; tcp_tw_pcbs
 000010  4311              ORRS     r1,r1,r2
-000012  d006              BEQ      |L8.34|
-;;;151        /* enable and start timer */
-;;;152        tcpip_tcp_timer_active = 1;
+000012  d006              BEQ      |L9.34|
+;;;172        /* enable and start timer */
+;;;173        tcpip_tcp_timer_active = 1;
 000014  2101              MOVS     r1,#1
 000016  6081              STR      r1,[r0,#8]  ; tcpip_tcp_timer_active
-;;;153        sys_timeout(TCP_TMR_INTERVAL, tcpip_tcp_timer, NULL);
+;;;174        sys_timeout(TCP_TMR_INTERVAL, tcpip_tcp_timer, NULL);
 000018  2200              MOVS     r2,#0
-00001a  4905              LDR      r1,|L8.48|
+00001a  4905              LDR      r1,|L9.48|
 00001c  20fa              MOVS     r0,#0xfa
 00001e  f7ffbffe          B.W      sys_timeout
-                  |L8.34|
-;;;154      }
-;;;155    }
+                  |L9.34|
+;;;175      }
+;;;176    }
 000022  4770              BX       lr
-;;;156    #endif /* LWIP_TCP */
+;;;177    #endif /* LWIP_TCP */
                           ENDP
 
-                  |L8.36|
+                  |L9.36|
                           DCD      ||.data||
-                  |L8.40|
-                          DCD      tcp_active_pcbs
-                  |L8.44|
-                          DCD      tcp_tw_pcbs
-                  |L8.48|
-                          DCD      tcpip_tcp_timer
-
-                          AREA ||i.tcpip_tcp_timer||, CODE, READONLY, ALIGN=2
-
-                  tcpip_tcp_timer PROC
-;;;124    static void
-;;;125    tcpip_tcp_timer(void *arg)
-000000  b510              PUSH     {r4,lr}
-;;;126    {
-;;;127      LWIP_UNUSED_ARG(arg);
-;;;128    
-;;;129      /* call TCP timer handler */
-;;;130      tcp_tmr();
-000002  f7fffffe          BL       tcp_tmr
-;;;131      /* timer still needed? */
-;;;132      if (tcp_active_pcbs || tcp_tw_pcbs) {
-000006  4808              LDR      r0,|L9.40|
-000008  4908              LDR      r1,|L9.44|
-00000a  6800              LDR      r0,[r0,#0]  ; tcp_active_pcbs
-00000c  6809              LDR      r1,[r1,#0]  ; tcp_tw_pcbs
-00000e  4308              ORRS     r0,r0,r1
-000010  d006              BEQ      |L9.32|
-;;;133        /* restart timer */
-;;;134        sys_timeout(TCP_TMR_INTERVAL, tcpip_tcp_timer, NULL);
-000012  2200              MOVS     r2,#0
-000014  e8bd4010          POP      {r4,lr}
-000018  4905              LDR      r1,|L9.48|
-00001a  20fa              MOVS     r0,#0xfa
-00001c  f7ffbffe          B.W      sys_timeout
-                  |L9.32|
-;;;135      } else {
-;;;136        /* disable timer */
-;;;137        tcpip_tcp_timer_active = 0;
-000020  4904              LDR      r1,|L9.52|
-000022  2000              MOVS     r0,#0
-000024  6088              STR      r0,[r1,#8]  ; tcpip_tcp_timer_active
-;;;138      }
-;;;139    }
-000026  bd10              POP      {r4,pc}
-;;;140    
-                          ENDP
-
                   |L9.40|
                           DCD      tcp_active_pcbs
                   |L9.44|
                           DCD      tcp_tw_pcbs
                   |L9.48|
                           DCD      tcpip_tcp_timer
-                  |L9.52|
+
+                          AREA ||i.tcpip_tcp_timer||, CODE, READONLY, ALIGN=2
+
+                  tcpip_tcp_timer PROC
+;;;143    static void
+;;;144    tcpip_tcp_timer(void *arg)
+000000  b510              PUSH     {r4,lr}
+;;;145    {
+;;;146      LWIP_UNUSED_ARG(arg);
+;;;147    
+;;;148      /* call TCP timer handler */
+;;;149      tcp_tmr();
+000002  f7fffffe          BL       tcp_tmr
+;;;150      /* timer still needed? */
+;;;151      if (tcp_active_pcbs || tcp_tw_pcbs) {
+000006  4808              LDR      r0,|L10.40|
+000008  4908              LDR      r1,|L10.44|
+00000a  6800              LDR      r0,[r0,#0]  ; tcp_active_pcbs
+00000c  6809              LDR      r1,[r1,#0]  ; tcp_tw_pcbs
+00000e  4308              ORRS     r0,r0,r1
+000010  d006              BEQ      |L10.32|
+;;;152        /* restart timer */
+;;;153        sys_timeout(TCP_TMR_INTERVAL, tcpip_tcp_timer, NULL);
+000012  2200              MOVS     r2,#0
+000014  e8bd4010          POP      {r4,lr}
+000018  4905              LDR      r1,|L10.48|
+00001a  20fa              MOVS     r0,#0xfa
+00001c  f7ffbffe          B.W      sys_timeout
+                  |L10.32|
+;;;154      } else {
+;;;155        /* disable timer */
+;;;156        tcpip_tcp_timer_active = 0;
+000020  4904              LDR      r1,|L10.52|
+000022  2000              MOVS     r0,#0
+000024  6088              STR      r0,[r1,#8]  ; tcpip_tcp_timer_active
+;;;157      }
+;;;158    }
+000026  bd10              POP      {r4,pc}
+;;;159    
+                          ENDP
+
+                  |L10.40|
+                          DCD      tcp_active_pcbs
+                  |L10.44|
+                          DCD      tcp_tw_pcbs
+                  |L10.48|
+                          DCD      tcpip_tcp_timer
+                  |L10.52|
                           DCD      ||.data||
 
                           AREA ||.constdata||, DATA, READONLY, ALIGN=2
@@ -629,11 +706,17 @@
                           DCD      0x000003e8
                           DCD      dns_tmr
 
+                          AREA ||area_number.14||, DATA, READONLY, ALIGN=2
+
+                          EXPORTAS ||area_number.14||, ||.constdata||
+                  lwip_num_cyclic_timers
+                          DCD      0x00000006
+
                           AREA ||.data||, DATA, ALIGN=2
 
                   next_timeout
                           DCD      0x00000000
-                  timeouts_last_time
+                  current_timeout_due_time
                           DCD      0x00000000
                   tcpip_tcp_timer_active
                           DCD      0x00000000

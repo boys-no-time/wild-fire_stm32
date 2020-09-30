@@ -5,65 +5,65 @@
                           AREA ||i.lwip_init||, CODE, READONLY, ALIGN=1
 
                   lwip_init PROC
-;;;336    void
-;;;337    lwip_init(void)
+;;;331    void
+;;;332    lwip_init(void)
 000000  b510              PUSH     {r4,lr}
-;;;338    {
-;;;339    #ifndef LWIP_SKIP_CONST_CHECK
-;;;340      int a = 0;
-;;;341      LWIP_UNUSED_ARG(a);
-;;;342      LWIP_ASSERT("LWIP_CONST_CAST not implemented correctly. Check your lwIP port.", LWIP_CONST_CAST(void*, &a) == &a);
-;;;343    #endif
-;;;344    #ifndef LWIP_SKIP_PACKING_CHECK
-;;;345      LWIP_ASSERT("Struct packing not implemented correctly. Check your lwIP port.", sizeof(struct packed_struct_test) == PACKED_STRUCT_TEST_EXPECTED_SIZE);
-;;;346    #endif
-;;;347    
-;;;348      /* Modules initialization */
-;;;349      stats_init();
-;;;350    #if !NO_SYS
-;;;351      sys_init();
-;;;352    #endif /* !NO_SYS */
-;;;353      mem_init();
+;;;333    {
+;;;334    #ifndef LWIP_SKIP_CONST_CHECK
+;;;335      int a = 0;
+;;;336      LWIP_UNUSED_ARG(a);
+;;;337      LWIP_ASSERT("LWIP_CONST_CAST not implemented correctly. Check your lwIP port.", LWIP_CONST_CAST(void *, &a) == &a);
+;;;338    #endif
+;;;339    #ifndef LWIP_SKIP_PACKING_CHECK
+;;;340      LWIP_ASSERT("Struct packing not implemented correctly. Check your lwIP port.", sizeof(struct packed_struct_test) == PACKED_STRUCT_TEST_EXPECTED_SIZE);
+;;;341    #endif
+;;;342    
+;;;343      /* Modules initialization */
+;;;344      stats_init();
+;;;345    #if !NO_SYS
+;;;346      sys_init();
+;;;347    #endif /* !NO_SYS */
+;;;348      mem_init();
 000002  f7fffffe          BL       mem_init
-;;;354      memp_init();
+;;;349      memp_init();
 000006  f7fffffe          BL       memp_init
-;;;355      pbuf_init();
-;;;356      netif_init();
+;;;350      pbuf_init();
+;;;351      netif_init();
 00000a  f7fffffe          BL       netif_init
-;;;357    #if LWIP_IPV4
-;;;358      ip_init();
-;;;359    #if LWIP_ARP
-;;;360      etharp_init();
-;;;361    #endif /* LWIP_ARP */
-;;;362    #endif /* LWIP_IPV4 */
-;;;363    #if LWIP_RAW
-;;;364      raw_init();
-;;;365    #endif /* LWIP_RAW */
-;;;366    #if LWIP_UDP
-;;;367      udp_init();
+;;;352    #if LWIP_IPV4
+;;;353      ip_init();
+;;;354    #if LWIP_ARP
+;;;355      etharp_init();
+;;;356    #endif /* LWIP_ARP */
+;;;357    #endif /* LWIP_IPV4 */
+;;;358    #if LWIP_RAW
+;;;359      raw_init();
+;;;360    #endif /* LWIP_RAW */
+;;;361    #if LWIP_UDP
+;;;362      udp_init();
 00000e  f7fffffe          BL       udp_init
-;;;368    #endif /* LWIP_UDP */
-;;;369    #if LWIP_TCP
-;;;370      tcp_init();
+;;;363    #endif /* LWIP_UDP */
+;;;364    #if LWIP_TCP
+;;;365      tcp_init();
 000012  f7fffffe          BL       tcp_init
-;;;371    #endif /* LWIP_TCP */
-;;;372    #if LWIP_IGMP
-;;;373      igmp_init();
-;;;374    #endif /* LWIP_IGMP */
-;;;375    #if LWIP_DNS
-;;;376      dns_init();
+;;;366    #endif /* LWIP_TCP */
+;;;367    #if LWIP_IGMP
+;;;368      igmp_init();
+;;;369    #endif /* LWIP_IGMP */
+;;;370    #if LWIP_DNS
+;;;371      dns_init();
 000016  f7fffffe          BL       dns_init
-;;;377    #endif /* LWIP_DNS */
-;;;378    #if PPP_SUPPORT
-;;;379      ppp_init();
-;;;380    #endif
-;;;381     
-;;;382    #if LWIP_TIMERS
-;;;383      sys_timeouts_init();
+;;;372    #endif /* LWIP_DNS */
+;;;373    #if PPP_SUPPORT
+;;;374      ppp_init();
+;;;375    #endif
+;;;376    
+;;;377    #if LWIP_TIMERS
+;;;378      sys_timeouts_init();
 00001a  e8bd4010          POP      {r4,lr}
 00001e  f7ffbffe          B.W      sys_timeouts_init
-;;;384    #endif /* LWIP_TIMERS */
-;;;385    }
+;;;379    #endif /* LWIP_TIMERS */
+;;;380    }
                           ENDP
 
 

@@ -4,302 +4,532 @@
 
                           AREA ||i.udp_bind||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   udp_bind PROC
-;;;881    err_t
-;;;882    udp_bind(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
+;;;931    err_t
+;;;932    udp_bind(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
 000000  e92d41f0          PUSH     {r4-r8,lr}
-;;;883    {
+;;;933    {
 000004  4604              MOV      r4,r0
 000006  460d              MOV      r5,r1
-;;;884      struct udp_pcb *ipcb;
-;;;885      u8_t rebind;
-;;;886    
-;;;887    #if LWIP_IPV4
-;;;888      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
-;;;889      if (ipaddr == NULL) {
+;;;934      struct udp_pcb *ipcb;
+;;;935      u8_t rebind;
+;;;936    #if LWIP_IPV6 && LWIP_IPV6_SCOPES
+;;;937      ip_addr_t zoned_ipaddr;
+;;;938    #endif /* LWIP_IPV6 && LWIP_IPV6_SCOPES */
+;;;939    
+;;;940      LWIP_ASSERT_CORE_LOCKED();
+;;;941    
+;;;942    #if LWIP_IPV4
+;;;943      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
+;;;944      if (ipaddr == NULL) {
 000008  2d00              CMP      r5,#0
 00000a  d100              BNE      |L1.14|
-;;;890        ipaddr = IP4_ADDR_ANY;
-00000c  4d1b              LDR      r5,|L1.124|
+;;;945        ipaddr = IP4_ADDR_ANY;
+00000c  4d20              LDR      r5,|L1.144|
                   |L1.14|
-;;;891      }
-;;;892    #endif /* LWIP_IPV4 */
-;;;893    
-;;;894      /* still need to check for ipaddr == NULL in IPv6 only case */
-;;;895      if ((pcb == NULL) || (ipaddr == NULL)) {
-00000e  b12c              CBZ      r4,|L1.28|
-000010  b125              CBZ      r5,|L1.28|
-;;;896        return ERR_VAL;
-;;;897      }
-;;;898    
-;;;899      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_bind(ipaddr = "));
-;;;900      ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_TRACE, ipaddr);
-;;;901      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, (", port = %"U16_F")\n", port));
-;;;902    
-;;;903      rebind = 0;
-000012  2600              MOVS     r6,#0
-;;;904      /* Check for double bind and rebind of the same pcb */
-;;;905      for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
-000014  4f1a              LDR      r7,|L1.128|
-000016  687b              LDR      r3,[r7,#4]  ; udp_pcbs
-000018  4618              MOV      r0,r3
-00001a  e008              B        |L1.46|
-                  |L1.28|
-00001c  f06f0005          MVN      r0,#5                 ;896
-                  |L1.32|
-;;;906        /* is this UDP PCB already on active list? */
-;;;907        if (pcb == ipcb) {
-;;;908          rebind = 1;
-;;;909          break;
-;;;910        }
-;;;911      }
-;;;912    
-;;;913      /* no port specified? */
-;;;914      if (port == 0) {
-;;;915        port = udp_new_port();
-;;;916        if (port == 0) {
-;;;917          /* no more ports available in local range */
-;;;918          LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: out of free UDP ports\n"));
-;;;919          return ERR_USE;
-;;;920        }
-;;;921      } else {
-;;;922        for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
-;;;923          if (pcb != ipcb) {
-;;;924          /* By default, we don't allow to bind to a port that any other udp
-;;;925             PCB is already bound to, unless *all* PCBs with that port have tha
-;;;926             REUSEADDR flag set. */
-;;;927    #if SO_REUSE
-;;;928            if (!ip_get_option(pcb, SOF_REUSEADDR) ||
-;;;929                !ip_get_option(ipcb, SOF_REUSEADDR))
-;;;930    #endif /* SO_REUSE */
-;;;931            {
-;;;932              /* port matches that of PCB in list and REUSEADDR not set -> reject */
-;;;933              if ((ipcb->local_port == port) &&
-;;;934                  /* IP address matches? */
-;;;935                  ip_addr_cmp(&ipcb->local_ip, ipaddr)) {
-;;;936                /* other PCB already binds to this local IP and port */
-;;;937                LWIP_DEBUGF(UDP_DEBUG,
-;;;938                            ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
-;;;939                return ERR_USE;
-;;;940              }
-;;;941            }
-;;;942          }
-;;;943        }
-;;;944      }
-;;;945    
-;;;946      ip_addr_set_ipaddr(&pcb->local_ip, ipaddr);
-;;;947    
-;;;948      pcb->local_port = port;
-;;;949      mib2_udp_bind(pcb);
-;;;950      /* pcb not active yet? */
-;;;951      if (rebind == 0) {
-;;;952        /* place the PCB on the active list if not already there */
-;;;953        pcb->next = udp_pcbs;
-;;;954        udp_pcbs = pcb;
-;;;955      }
-;;;956      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("udp_bind: bound to "));
-;;;957      ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, &pcb->local_ip);
-;;;958      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, (", port %"U16_F")\n", pcb->local_port));
-;;;959      return ERR_OK;
-;;;960    }
-000020  e8bd81f0          POP      {r4-r8,pc}
-                  |L1.36|
-000024  429c              CMP      r4,r3                 ;907
-000026  d101              BNE      |L1.44|
-000028  2601              MOVS     r6,#1                 ;908
-00002a  e002              B        |L1.50|
+;;;946      }
+;;;947    #else /* LWIP_IPV4 */
+;;;948      LWIP_ERROR("udp_bind: invalid ipaddr", ipaddr != NULL, return ERR_ARG);
+;;;949    #endif /* LWIP_IPV4 */
+;;;950    
+;;;951      LWIP_ERROR("udp_bind: invalid pcb", pcb != NULL, return ERR_ARG);
+00000e  b124              CBZ      r4,|L1.26|
+;;;952    
+;;;953      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_bind(ipaddr = "));
+;;;954      ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_TRACE, ipaddr);
+;;;955      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, (", port = %"U16_F")\n", port));
+;;;956    
+;;;957      rebind = 0;
+000010  2600              MOVS     r6,#0
+;;;958      /* Check for double bind and rebind of the same pcb */
+;;;959      for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
+000012  4f20              LDR      r7,|L1.148|
+000014  687b              LDR      r3,[r7,#4]  ; udp_pcbs
+000016  4618              MOV      r0,r3
+000018  e00f              B        |L1.58|
+                  |L1.26|
+00001a  a31f              ADR      r3,|L1.152|
+00001c  f24032b7          MOV      r2,#0x3b7             ;951
+000020  a129              ADR      r1,|L1.200|
+000022  a02f              ADR      r0,|L1.224|
+000024  f7fffffe          BL       __2printf
+000028  f06f000f          MVN      r0,#0xf               ;951
                   |L1.44|
-00002c  68db              LDR      r3,[r3,#0xc]          ;905
-                  |L1.46|
-00002e  2b00              CMP      r3,#0                 ;905
-000030  d1f8              BNE      |L1.36|
-                  |L1.50|
-000032  f06f0807          MVN      r8,#7                 ;919
-000036  b992              CBNZ     r2,|L1.94|
-000038  f7fffffe          BL       udp_new_port
-00003c  4602              MOV      r2,r0                 ;915
-00003e  0010              MOVS     r0,r2                 ;916
-000040  d10f              BNE      |L1.98|
-000042  4640              MOV      r0,r8                 ;919
-000044  e7ec              B        |L1.32|
-                  |L1.70|
-000046  4284              CMP      r4,r0                 ;923
-000048  d008              BEQ      |L1.92|
-00004a  8a41              LDRH     r1,[r0,#0x12]         ;933
-00004c  4291              CMP      r1,r2                 ;933
-00004e  d105              BNE      |L1.92|
-000050  6801              LDR      r1,[r0,#0]            ;935
-000052  682b              LDR      r3,[r5,#0]            ;935
-000054  4299              CMP      r1,r3                 ;935
-000056  d101              BNE      |L1.92|
-000058  4640              MOV      r0,r8                 ;939
-00005a  e7e1              B        |L1.32|
-                  |L1.92|
-00005c  68c0              LDR      r0,[r0,#0xc]          ;922
-                  |L1.94|
-00005e  2800              CMP      r0,#0                 ;922
-000060  d1f1              BNE      |L1.70|
-                  |L1.98|
-000062  b125              CBZ      r5,|L1.110|
-000064  6828              LDR      r0,[r5,#0]            ;946
-                  |L1.102|
-000066  6020              STR      r0,[r4,#0]            ;946
-000068  8262              STRH     r2,[r4,#0x12]         ;948
-00006a  b116              CBZ      r6,|L1.114|
-00006c  e004              B        |L1.120|
+;;;960        /* is this UDP PCB already on active list? */
+;;;961        if (pcb == ipcb) {
+;;;962          rebind = 1;
+;;;963          break;
+;;;964        }
+;;;965      }
+;;;966    
+;;;967    #if LWIP_IPV6 && LWIP_IPV6_SCOPES
+;;;968      /* If the given IP address should have a zone but doesn't, assign one now.
+;;;969       * This is legacy support: scope-aware callers should always provide properly
+;;;970       * zoned source addresses. Do the zone selection before the address-in-use
+;;;971       * check below; as such we have to make a temporary copy of the address. */
+;;;972      if (IP_IS_V6(ipaddr) && ip6_addr_lacks_zone(ip_2_ip6(ipaddr), IP6_UNKNOWN)) {
+;;;973        ip_addr_copy(zoned_ipaddr, *ipaddr);
+;;;974        ip6_addr_select_zone(ip_2_ip6(&zoned_ipaddr), ip_2_ip6(&zoned_ipaddr));
+;;;975        ipaddr = &zoned_ipaddr;
+;;;976      }
+;;;977    #endif /* LWIP_IPV6 && LWIP_IPV6_SCOPES */
+;;;978    
+;;;979      /* no port specified? */
+;;;980      if (port == 0) {
+;;;981        port = udp_new_port();
+;;;982        if (port == 0) {
+;;;983          /* no more ports available in local range */
+;;;984          LWIP_DEBUGF(UDP_DEBUG, ("udp_bind: out of free UDP ports\n"));
+;;;985          return ERR_USE;
+;;;986        }
+;;;987      } else {
+;;;988        for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
+;;;989          if (pcb != ipcb) {
+;;;990            /* By default, we don't allow to bind to a port that any other udp
+;;;991               PCB is already bound to, unless *all* PCBs with that port have tha
+;;;992               REUSEADDR flag set. */
+;;;993    #if SO_REUSE
+;;;994            if (!ip_get_option(pcb, SOF_REUSEADDR) ||
+;;;995                !ip_get_option(ipcb, SOF_REUSEADDR))
+;;;996    #endif /* SO_REUSE */
+;;;997            {
+;;;998              /* port matches that of PCB in list and REUSEADDR not set -> reject */
+;;;999              if ((ipcb->local_port == port) &&
+;;;1000                 /* IP address matches or any IP used? */
+;;;1001                 (ip_addr_cmp(&ipcb->local_ip, ipaddr) || ip_addr_isany(ipaddr) ||
+;;;1002                 ip_addr_isany(&ipcb->local_ip))) {
+;;;1003               /* other PCB already binds to this local IP and port */
+;;;1004               LWIP_DEBUGF(UDP_DEBUG,
+;;;1005                           ("udp_bind: local port %"U16_F" already bound by another pcb\n", port));
+;;;1006               return ERR_USE;
+;;;1007             }
+;;;1008           }
+;;;1009         }
+;;;1010       }
+;;;1011     }
+;;;1012   
+;;;1013     ip_addr_set_ipaddr(&pcb->local_ip, ipaddr);
+;;;1014   
+;;;1015     pcb->local_port = port;
+;;;1016     mib2_udp_bind(pcb);
+;;;1017     /* pcb not active yet? */
+;;;1018     if (rebind == 0) {
+;;;1019       /* place the PCB on the active list if not already there */
+;;;1020       pcb->next = udp_pcbs;
+;;;1021       udp_pcbs = pcb;
+;;;1022     }
+;;;1023     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("udp_bind: bound to "));
+;;;1024     ip_addr_debug_print_val(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, pcb->local_ip);
+;;;1025     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, (", port %"U16_F")\n", pcb->local_port));
+;;;1026     return ERR_OK;
+;;;1027   }
+00002c  e8bd81f0          POP      {r4-r8,pc}
+                  |L1.48|
+000030  429c              CMP      r4,r3                 ;961
+000032  d101              BNE      |L1.56|
+000034  2601              MOVS     r6,#1                 ;962
+000036  e002              B        |L1.62|
+                  |L1.56|
+000038  68db              LDR      r3,[r3,#0xc]          ;959
+                  |L1.58|
+00003a  2b00              CMP      r3,#0                 ;959
+00003c  d1f8              BNE      |L1.48|
+                  |L1.62|
+00003e  f06f0807          MVN      r8,#7                 ;985
+000042  b9a2              CBNZ     r2,|L1.110|
+000044  f7fffffe          BL       udp_new_port
+000048  4602              MOV      r2,r0                 ;981
+00004a  0010              MOVS     r0,r2                 ;982
+00004c  d111              BNE      |L1.114|
+00004e  4640              MOV      r0,r8                 ;985
+000050  e7ec              B        |L1.44|
+                  |L1.82|
+000052  4284              CMP      r4,r0                 ;989
+000054  d00a              BEQ      |L1.108|
+000056  8a41              LDRH     r1,[r0,#0x12]         ;999
+000058  4291              CMP      r1,r2                 ;999
+00005a  d107              BNE      |L1.108|
+00005c  6803              LDR      r3,[r0,#0]            ;1001
+00005e  6829              LDR      r1,[r5,#0]            ;1001
+000060  428b              CMP      r3,r1                 ;1001
+000062  d00c              BEQ      |L1.126|
+000064  b15d              CBZ      r5,|L1.126|
+000066  b151              CBZ      r1,|L1.126|
+000068  b148              CBZ      r0,|L1.126|
+00006a  b143              CBZ      r3,|L1.126|
+                  |L1.108|
+00006c  68c0              LDR      r0,[r0,#0xc]          ;988
                   |L1.110|
-00006e  2000              MOVS     r0,#0                 ;946
-000070  e7f9              B        |L1.102|
+00006e  2800              CMP      r0,#0                 ;988
+000070  d1ef              BNE      |L1.82|
                   |L1.114|
-000072  6878              LDR      r0,[r7,#4]            ;953  ; udp_pcbs
-000074  60e0              STR      r0,[r4,#0xc]          ;953
-000076  607c              STR      r4,[r7,#4]            ;954  ; udp_pcbs
-                  |L1.120|
-000078  2000              MOVS     r0,#0                 ;959
-00007a  e7d1              B        |L1.32|
-;;;961    
+000072  b135              CBZ      r5,|L1.130|
+000074  6828              LDR      r0,[r5,#0]            ;1013
+                  |L1.118|
+000076  6020              STR      r0,[r4,#0]            ;1013
+000078  8262              STRH     r2,[r4,#0x12]         ;1015
+00007a  b126              CBZ      r6,|L1.134|
+00007c  e006              B        |L1.140|
+                  |L1.126|
+00007e  4640              MOV      r0,r8                 ;1006
+000080  e7d4              B        |L1.44|
+                  |L1.130|
+000082  2000              MOVS     r0,#0                 ;1013
+000084  e7f7              B        |L1.118|
+                  |L1.134|
+000086  6878              LDR      r0,[r7,#4]            ;1020  ; udp_pcbs
+000088  60e0              STR      r0,[r4,#0xc]          ;1020
+00008a  607c              STR      r4,[r7,#4]            ;1021  ; udp_pcbs
+                  |L1.140|
+00008c  2000              MOVS     r0,#0                 ;1026
+00008e  e7cd              B        |L1.44|
+;;;1028   
                           ENDP
 
-                  |L1.124|
+                  |L1.144|
                           DCD      ip_addr_any
-                  |L1.128|
+                  |L1.148|
                           DCD      ||.data||
+                  |L1.152|
+000098  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+00009c  6964646c
+0000a0  65776172
+0000a4  65735c54
+0000a8  68697264
+0000ac  5f506172
+0000b0  74795c4c
+0000b4  7749505c
+0000b8  7372635c
+0000bc  636f7265
+0000c0  5c756470
+0000c4  2e6300  
+0000c7  00                DCB      0
+                  |L1.200|
+0000c8  7564705f          DCB      "udp_bind: invalid pcb",0
+0000cc  62696e64
+0000d0  3a20696e
+0000d4  76616c69
+0000d8  64207063
+0000dc  6200    
+0000de  00                DCB      0
+0000df  00                DCB      0
+                  |L1.224|
+0000e0  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000e4  7274696f
+0000e8  6e202225
+0000ec  73222066
+0000f0  61696c65
+0000f4  64206174
+0000f8  206c696e
+0000fc  65202564
+000100  20696e20
+000104  25730a00
+
+                          AREA ||i.udp_bind_netif||, CODE, READONLY, ALIGN=1
+
+                  udp_bind_netif PROC
+;;;1041   void
+;;;1042   udp_bind_netif(struct udp_pcb *pcb, const struct netif *netif)
+000000  2900              CMP      r1,#0
+;;;1043   {
+000002  d004              BEQ      |L2.14|
+;;;1044     LWIP_ASSERT_CORE_LOCKED();
+;;;1045   
+;;;1046     if (netif != NULL) {
+;;;1047       pcb->netif_idx = netif_get_index(netif);
+000004  f8911038          LDRB     r1,[r1,#0x38]
+000008  1c49              ADDS     r1,r1,#1
+00000a  7201              STRB     r1,[r0,#8]
+;;;1048     } else {
+;;;1049       pcb->netif_idx = NETIF_NO_INDEX;
+;;;1050     }
+;;;1051   }
+00000c  4770              BX       lr
+                  |L2.14|
+00000e  2100              MOVS     r1,#0                 ;1049
+000010  7201              STRB     r1,[r0,#8]            ;1049
+000012  4770              BX       lr
+;;;1052   
+                          ENDP
+
 
                           AREA ||i.udp_connect||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   udp_connect PROC
-;;;980    err_t
-;;;981    udp_connect(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
-000000  b570              PUSH     {r4-r6,lr}
-;;;982    {
-000002  4604              MOV      r4,r0
-000004  460d              MOV      r5,r1
-000006  4616              MOV      r6,r2
-;;;983      struct udp_pcb *ipcb;
-;;;984    
-;;;985      if ((pcb == NULL) || (ipaddr == NULL)) {
-000008  2c00              CMP      r4,#0
-00000a  d003              BEQ      |L2.20|
-00000c  b115              CBZ      r5,|L2.20|
-;;;986        return ERR_VAL;
-;;;987      }
-;;;988    
-;;;989      if (pcb->local_port == 0) {
-00000e  8a62              LDRH     r2,[r4,#0x12]
-000010  b11a              CBZ      r2,|L2.26|
-000012  e008              B        |L2.38|
-                  |L2.20|
-000014  f06f0005          MVN      r0,#5                 ;986
-                  |L2.24|
-;;;990        err_t err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
-;;;991        if (err != ERR_OK) {
-;;;992          return err;
-;;;993        }
-;;;994      }
-;;;995    
-;;;996      ip_addr_set_ipaddr(&pcb->remote_ip, ipaddr);
-;;;997      pcb->remote_port = port;
-;;;998      pcb->flags |= UDP_FLAGS_CONNECTED;
-;;;999    
-;;;1000     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("udp_connect: connected to "));
-;;;1001     ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
-;;;1002                         &pcb->remote_ip);
-;;;1003     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, (", port %"U16_F")\n", pcb->remote_port));
-;;;1004   
-;;;1005     /* Insert UDP PCB into the list of active UDP PCBs. */
-;;;1006     for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
-;;;1007       if (pcb == ipcb) {
-;;;1008         /* already on the list, just return */
-;;;1009         return ERR_OK;
-;;;1010       }
-;;;1011     }
-;;;1012     /* PCB not yet on the list, add PCB now */
-;;;1013     pcb->next = udp_pcbs;
-;;;1014     udp_pcbs = pcb;
-;;;1015     return ERR_OK;
-;;;1016   }
-000018  bd70              POP      {r4-r6,pc}
-                  |L2.26|
-00001a  4621              MOV      r1,r4                 ;990
-00001c  4620              MOV      r0,r4                 ;990
-00001e  f7fffffe          BL       udp_bind
-000022  2800              CMP      r0,#0                 ;991
-000024  d1f8              BNE      |L2.24|
-                  |L2.38|
-000026  6828              LDR      r0,[r5,#0]            ;996
-000028  6060              STR      r0,[r4,#4]            ;996
-00002a  82a6              STRH     r6,[r4,#0x14]         ;997
-00002c  7c20              LDRB     r0,[r4,#0x10]         ;998
-00002e  f0400004          ORR      r0,r0,#4              ;998
-000032  7420              STRB     r0,[r4,#0x10]         ;998
-000034  4a06              LDR      r2,|L2.80|
-000036  6850              LDR      r0,[r2,#4]            ;1006  ; udp_pcbs
-000038  4601              MOV      r1,r0                 ;1006
-00003a  e004              B        |L2.70|
-                  |L2.60|
-00003c  4284              CMP      r4,r0                 ;1007
-00003e  d101              BNE      |L2.68|
-000040  2000              MOVS     r0,#0                 ;1009
-000042  bd70              POP      {r4-r6,pc}
-                  |L2.68|
-000044  68c0              LDR      r0,[r0,#0xc]          ;1006
-                  |L2.70|
-000046  2800              CMP      r0,#0                 ;1006
-000048  d1f8              BNE      |L2.60|
-00004a  60e1              STR      r1,[r4,#0xc]          ;1013
-00004c  6054              STR      r4,[r2,#4]            ;1014  ; udp_pcbs
-00004e  bd70              POP      {r4-r6,pc}
-;;;1017   
+;;;1070   err_t
+;;;1071   udp_connect(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
+000000  e92d41f0          PUSH     {r4-r8,lr}
+;;;1072   {
+000004  4604              MOV      r4,r0
+000006  460d              MOV      r5,r1
+000008  4616              MOV      r6,r2
+;;;1073     struct udp_pcb *ipcb;
+;;;1074   
+;;;1075     LWIP_ASSERT_CORE_LOCKED();
+;;;1076   
+;;;1077     LWIP_ERROR("udp_connect: invalid pcb", pcb != NULL, return ERR_ARG);
+00000a  f06f070f          MVN      r7,#0xf
+00000e  2c00              CMP      r4,#0
+000010  d005              BEQ      |L3.30|
+;;;1078     LWIP_ERROR("udp_connect: invalid ipaddr", ipaddr != NULL, return ERR_ARG);
+000012  2d00              CMP      r5,#0
+000014  d00d              BEQ      |L3.50|
+;;;1079   
+;;;1080     if (pcb->local_port == 0) {
+000016  8a62              LDRH     r2,[r4,#0x12]
+000018  2a00              CMP      r2,#0
+00001a  d013              BEQ      |L3.68|
+00001c  e018              B        |L3.80|
+                  |L3.30|
+00001e  a317              ADR      r3,|L3.124|
+000020  f2404235          MOV      r2,#0x435             ;1077
+000024  a121              ADR      r1,|L3.172|
+000026  a028              ADR      r0,|L3.200|
+000028  f7fffffe          BL       __2printf
+00002c  4638              MOV      r0,r7                 ;1077
+                  |L3.46|
+;;;1081       err_t err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
+;;;1082       if (err != ERR_OK) {
+;;;1083         return err;
+;;;1084       }
+;;;1085     }
+;;;1086   
+;;;1087     ip_addr_set_ipaddr(&pcb->remote_ip, ipaddr);
+;;;1088   #if LWIP_IPV6 && LWIP_IPV6_SCOPES
+;;;1089     /* If the given IP address should have a zone but doesn't, assign one now,
+;;;1090      * using the bound address to make a more informed decision when possible. */
+;;;1091     if (IP_IS_V6(&pcb->remote_ip) &&
+;;;1092         ip6_addr_lacks_zone(ip_2_ip6(&pcb->remote_ip), IP6_UNKNOWN)) {
+;;;1093       ip6_addr_select_zone(ip_2_ip6(&pcb->remote_ip), ip_2_ip6(&pcb->local_ip));
+;;;1094     }
+;;;1095   #endif /* LWIP_IPV6 && LWIP_IPV6_SCOPES */
+;;;1096   
+;;;1097     pcb->remote_port = port;
+;;;1098     pcb->flags |= UDP_FLAGS_CONNECTED;
+;;;1099   
+;;;1100     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("udp_connect: connected to "));
+;;;1101     ip_addr_debug_print_val(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
+;;;1102                             pcb->remote_ip);
+;;;1103     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, (", port %"U16_F")\n", pcb->remote_port));
+;;;1104   
+;;;1105     /* Insert UDP PCB into the list of active UDP PCBs. */
+;;;1106     for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
+;;;1107       if (pcb == ipcb) {
+;;;1108         /* already on the list, just return */
+;;;1109         return ERR_OK;
+;;;1110       }
+;;;1111     }
+;;;1112     /* PCB not yet on the list, add PCB now */
+;;;1113     pcb->next = udp_pcbs;
+;;;1114     udp_pcbs = pcb;
+;;;1115     return ERR_OK;
+;;;1116   }
+00002e  e8bd81f0          POP      {r4-r8,pc}
+                  |L3.50|
+000032  a312              ADR      r3,|L3.124|
+000034  f2404236          MOV      r2,#0x436             ;1078
+000038  a12d              ADR      r1,|L3.240|
+00003a  a023              ADR      r0,|L3.200|
+00003c  f7fffffe          BL       __2printf
+000040  4638              MOV      r0,r7                 ;1078
+000042  e7f4              B        |L3.46|
+                  |L3.68|
+000044  4621              MOV      r1,r4                 ;1081
+000046  4620              MOV      r0,r4                 ;1081
+000048  f7fffffe          BL       udp_bind
+00004c  2800              CMP      r0,#0                 ;1082
+00004e  d1ee              BNE      |L3.46|
+                  |L3.80|
+000050  6828              LDR      r0,[r5,#0]            ;1087
+000052  6060              STR      r0,[r4,#4]            ;1087
+000054  82a6              STRH     r6,[r4,#0x14]         ;1097
+000056  7c20              LDRB     r0,[r4,#0x10]         ;1098
+000058  f0400004          ORR      r0,r0,#4              ;1098
+00005c  7420              STRB     r0,[r4,#0x10]         ;1098
+00005e  4a2b              LDR      r2,|L3.268|
+000060  6850              LDR      r0,[r2,#4]            ;1106  ; udp_pcbs
+000062  4601              MOV      r1,r0                 ;1106
+000064  e004              B        |L3.112|
+                  |L3.102|
+000066  4284              CMP      r4,r0                 ;1107
+000068  d101              BNE      |L3.110|
+00006a  2000              MOVS     r0,#0                 ;1109
+00006c  e7df              B        |L3.46|
+                  |L3.110|
+00006e  68c0              LDR      r0,[r0,#0xc]          ;1106
+                  |L3.112|
+000070  2800              CMP      r0,#0                 ;1106
+000072  d1f8              BNE      |L3.102|
+000074  60e1              STR      r1,[r4,#0xc]          ;1113
+000076  6054              STR      r4,[r2,#4]            ;1114  ; udp_pcbs
+000078  e7d9              B        |L3.46|
+;;;1117   
                           ENDP
 
-                  |L2.80|
+00007a  0000              DCW      0x0000
+                  |L3.124|
+00007c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000080  6964646c
+000084  65776172
+000088  65735c54
+00008c  68697264
+000090  5f506172
+000094  74795c4c
+000098  7749505c
+00009c  7372635c
+0000a0  636f7265
+0000a4  5c756470
+0000a8  2e6300  
+0000ab  00                DCB      0
+                  |L3.172|
+0000ac  7564705f          DCB      "udp_connect: invalid pcb",0
+0000b0  636f6e6e
+0000b4  6563743a
+0000b8  20696e76
+0000bc  616c6964
+0000c0  20706362
+0000c4  00      
+0000c5  00                DCB      0
+0000c6  00                DCB      0
+0000c7  00                DCB      0
+                  |L3.200|
+0000c8  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000cc  7274696f
+0000d0  6e202225
+0000d4  73222066
+0000d8  61696c65
+0000dc  64206174
+0000e0  206c696e
+0000e4  65202564
+0000e8  20696e20
+0000ec  25730a00
+                  |L3.240|
+0000f0  7564705f          DCB      "udp_connect: invalid ipaddr",0
+0000f4  636f6e6e
+0000f8  6563743a
+0000fc  20696e76
+000100  616c6964
+000104  20697061
+000108  64647200
+                  |L3.268|
                           DCD      ||.data||
 
-                          AREA ||i.udp_disconnect||, CODE, READONLY, ALIGN=1
+                          AREA ||i.udp_disconnect||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   udp_disconnect PROC
-;;;1024   void
-;;;1025   udp_disconnect(struct udp_pcb *pcb)
-000000  2100              MOVS     r1,#0
-;;;1026   {
-;;;1027     /* reset remote address association */
-;;;1028   #if LWIP_IPV4 && LWIP_IPV6
-;;;1029     if (IP_IS_ANY_TYPE_VAL(pcb->local_ip)) {
-;;;1030       ip_addr_copy(pcb->remote_ip, *IP_ANY_TYPE);
-;;;1031     } else {
-;;;1032   #endif
-;;;1033       ip_addr_set_any(IP_IS_V6_VAL(pcb->remote_ip), &pcb->remote_ip);
-000002  6041              STR      r1,[r0,#4]
-;;;1034   #if LWIP_IPV4 && LWIP_IPV6
-;;;1035     }
-;;;1036   #endif
-;;;1037     pcb->remote_port = 0;
-000004  8281              STRH     r1,[r0,#0x14]
-;;;1038     /* mark PCB as unconnected */
-;;;1039     pcb->flags &= ~UDP_FLAGS_CONNECTED;
-000006  7c01              LDRB     r1,[r0,#0x10]
-000008  f0210104          BIC      r1,r1,#4
-00000c  7401              STRB     r1,[r0,#0x10]
-;;;1040   }
-00000e  4770              BX       lr
-;;;1041   
+;;;1125   void
+;;;1126   udp_disconnect(struct udp_pcb *pcb)
+000000  2800              CMP      r0,#0
+;;;1127   {
+000002  d008              BEQ      |L4.22|
+;;;1128     LWIP_ASSERT_CORE_LOCKED();
+;;;1129   
+;;;1130     LWIP_ERROR("udp_disconnect: invalid pcb", pcb != NULL, return);
+;;;1131   
+;;;1132     /* reset remote address association */
+;;;1133   #if LWIP_IPV4 && LWIP_IPV6
+;;;1134     if (IP_IS_ANY_TYPE_VAL(pcb->local_ip)) {
+;;;1135       ip_addr_copy(pcb->remote_ip, *IP_ANY_TYPE);
+;;;1136     } else {
+;;;1137   #endif
+;;;1138       ip_addr_set_any(IP_IS_V6_VAL(pcb->remote_ip), &pcb->remote_ip);
+000004  2100              MOVS     r1,#0
+000006  6041              STR      r1,[r0,#4]
+;;;1139   #if LWIP_IPV4 && LWIP_IPV6
+;;;1140     }
+;;;1141   #endif
+;;;1142     pcb->remote_port = 0;
+000008  8281              STRH     r1,[r0,#0x14]
+;;;1143     pcb->netif_idx = NETIF_NO_INDEX;
+00000a  7201              STRB     r1,[r0,#8]
+;;;1144     /* mark PCB as unconnected */
+;;;1145     udp_clear_flags(pcb, UDP_FLAGS_CONNECTED);
+00000c  7c01              LDRB     r1,[r0,#0x10]
+00000e  f00101fb          AND      r1,r1,#0xfb
+000012  7401              STRB     r1,[r0,#0x10]
+;;;1146   }
+000014  4770              BX       lr
+                  |L4.22|
+000016  a303              ADR      r3,|L4.36|
+000018  f240426a          MOV      r2,#0x46a             ;1130
+00001c  a10d              ADR      r1,|L4.84|
+00001e  a014              ADR      r0,|L4.112|
+000020  f7ffbffe          B.W      __2printf
+;;;1147   
                           ENDP
 
+                  |L4.36|
+000024  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000028  6964646c
+00002c  65776172
+000030  65735c54
+000034  68697264
+000038  5f506172
+00003c  74795c4c
+000040  7749505c
+000044  7372635c
+000048  636f7265
+00004c  5c756470
+000050  2e6300  
+000053  00                DCB      0
+                  |L4.84|
+000054  7564705f          DCB      "udp_disconnect: invalid pcb",0
+000058  64697363
+00005c  6f6e6e65
+000060  63743a20
+000064  696e7661
+000068  6c696420
+00006c  70636200
+                  |L4.112|
+000070  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000074  7274696f
+000078  6e202225
+00007c  73222066
+000080  61696c65
+000084  64206174
+000088  206c696e
+00008c  65202564
+000090  20696e20
+000094  25730a00
 
-                          AREA ||i.udp_init||, CODE, READONLY, ALIGN=1
+                          AREA ||i.udp_init||, CODE, READONLY, ALIGN=2
 
                   udp_init PROC
 ;;;86     void
 ;;;87     udp_init(void)
-000000  4770              BX       lr
+000000  b510              PUSH     {r4,lr}
 ;;;88     {
-;;;89     #if LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND)
+;;;89     #ifdef LWIP_RAND
 ;;;90       udp_port = UDP_ENSURE_LOCAL_PORT_RANGE(LWIP_RAND());
-;;;91     #endif /* LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND) */
+000002  f7fffffe          BL       rand
+000006  4903              LDR      r1,|L5.20|
+000008  f3c0000d          UBFX     r0,r0,#0,#14
+00000c  f5004040          ADD      r0,r0,#0xc000
+000010  8008              STRH     r0,[r1,#0]
+;;;91     #endif /* LWIP_RAND */
 ;;;92     }
+000012  bd10              POP      {r4,pc}
 ;;;93     
                           ENDP
 
+                  |L5.20|
+                          DCD      ||.data||
 
                           AREA ||i.udp_input||, CODE, READONLY, ALIGN=2
 
@@ -308,629 +538,784 @@
                           REQUIRE _printf_s
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   udp_input PROC
-;;;184    void
-;;;185    udp_input(struct pbuf *p, struct netif *inp)
-000000  e92d4ff3          PUSH     {r0,r1,r4-r11,lr}
-;;;186    {
-000004  b083              SUB      sp,sp,#0xc
-000006  4607              MOV      r7,r0
-;;;187      struct udp_hdr *udphdr;
-;;;188      struct udp_pcb *pcb, *prev;
-;;;189      struct udp_pcb *uncon_pcb;
-;;;190      u16_t src, dest;
-;;;191      u8_t broadcast;
-;;;192      u8_t for_us = 0;
-;;;193    
-;;;194      LWIP_UNUSED_ARG(inp);
-;;;195    
-;;;196      PERF_START;
-;;;197    
-;;;198      UDP_STATS_INC(udp.recv);
-;;;199    
-;;;200      /* Check minimum length (UDP header) */
-;;;201      if (p->len < UDP_HLEN) {
-000008  8978              LDRH     r0,[r7,#0xa]
-00000a  2808              CMP      r0,#8
-00000c  d205              BCS      |L5.26|
-;;;202        /* drop short packets */
-;;;203        LWIP_DEBUGF(UDP_DEBUG,
-;;;204                    ("udp_input: short UDP datagram (%"U16_F" bytes) discarded\n", p->tot_len));
-;;;205        UDP_STATS_INC(udp.lenerr);
-;;;206        UDP_STATS_INC(udp.drop);
-;;;207        MIB2_STATS_INC(mib2.udpinerrors);
-;;;208        pbuf_free(p);
-00000e  b005              ADD      sp,sp,#0x14
-000010  4638              MOV      r0,r7
-000012  e8bd4ff0          POP      {r4-r11,lr}
-000016  f7ffbffe          B.W      pbuf_free
-                  |L5.26|
-;;;209        goto end;
-;;;210      }
+;;;193    void
+;;;194    udp_input(struct pbuf *p, struct netif *inp)
+000000  e92d5ffc          PUSH     {r2-r12,lr}
+;;;195    {
+000004  4681              MOV      r9,r0
+000006  4688              MOV      r8,r1
+;;;196      struct udp_hdr *udphdr;
+;;;197      struct udp_pcb *pcb, *prev;
+;;;198      struct udp_pcb *uncon_pcb;
+;;;199      u16_t src, dest;
+;;;200      u8_t broadcast;
+;;;201      u8_t for_us = 0;
+;;;202    
+;;;203      LWIP_UNUSED_ARG(inp);
+;;;204    
+;;;205      LWIP_ASSERT_CORE_LOCKED();
+;;;206    
+;;;207      LWIP_ASSERT("udp_input: invalid pbuf", p != NULL);
+000008  f1b90f00          CMP      r9,#0
+00000c  d105              BNE      |L6.26|
+00000e  a357              ADR      r3,|L6.364|
+000010  22cf              MOVS     r2,#0xcf
+000012  a162              ADR      r1,|L6.412|
+000014  a067              ADR      r0,|L6.436|
+000016  f7fffffe          BL       __2printf
+                  |L6.26|
+;;;208      LWIP_ASSERT("udp_input: invalid netif", inp != NULL);
+00001a  f1b80f00          CMP      r8,#0
+00001e  d105              BNE      |L6.44|
+000020  a352              ADR      r3,|L6.364|
+000022  22d0              MOVS     r2,#0xd0
+000024  a16d              ADR      r1,|L6.476|
+000026  a063              ADR      r0,|L6.436|
+000028  f7fffffe          BL       __2printf
+                  |L6.44|
+;;;209    
+;;;210      PERF_START;
 ;;;211    
-;;;212      udphdr = (struct udp_hdr *)p->payload;
-00001a  687c              LDR      r4,[r7,#4]
+;;;212      UDP_STATS_INC(udp.recv);
 ;;;213    
-;;;214      /* is broadcast packet ? */
-;;;215      broadcast = ip_addr_isbroadcast(ip_current_dest_addr(), ip_current_netif());
-00001c  f8dfa120          LDR      r10,|L5.320|
-000020  f8da1000          LDR      r1,[r10,#0]  ; ip_data
-000024  f8da0014          LDR      r0,[r10,#0x14]  ; ip_data
-000028  f7fffffe          BL       ip4_addr_isbroadcast_u32
-00002c  9002              STR      r0,[sp,#8]
-;;;216    
-;;;217      LWIP_DEBUGF(UDP_DEBUG, ("udp_input: received datagram of length %"U16_F"\n", p->tot_len));
-;;;218    
-;;;219      /* convert src and dest ports to host byte order */
-;;;220      src = lwip_ntohs(udphdr->src);
-00002e  8820              LDRH     r0,[r4,#0]
-000030  f7fffffe          BL       lwip_htons
-000034  4680              MOV      r8,r0
-;;;221      dest = lwip_ntohs(udphdr->dest);
-000036  8860              LDRH     r0,[r4,#2]
-000038  f7fffffe          BL       lwip_htons
-00003c  4681              MOV      r9,r0
-;;;222    
-;;;223      udp_debug_print(udphdr);
-;;;224    
-;;;225      /* print the UDP source and destination */
-;;;226      LWIP_DEBUGF(UDP_DEBUG, ("udp ("));
-;;;227      ip_addr_debug_print(UDP_DEBUG, ip_current_dest_addr());
-;;;228      LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F") <-- (", lwip_ntohs(udphdr->dest)));
-;;;229      ip_addr_debug_print(UDP_DEBUG, ip_current_src_addr());
-;;;230      LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F")\n", lwip_ntohs(udphdr->src)));
-;;;231    
-;;;232      pcb = NULL;
-;;;233      prev = NULL;
-00003e  2600              MOVS     r6,#0
-;;;234      uncon_pcb = NULL;
-000040  2500              MOVS     r5,#0
-;;;235      /* Iterate through the UDP pcb list for a matching pcb.
-;;;236       * 'Perfect match' pcbs (connected to the remote port & ip address) are
-;;;237       * preferred. If no perfect match is found, the first unconnected pcb that
-;;;238       * matches the local port and ip address gets the datagram. */
-;;;239      for (pcb = udp_pcbs; pcb != NULL; pcb = pcb->next) {
-000042  f8dfb100          LDR      r11,|L5.324|
-000046  f8db4004          LDR      r4,[r11,#4]  ; udp_pcbs
-00004a  e021              B        |L5.144|
-                  |L5.76|
-;;;240        /* print the PCB local and remote address */
-;;;241        LWIP_DEBUGF(UDP_DEBUG, ("pcb ("));
-;;;242        ip_addr_debug_print(UDP_DEBUG, &pcb->local_ip);
-;;;243        LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F") <-- (", pcb->local_port));
-;;;244        ip_addr_debug_print(UDP_DEBUG, &pcb->remote_ip);
-;;;245        LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F")\n", pcb->remote_port));
-;;;246    
-;;;247        /* compare PCB local addr+port to UDP destination addr+port */
-;;;248        if ((pcb->local_port == dest) &&
-00004c  8a60              LDRH     r0,[r4,#0x12]
-00004e  4548              CMP      r0,r9
-000050  d11c              BNE      |L5.140|
-;;;249            (udp_input_local_match(pcb, inp, broadcast) != 0)) {
-000052  4620              MOV      r0,r4
-000054  9a02              LDR      r2,[sp,#8]
-000056  9904              LDR      r1,[sp,#0x10]
-000058  f7fffffe          BL       udp_input_local_match
-00005c  b1b0              CBZ      r0,|L5.140|
-;;;250          if (((pcb->flags & UDP_FLAGS_CONNECTED) == 0) &&
-00005e  7c20              LDRB     r0,[r4,#0x10]
-000060  0740              LSLS     r0,r0,#29
-000062  d401              BMI      |L5.104|
-;;;251              ((uncon_pcb == NULL)
-000064  b905              CBNZ     r5,|L5.104|
-;;;252    #if SO_REUSE
-;;;253              /* prefer specific IPs over cath-all */
-;;;254              || !ip_addr_isany(&pcb->local_ip)
-;;;255    #endif /* SO_REUSE */
-;;;256              )) {
-;;;257            /* the first unconnected matching PCB */
-;;;258            uncon_pcb = pcb;
-000066  4625              MOV      r5,r4
-                  |L5.104|
-;;;259          }
+;;;214      /* Check minimum length (UDP header) */
+;;;215      if (p->len < UDP_HLEN) {
+00002c  f8b9000a          LDRH     r0,[r9,#0xa]
+000030  2808              CMP      r0,#8
+000032  d204              BCS      |L6.62|
+;;;216        /* drop short packets */
+;;;217        LWIP_DEBUGF(UDP_DEBUG,
+;;;218                    ("udp_input: short UDP datagram (%"U16_F" bytes) discarded\n", p->tot_len));
+;;;219        UDP_STATS_INC(udp.lenerr);
+;;;220        UDP_STATS_INC(udp.drop);
+;;;221        MIB2_STATS_INC(mib2.udpinerrors);
+;;;222        pbuf_free(p);
+000034  4648              MOV      r0,r9
+000036  e8bd5ffc          POP      {r2-r12,lr}
+00003a  f7ffbffe          B.W      pbuf_free
+                  |L6.62|
+;;;223        goto end;
+;;;224      }
+;;;225    
+;;;226      udphdr = (struct udp_hdr *)p->payload;
+00003e  f8d94004          LDR      r4,[r9,#4]
+;;;227    
+;;;228      /* is broadcast packet ? */
+;;;229      broadcast = ip_addr_isbroadcast(ip_current_dest_addr(), ip_current_netif());
+000042  4f6d              LDR      r7,|L6.504|
+000044  6839              LDR      r1,[r7,#0]  ; ip_data
+000046  6978              LDR      r0,[r7,#0x14]  ; ip_data
+000048  f7fffffe          BL       ip4_addr_isbroadcast_u32
+00004c  4682              MOV      r10,r0
+;;;230    
+;;;231      LWIP_DEBUGF(UDP_DEBUG, ("udp_input: received datagram of length %"U16_F"\n", p->tot_len));
+;;;232    
+;;;233      /* convert src and dest ports to host byte order */
+;;;234      src = lwip_ntohs(udphdr->src);
+00004e  8820              LDRH     r0,[r4,#0]
+000050  f7fffffe          BL       lwip_htons
+000054  9001              STR      r0,[sp,#4]
+;;;235      dest = lwip_ntohs(udphdr->dest);
+000056  8860              LDRH     r0,[r4,#2]
+000058  f7fffffe          BL       lwip_htons
+00005c  4683              MOV      r11,r0
+;;;236    
+;;;237      udp_debug_print(udphdr);
+;;;238    
+;;;239      /* print the UDP source and destination */
+;;;240      LWIP_DEBUGF(UDP_DEBUG, ("udp ("));
+;;;241      ip_addr_debug_print_val(UDP_DEBUG, *ip_current_dest_addr());
+;;;242      LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F") <-- (", lwip_ntohs(udphdr->dest)));
+;;;243      ip_addr_debug_print_val(UDP_DEBUG, *ip_current_src_addr());
+;;;244      LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F")\n", lwip_ntohs(udphdr->src)));
+;;;245    
+;;;246      pcb = NULL;
+;;;247      prev = NULL;
+00005e  2600              MOVS     r6,#0
+;;;248      uncon_pcb = NULL;
+000060  2500              MOVS     r5,#0
+;;;249      /* Iterate through the UDP pcb list for a matching pcb.
+;;;250       * 'Perfect match' pcbs (connected to the remote port & ip address) are
+;;;251       * preferred. If no perfect match is found, the first unconnected pcb that
+;;;252       * matches the local port and ip address gets the datagram. */
+;;;253      for (pcb = udp_pcbs; pcb != NULL; pcb = pcb->next) {
+000062  4866              LDR      r0,|L6.508|
+000064  6844              LDR      r4,[r0,#4]  ; udp_pcbs
+000066  e031              B        |L6.204|
+                  |L6.104|
+;;;254        /* print the PCB local and remote address */
+;;;255        LWIP_DEBUGF(UDP_DEBUG, ("pcb ("));
+;;;256        ip_addr_debug_print_val(UDP_DEBUG, pcb->local_ip);
+;;;257        LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F") <-- (", pcb->local_port));
+;;;258        ip_addr_debug_print_val(UDP_DEBUG, pcb->remote_ip);
+;;;259        LWIP_DEBUGF(UDP_DEBUG, (", %"U16_F")\n", pcb->remote_port));
 ;;;260    
-;;;261          /* compare PCB remote addr+port to UDP source addr+port */
-;;;262          if ((pcb->remote_port == src) &&
-000068  8aa0              LDRH     r0,[r4,#0x14]
-00006a  4540              CMP      r0,r8
-00006c  d10e              BNE      |L5.140|
-;;;263              (ip_addr_isany_val(pcb->remote_ip) ||
-00006e  6860              LDR      r0,[r4,#4]
-000070  b118              CBZ      r0,|L5.122|
-;;;264              ip_addr_cmp(&pcb->remote_ip, ip_current_src_addr()))) {
-000072  f8da1010          LDR      r1,[r10,#0x10]  ; ip_data
-000076  4288              CMP      r0,r1
-000078  d108              BNE      |L5.140|
-                  |L5.122|
-;;;265            /* the first fully matching PCB */
-;;;266            if (prev != NULL) {
-00007a  b15e              CBZ      r6,|L5.148|
-;;;267              /* move the pcb to the front of udp_pcbs so that is
-;;;268                 found faster next time */
-;;;269              prev->next = pcb->next;
-00007c  68e0              LDR      r0,[r4,#0xc]
-00007e  60f0              STR      r0,[r6,#0xc]
-;;;270              pcb->next = udp_pcbs;
-000080  f8db0004          LDR      r0,[r11,#4]  ; udp_pcbs
-000084  60e0              STR      r0,[r4,#0xc]
-;;;271              udp_pcbs = pcb;
-000086  f8cb4004          STR      r4,[r11,#4]  ; udp_pcbs
-00008a  e003              B        |L5.148|
-                  |L5.140|
-;;;272            } else {
-;;;273              UDP_STATS_INC(udp.cachehit);
-;;;274            }
-;;;275            break;
-;;;276          }
-;;;277        }
-;;;278    
-;;;279        prev = pcb;
-00008c  4626              MOV      r6,r4
-00008e  68e4              LDR      r4,[r4,#0xc]          ;239
-                  |L5.144|
-000090  2c00              CMP      r4,#0                 ;239
-000092  d1db              BNE      |L5.76|
-                  |L5.148|
-;;;280      }
-;;;281      /* no fully matching pcb found? then look for an unconnected pcb */
-;;;282      if (pcb == NULL) {
-000094  b904              CBNZ     r4,|L5.152|
-;;;283        pcb = uncon_pcb;
-000096  462c              MOV      r4,r5
-                  |L5.152|
-;;;284      }
-;;;285    
-;;;286      /* Check checksum if this is a match or if it was directed at us. */
-;;;287      if (pcb != NULL) {
-000098  b10c              CBZ      r4,|L5.158|
-;;;288        for_us = 1;
-00009a  2001              MOVS     r0,#1
-00009c  e008              B        |L5.176|
-                  |L5.158|
-;;;289      } else {
-;;;290    #if LWIP_IPV6
-;;;291        if (ip_current_is_v6()) {
-;;;292          for_us = netif_get_ip6_addr_match(inp, ip6_current_dest_addr()) >= 0;
-;;;293        }
-;;;294    #endif /* LWIP_IPV6 */
-;;;295    #if LWIP_IPV4
-;;;296        if (!ip_current_is_v6()) {
-;;;297          for_us = ip4_addr_cmp(netif_ip4_addr(inp), ip4_current_dest_addr());
-00009e  9804              LDR      r0,[sp,#0x10]
-0000a0  f8da1014          LDR      r1,[r10,#0x14]  ; ip_data
-0000a4  6840              LDR      r0,[r0,#4]
-0000a6  4288              CMP      r0,r1
-0000a8  d101              BNE      |L5.174|
-0000aa  2001              MOVS     r0,#1
-0000ac  e000              B        |L5.176|
-                  |L5.174|
-0000ae  2000              MOVS     r0,#0
-                  |L5.176|
-;;;298        }
-;;;299    #endif /* LWIP_IPV4 */
-;;;300      }
-;;;301    
-;;;302      if (for_us) {
-0000b0  2800              CMP      r0,#0
-0000b2  d03f              BEQ      |L5.308|
-;;;303        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_input: calculating checksum\n"));
-;;;304    #if CHECKSUM_CHECK_UDP
-;;;305        IF__NETIF_CHECKSUM_ENABLED(inp, CHECKSUM_CHECK_UDP) {
-;;;306    #if LWIP_UDPLITE
-;;;307          if (ip_current_header_proto() == IP_PROTO_UDPLITE) {
-;;;308            /* Do the UDP Lite checksum */
-;;;309            u16_t chklen = lwip_ntohs(udphdr->len);
-;;;310            if (chklen < sizeof(struct udp_hdr)) {
-;;;311              if (chklen == 0) {
-;;;312                /* For UDP-Lite, checksum length of 0 means checksum
-;;;313                   over the complete packet (See RFC 3828 chap. 3.1) */
-;;;314                chklen = p->tot_len;
-;;;315              } else {
-;;;316                /* At least the UDP-Lite header must be covered by the
-;;;317                   checksum! (Again, see RFC 3828 chap. 3.1) */
-;;;318                goto chkerr;
-;;;319              }
-;;;320            }
-;;;321            if (ip_chksum_pseudo_partial(p, IP_PROTO_UDPLITE,
-;;;322                         p->tot_len, chklen,
-;;;323                         ip_current_src_addr(), ip_current_dest_addr()) != 0) {
-;;;324              goto chkerr;
-;;;325            }
-;;;326          } else
-;;;327    #endif /* LWIP_UDPLITE */
-;;;328          {
-;;;329            if (udphdr->chksum != 0) {
-;;;330              if (ip_chksum_pseudo(p, IP_PROTO_UDP, p->tot_len,
-;;;331                                   ip_current_src_addr(),
-;;;332                                   ip_current_dest_addr()) != 0) {
-;;;333                goto chkerr;
-;;;334              }
-;;;335            }
-;;;336          }
-;;;337        }
-;;;338    #endif /* CHECKSUM_CHECK_UDP */
-;;;339        if (pbuf_header(p, -UDP_HLEN)) {
-0000b4  f06f0107          MVN      r1,#7
-0000b8  4638              MOV      r0,r7
-0000ba  f7fffffe          BL       pbuf_header
-0000be  b160              CBZ      r0,|L5.218|
-;;;340          /* Can we cope with this failing? Just assert for now */
-;;;341          LWIP_ASSERT("pbuf_header failed\n", 0);
-0000c0  a321              ADR      r3,|L5.328|
-0000c2  f2401255          MOV      r2,#0x155
-0000c6  a12c              ADR      r1,|L5.376|
-0000c8  a030              ADR      r0,|L5.396|
-0000ca  f7fffffe          BL       __2printf
-;;;342          UDP_STATS_INC(udp.drop);
-;;;343          MIB2_STATS_INC(mib2.udpinerrors);
-;;;344          pbuf_free(p);
-0000ce  b005              ADD      sp,sp,#0x14
-0000d0  4638              MOV      r0,r7
-0000d2  e8bd4ff0          POP      {r4-r11,lr}
-0000d6  f7ffbffe          B.W      pbuf_free
-                  |L5.218|
-;;;345          goto end;
-;;;346        }
-;;;347    
-;;;348        if (pcb != NULL) {
-0000da  b194              CBZ      r4,|L5.258|
-;;;349          MIB2_STATS_INC(mib2.udpindatagrams);
-;;;350    #if SO_REUSE && SO_REUSE_RXTOALL
-;;;351          if (ip_get_option(pcb, SOF_REUSEADDR) &&
-;;;352              (broadcast || ip_addr_ismulticast(ip_current_dest_addr()))) {
-;;;353            /* pass broadcast- or multicast packets to all multicast pcbs
-;;;354               if SOF_REUSEADDR is set on the first match */
-;;;355            struct udp_pcb *mpcb;
-;;;356            u8_t p_header_changed = 0;
-;;;357            s16_t hdrs_len = (s16_t)(ip_current_header_tot_len() + UDP_HLEN);
-;;;358            for (mpcb = udp_pcbs; mpcb != NULL; mpcb = mpcb->next) {
-;;;359              if (mpcb != pcb) {
-;;;360                /* compare PCB local addr+port to UDP destination addr+port */
-;;;361                if ((mpcb->local_port == dest) &&
-;;;362                    (udp_input_local_match(mpcb, inp, broadcast) != 0)) {
-;;;363                  /* pass a copy of the packet to all local matches */
-;;;364                  if (mpcb->recv != NULL) {
-;;;365                    struct pbuf *q;
-;;;366                    /* for that, move payload to IP header again */
-;;;367                    if (p_header_changed == 0) {
-;;;368                      pbuf_header_force(p, hdrs_len);
-;;;369                      p_header_changed = 1;
-;;;370                    }
-;;;371                    q = pbuf_alloc(PBUF_RAW, p->tot_len, PBUF_RAM);
-;;;372                    if (q != NULL) {
-;;;373                      err_t err = pbuf_copy(q, p);
-;;;374                      if (err == ERR_OK) {
-;;;375                        /* move payload to UDP data */
-;;;376                        pbuf_header(q, -hdrs_len);
-;;;377                        mpcb->recv(mpcb->recv_arg, mpcb, q, ip_current_src_addr(), src);
-;;;378                      }
-;;;379                    }
-;;;380                  }
-;;;381                }
-;;;382              }
-;;;383            }
-;;;384            if (p_header_changed) {
-;;;385              /* and move payload to UDP data again */
-;;;386              pbuf_header(p, -hdrs_len);
-;;;387            }
-;;;388          }
-;;;389    #endif /* SO_REUSE && SO_REUSE_RXTOALL */
-;;;390          /* callback */
-;;;391          if (pcb->recv != NULL) {
-0000dc  69a5              LDR      r5,[r4,#0x18]
-0000de  b155              CBZ      r5,|L5.246|
-;;;392            /* now the recv function is responsible for freeing p */
-;;;393            pcb->recv(pcb->recv_arg, pcb, p, ip_current_src_addr(), src);
-0000e0  4b17              LDR      r3,|L5.320|
-0000e2  f8cd8000          STR      r8,[sp,#0]
-0000e6  3310              ADDS     r3,r3,#0x10
-0000e8  463a              MOV      r2,r7
-0000ea  4621              MOV      r1,r4
-0000ec  69e0              LDR      r0,[r4,#0x1c]
-0000ee  47a8              BLX      r5
-;;;394          } else {
-;;;395            /* no recv function registered? then we have to free the pbuf! */
-;;;396            pbuf_free(p);
-;;;397            goto end;
-;;;398          }
-;;;399        } else {
-;;;400          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_input: not for us.\n"));
-;;;401    
-;;;402    #if LWIP_ICMP || LWIP_ICMP6
-;;;403          /* No match was found, send ICMP destination port unreachable unless
-;;;404             destination address was broadcast/multicast. */
-;;;405          if (!broadcast && !ip_addr_ismulticast(ip_current_dest_addr())) {
-;;;406            /* move payload pointer back to ip header */
-;;;407            pbuf_header_force(p, (s16_t)(ip_current_header_tot_len() + UDP_HLEN));
-;;;408            icmp_port_unreach(ip_current_is_v6(), p);
+;;;261        /* compare PCB local addr+port to UDP destination addr+port */
+;;;262        if ((pcb->local_port == dest) &&
+000068  8a60              LDRH     r0,[r4,#0x12]
+00006a  4558              CMP      r0,r11
+00006c  d12c              BNE      |L6.200|
+;;;263            (udp_input_local_match(pcb, inp, broadcast) != 0)) {
+00006e  4652              MOV      r2,r10
+000070  4641              MOV      r1,r8
+000072  4620              MOV      r0,r4
+000074  f7fffffe          BL       udp_input_local_match
+000078  b330              CBZ      r0,|L6.200|
+;;;264          if ((pcb->flags & UDP_FLAGS_CONNECTED) == 0) {
+00007a  7c20              LDRB     r0,[r4,#0x10]
+00007c  0740              LSLS     r0,r0,#29
+00007e  d412              BMI      |L6.166|
+;;;265            if (uncon_pcb == NULL) {
+000080  b135              CBZ      r5,|L6.144|
+;;;266              /* the first unconnected matching PCB */
+;;;267              uncon_pcb = pcb;
+;;;268    #if LWIP_IPV4
+;;;269            } else if (broadcast && ip4_current_dest_addr()->addr == IPADDR_BROADCAST) {
+000082  f1ba0f00          CMP      r10,#0
+000086  d00e              BEQ      |L6.166|
+000088  6978              LDR      r0,[r7,#0x14]  ; ip_data
+00008a  1c40              ADDS     r0,r0,#1
+00008c  d002              BEQ      |L6.148|
+00008e  e00a              B        |L6.166|
+                  |L6.144|
+000090  4625              MOV      r5,r4                 ;267
+000092  e008              B        |L6.166|
+                  |L6.148|
+;;;270              /* global broadcast address (only valid for IPv4; match was checked before) */
+;;;271              if (!IP_IS_V4_VAL(uncon_pcb->local_ip) || !ip4_addr_cmp(ip_2_ip4(&uncon_pcb->local_ip), netif_ip4_addr(inp))) {
+000094  6829              LDR      r1,[r5,#0]
+000096  f8d80004          LDR      r0,[r8,#4]
+00009a  4281              CMP      r1,r0
+00009c  d003              BEQ      |L6.166|
+;;;272                /* uncon_pcb does not match the input netif, check this pcb */
+;;;273                if (IP_IS_V4_VAL(pcb->local_ip) && ip4_addr_cmp(ip_2_ip4(&pcb->local_ip), netif_ip4_addr(inp))) {
+00009e  6821              LDR      r1,[r4,#0]
+0000a0  4281              CMP      r1,r0
+0000a2  d100              BNE      |L6.166|
+;;;274                  /* better match */
+;;;275                  uncon_pcb = pcb;
+0000a4  4625              MOV      r5,r4
+                  |L6.166|
+;;;276                }
+;;;277              }
+;;;278    #endif /* LWIP_IPV4 */
+;;;279            }
+;;;280    #if SO_REUSE
+;;;281            else if (!ip_addr_isany(&pcb->local_ip)) {
+;;;282              /* prefer specific IPs over catch-all */
+;;;283              uncon_pcb = pcb;
+;;;284            }
+;;;285    #endif /* SO_REUSE */
+;;;286          }
+;;;287    
+;;;288          /* compare PCB remote addr+port to UDP source addr+port */
+;;;289          if ((pcb->remote_port == src) &&
+0000a6  8aa1              LDRH     r1,[r4,#0x14]
+0000a8  9801              LDR      r0,[sp,#4]
+0000aa  4281              CMP      r1,r0
+0000ac  d10c              BNE      |L6.200|
+;;;290              (ip_addr_isany_val(pcb->remote_ip) ||
+0000ae  6860              LDR      r0,[r4,#4]
+0000b0  b110              CBZ      r0,|L6.184|
+;;;291               ip_addr_cmp(&pcb->remote_ip, ip_current_src_addr()))) {
+0000b2  6939              LDR      r1,[r7,#0x10]  ; ip_data
+0000b4  4288              CMP      r0,r1
+0000b6  d107              BNE      |L6.200|
+                  |L6.184|
+;;;292            /* the first fully matching PCB */
+;;;293            if (prev != NULL) {
+0000b8  b156              CBZ      r6,|L6.208|
+;;;294              /* move the pcb to the front of udp_pcbs so that is
+;;;295                 found faster next time */
+;;;296              prev->next = pcb->next;
+0000ba  68e0              LDR      r0,[r4,#0xc]
+0000bc  60f0              STR      r0,[r6,#0xc]
+;;;297              pcb->next = udp_pcbs;
+0000be  484f              LDR      r0,|L6.508|
+0000c0  6841              LDR      r1,[r0,#4]  ; udp_pcbs
+0000c2  60e1              STR      r1,[r4,#0xc]
+;;;298              udp_pcbs = pcb;
+0000c4  6044              STR      r4,[r0,#4]  ; udp_pcbs
+0000c6  e003              B        |L6.208|
+                  |L6.200|
+;;;299            } else {
+;;;300              UDP_STATS_INC(udp.cachehit);
+;;;301            }
+;;;302            break;
+;;;303          }
+;;;304        }
+;;;305    
+;;;306        prev = pcb;
+0000c8  4626              MOV      r6,r4
+0000ca  68e4              LDR      r4,[r4,#0xc]          ;253
+                  |L6.204|
+0000cc  2c00              CMP      r4,#0                 ;253
+0000ce  d1cb              BNE      |L6.104|
+                  |L6.208|
+;;;307      }
+;;;308      /* no fully matching pcb found? then look for an unconnected pcb */
+;;;309      if (pcb == NULL) {
+0000d0  b904              CBNZ     r4,|L6.212|
+;;;310        pcb = uncon_pcb;
+0000d2  462c              MOV      r4,r5
+                  |L6.212|
+;;;311      }
+;;;312    
+;;;313      /* Check checksum if this is a match or if it was directed at us. */
+;;;314      if (pcb != NULL) {
+0000d4  b10c              CBZ      r4,|L6.218|
+;;;315        for_us = 1;
+0000d6  2001              MOVS     r0,#1
+0000d8  e007              B        |L6.234|
+                  |L6.218|
+;;;316      } else {
+;;;317    #if LWIP_IPV6
+;;;318        if (ip_current_is_v6()) {
+;;;319          for_us = netif_get_ip6_addr_match(inp, ip6_current_dest_addr()) >= 0;
+;;;320        }
+;;;321    #endif /* LWIP_IPV6 */
+;;;322    #if LWIP_IPV4
+;;;323        if (!ip_current_is_v6()) {
+;;;324          for_us = ip4_addr_cmp(netif_ip4_addr(inp), ip4_current_dest_addr());
+0000da  f8d80004          LDR      r0,[r8,#4]
+0000de  6979              LDR      r1,[r7,#0x14]  ; ip_data
+0000e0  4288              CMP      r0,r1
+0000e2  d101              BNE      |L6.232|
+0000e4  2001              MOVS     r0,#1
+0000e6  e000              B        |L6.234|
+                  |L6.232|
+0000e8  2000              MOVS     r0,#0
+                  |L6.234|
+;;;325        }
+;;;326    #endif /* LWIP_IPV4 */
+;;;327      }
+;;;328    
+;;;329      if (for_us) {
+0000ea  2800              CMP      r0,#0
+0000ec  d039              BEQ      |L6.354|
+;;;330        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_input: calculating checksum\n"));
+;;;331    #if CHECKSUM_CHECK_UDP
+;;;332        IF__NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_CHECK_UDP) {
+;;;333    #if LWIP_UDPLITE
+;;;334          if (ip_current_header_proto() == IP_PROTO_UDPLITE) {
+;;;335            /* Do the UDP Lite checksum */
+;;;336            u16_t chklen = lwip_ntohs(udphdr->len);
+;;;337            if (chklen < sizeof(struct udp_hdr)) {
+;;;338              if (chklen == 0) {
+;;;339                /* For UDP-Lite, checksum length of 0 means checksum
+;;;340                   over the complete packet (See RFC 3828 chap. 3.1) */
+;;;341                chklen = p->tot_len;
+;;;342              } else {
+;;;343                /* At least the UDP-Lite header must be covered by the
+;;;344                   checksum! (Again, see RFC 3828 chap. 3.1) */
+;;;345                goto chkerr;
+;;;346              }
+;;;347            }
+;;;348            if (ip_chksum_pseudo_partial(p, IP_PROTO_UDPLITE,
+;;;349                                         p->tot_len, chklen,
+;;;350                                         ip_current_src_addr(), ip_current_dest_addr()) != 0) {
+;;;351              goto chkerr;
+;;;352            }
+;;;353          } else
+;;;354    #endif /* LWIP_UDPLITE */
+;;;355          {
+;;;356            if (udphdr->chksum != 0) {
+;;;357              if (ip_chksum_pseudo(p, IP_PROTO_UDP, p->tot_len,
+;;;358                                   ip_current_src_addr(),
+;;;359                                   ip_current_dest_addr()) != 0) {
+;;;360                goto chkerr;
+;;;361              }
+;;;362            }
+;;;363          }
+;;;364        }
+;;;365    #endif /* CHECKSUM_CHECK_UDP */
+;;;366        if (pbuf_remove_header(p, UDP_HLEN)) {
+0000ee  2108              MOVS     r1,#8
+0000f0  4648              MOV      r0,r9
+0000f2  f7fffffe          BL       pbuf_remove_header
+0000f6  b158              CBZ      r0,|L6.272|
+;;;367          /* Can we cope with this failing? Just assert for now */
+;;;368          LWIP_ASSERT("pbuf_remove_header failed\n", 0);
+0000f8  a31c              ADR      r3,|L6.364|
+0000fa  f44f72b8          MOV      r2,#0x170
+0000fe  a140              ADR      r1,|L6.512|
+000100  a02c              ADR      r0,|L6.436|
+000102  f7fffffe          BL       __2printf
+;;;369          UDP_STATS_INC(udp.drop);
+;;;370          MIB2_STATS_INC(mib2.udpinerrors);
+;;;371          pbuf_free(p);
+000106  4648              MOV      r0,r9
+000108  e8bd5ffc          POP      {r2-r12,lr}
+00010c  f7ffbffe          B.W      pbuf_free
+                  |L6.272|
+;;;372          goto end;
+;;;373        }
+;;;374    
+;;;375        if (pcb != NULL) {
+000110  b184              CBZ      r4,|L6.308|
+;;;376          MIB2_STATS_INC(mib2.udpindatagrams);
+;;;377    #if SO_REUSE && SO_REUSE_RXTOALL
+;;;378          if (ip_get_option(pcb, SOF_REUSEADDR) &&
+;;;379              (broadcast || ip_addr_ismulticast(ip_current_dest_addr()))) {
+;;;380            /* pass broadcast- or multicast packets to all multicast pcbs
+;;;381               if SOF_REUSEADDR is set on the first match */
+;;;382            struct udp_pcb *mpcb;
+;;;383            for (mpcb = udp_pcbs; mpcb != NULL; mpcb = mpcb->next) {
+;;;384              if (mpcb != pcb) {
+;;;385                /* compare PCB local addr+port to UDP destination addr+port */
+;;;386                if ((mpcb->local_port == dest) &&
+;;;387                    (udp_input_local_match(mpcb, inp, broadcast) != 0)) {
+;;;388                  /* pass a copy of the packet to all local matches */
+;;;389                  if (mpcb->recv != NULL) {
+;;;390                    struct pbuf *q;
+;;;391                    q = pbuf_clone(PBUF_RAW, PBUF_POOL, p);
+;;;392                    if (q != NULL) {
+;;;393                      mpcb->recv(mpcb->recv_arg, mpcb, q, ip_current_src_addr(), src);
+;;;394                    }
+;;;395                  }
+;;;396                }
+;;;397              }
+;;;398            }
+;;;399          }
+;;;400    #endif /* SO_REUSE && SO_REUSE_RXTOALL */
+;;;401          /* callback */
+;;;402          if (pcb->recv != NULL) {
+000112  69a5              LDR      r5,[r4,#0x18]
+000114  b14d              CBZ      r5,|L6.298|
+;;;403            /* now the recv function is responsible for freeing p */
+;;;404            pcb->recv(pcb->recv_arg, pcb, p, ip_current_src_addr(), src);
+000116  9801              LDR      r0,[sp,#4]
+000118  4b37              LDR      r3,|L6.504|
+00011a  9000              STR      r0,[sp,#0]
+00011c  3310              ADDS     r3,r3,#0x10
+00011e  464a              MOV      r2,r9
+000120  4621              MOV      r1,r4
+000122  69e0              LDR      r0,[r4,#0x1c]
+000124  47a8              BLX      r5
+;;;405          } else {
+;;;406            /* no recv function registered? then we have to free the pbuf! */
+;;;407            pbuf_free(p);
+;;;408            goto end;
 ;;;409          }
-;;;410    #endif /* LWIP_ICMP || LWIP_ICMP6 */
-;;;411          UDP_STATS_INC(udp.proterr);
-;;;412          UDP_STATS_INC(udp.drop);
-;;;413          MIB2_STATS_INC(mib2.udpnoports);
-;;;414          pbuf_free(p);
-;;;415        }
-;;;416      } else {
-;;;417        pbuf_free(p);
-;;;418      }
-;;;419    end:
-;;;420      PERF_STOP("udp_input");
-;;;421      return;
-;;;422    #if CHECKSUM_CHECK_UDP
-;;;423    chkerr:
-;;;424      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;425                  ("udp_input: UDP (or UDP Lite) datagram discarded due to failing checksum\n"));
-;;;426      UDP_STATS_INC(udp.chkerr);
-;;;427      UDP_STATS_INC(udp.drop);
-;;;428      MIB2_STATS_INC(mib2.udpinerrors);
-;;;429      pbuf_free(p);
-;;;430      PERF_STOP("udp_input");
-;;;431    #endif /* CHECKSUM_CHECK_UDP */
-;;;432    }
-0000f0  b005              ADD      sp,sp,#0x14
-0000f2  e8bd8ff0          POP      {r4-r11,pc}
-                  |L5.246|
-0000f6  b005              ADD      sp,sp,#0x14           ;396
-0000f8  4638              MOV      r0,r7                 ;396
-0000fa  e8bd4ff0          POP      {r4-r11,lr}           ;396
-0000fe  f7ffbffe          B.W      pbuf_free
-                  |L5.258|
-000102  9802              LDR      r0,[sp,#8]            ;405
-000104  b980              CBNZ     r0,|L5.296|
-000106  f89a0014          LDRB     r0,[r10,#0x14]        ;405  ; ip_data
-00010a  f3c01003          UBFX     r0,r0,#4,#4           ;405
-00010e  280e              CMP      r0,#0xe               ;405
-000110  d00a              BEQ      |L5.296|
-000112  f8ba000c          LDRH     r0,[r10,#0xc]         ;407  ; ip_data
-000116  3008              ADDS     r0,r0,#8              ;407
-000118  b201              SXTH     r1,r0                 ;407
-00011a  4638              MOV      r0,r7                 ;407
-00011c  f7fffffe          BL       pbuf_header_force
-000120  2103              MOVS     r1,#3                 ;408
-000122  4638              MOV      r0,r7                 ;408
-000124  f7fffffe          BL       icmp_dest_unreach
-                  |L5.296|
-000128  b005              ADD      sp,sp,#0x14           ;414
-00012a  4638              MOV      r0,r7                 ;414
-00012c  e8bd4ff0          POP      {r4-r11,lr}           ;414
+;;;410        } else {
+;;;411          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_input: not for us.\n"));
+;;;412    
+;;;413    #if LWIP_ICMP || LWIP_ICMP6
+;;;414          /* No match was found, send ICMP destination port unreachable unless
+;;;415             destination address was broadcast/multicast. */
+;;;416          if (!broadcast && !ip_addr_ismulticast(ip_current_dest_addr())) {
+;;;417            /* move payload pointer back to ip header */
+;;;418            pbuf_header_force(p, (s16_t)(ip_current_header_tot_len() + UDP_HLEN));
+;;;419            icmp_port_unreach(ip_current_is_v6(), p);
+;;;420          }
+;;;421    #endif /* LWIP_ICMP || LWIP_ICMP6 */
+;;;422          UDP_STATS_INC(udp.proterr);
+;;;423          UDP_STATS_INC(udp.drop);
+;;;424          MIB2_STATS_INC(mib2.udpnoports);
+;;;425          pbuf_free(p);
+;;;426        }
+;;;427      } else {
+;;;428        pbuf_free(p);
+;;;429      }
+;;;430    end:
+;;;431      PERF_STOP("udp_input");
+;;;432      return;
+;;;433    #if CHECKSUM_CHECK_UDP
+;;;434    chkerr:
+;;;435      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;436                  ("udp_input: UDP (or UDP Lite) datagram discarded due to failing checksum\n"));
+;;;437      UDP_STATS_INC(udp.chkerr);
+;;;438      UDP_STATS_INC(udp.drop);
+;;;439      MIB2_STATS_INC(mib2.udpinerrors);
+;;;440      pbuf_free(p);
+;;;441      PERF_STOP("udp_input");
+;;;442    #endif /* CHECKSUM_CHECK_UDP */
+;;;443    }
+000126  e8bd9ffc          POP      {r2-r12,pc}
+                  |L6.298|
+00012a  4648              MOV      r0,r9                 ;407
+00012c  e8bd5ffc          POP      {r2-r12,lr}           ;407
 000130  f7ffbffe          B.W      pbuf_free
-                  |L5.308|
-000134  b005              ADD      sp,sp,#0x14           ;417
-000136  4638              MOV      r0,r7                 ;417
-000138  e8bd4ff0          POP      {r4-r11,lr}           ;417
-00013c  f7ffbffe          B.W      pbuf_free
-;;;433    
+                  |L6.308|
+000134  f1ba0f00          CMP      r10,#0                ;416
+000138  d10e              BNE      |L6.344|
+00013a  7d38              LDRB     r0,[r7,#0x14]         ;416  ; ip_data
+00013c  f3c01003          UBFX     r0,r0,#4,#4           ;416
+000140  280e              CMP      r0,#0xe               ;416
+000142  d009              BEQ      |L6.344|
+000144  89b8              LDRH     r0,[r7,#0xc]          ;418  ; ip_data
+000146  3008              ADDS     r0,r0,#8              ;418
+000148  b201              SXTH     r1,r0                 ;418
+00014a  4648              MOV      r0,r9                 ;418
+00014c  f7fffffe          BL       pbuf_header_force
+000150  2103              MOVS     r1,#3                 ;419
+000152  4648              MOV      r0,r9                 ;419
+000154  f7fffffe          BL       icmp_dest_unreach
+                  |L6.344|
+000158  4648              MOV      r0,r9                 ;425
+00015a  e8bd5ffc          POP      {r2-r12,lr}           ;425
+00015e  f7ffbffe          B.W      pbuf_free
+                  |L6.354|
+000162  4648              MOV      r0,r9                 ;428
+000164  e8bd5ffc          POP      {r2-r12,lr}           ;428
+000168  f7ffbffe          B.W      pbuf_free
+;;;444    
                           ENDP
 
-                  |L5.320|
+                  |L6.364|
+00016c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000170  6964646c
+000174  65776172
+000178  65735c54
+00017c  68697264
+000180  5f506172
+000184  74795c4c
+000188  7749505c
+00018c  7372635c
+000190  636f7265
+000194  5c756470
+000198  2e6300  
+00019b  00                DCB      0
+                  |L6.412|
+00019c  7564705f          DCB      "udp_input: invalid pbuf",0
+0001a0  696e7075
+0001a4  743a2069
+0001a8  6e76616c
+0001ac  69642070
+0001b0  62756600
+                  |L6.436|
+0001b4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0001b8  7274696f
+0001bc  6e202225
+0001c0  73222066
+0001c4  61696c65
+0001c8  64206174
+0001cc  206c696e
+0001d0  65202564
+0001d4  20696e20
+0001d8  25730a00
+                  |L6.476|
+0001dc  7564705f          DCB      "udp_input: invalid netif",0
+0001e0  696e7075
+0001e4  743a2069
+0001e8  6e76616c
+0001ec  6964206e
+0001f0  65746966
+0001f4  00      
+0001f5  00                DCB      0
+0001f6  00                DCB      0
+0001f7  00                DCB      0
+                  |L6.504|
                           DCD      ip_data
-                  |L5.324|
+                  |L6.508|
                           DCD      ||.data||
-                  |L5.328|
-000148  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
-00014c  6964646c
-000150  65776172
-000154  65735c54
-000158  68697264
-00015c  5f506172
-000160  74795c4c
-000164  7749505c
-000168  7372635c
-00016c  636f7265
-000170  5c756470
-000174  2e6300  
-000177  00                DCB      0
-                  |L5.376|
-000178  70627566          DCB      "pbuf_header failed\n",0
-00017c  5f686561
-000180  64657220
-000184  6661696c
-000188  65640a00
-                  |L5.396|
-00018c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000190  7274696f
-000194  6e202225
-000198  73222066
-00019c  61696c65
-0001a0  64206174
-0001a4  206c696e
-0001a8  65202564
-0001ac  20696e20
-0001b0  25730a00
+                  |L6.512|
+000200  70627566          DCB      "pbuf_remove_header failed\n",0
+000204  5f72656d
+000208  6f76655f
+00020c  68656164
+000210  65722066
+000214  61696c65
+000218  640a00  
+00021b  00                DCB      0
 
                           AREA ||i.udp_input_local_match||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   udp_input_local_match PROC
 ;;;129    static u8_t
 ;;;130    udp_input_local_match(struct udp_pcb *pcb, struct netif *inp, u8_t broadcast)
-000000  4b0c              LDR      r3,|L6.52|
+000000  b570              PUSH     {r4-r6,lr}
 ;;;131    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+000006  4616              MOV      r6,r2
 ;;;132      LWIP_UNUSED_ARG(inp);       /* in IPv6 only case */
 ;;;133      LWIP_UNUSED_ARG(broadcast); /* in IPv6 only case */
 ;;;134    
-;;;135      /* Dual-stack: PCBs listening to any IP type also listen to any IP address */
-;;;136      if (IP_IS_ANY_TYPE_VAL(pcb->local_ip)) {
-;;;137    #if LWIP_IPV4 && IP_SOF_BROADCAST_RECV
-;;;138        if ((broadcast != 0) && !ip_get_option(pcb, SOF_BROADCAST)) {
-;;;139          return 0;
-;;;140        }
-;;;141    #endif /* LWIP_IPV4 && IP_SOF_BROADCAST_RECV */
-;;;142        return 1;
-;;;143      }
-;;;144    
-;;;145      /* Only need to check PCB if incoming IP version matches PCB IP version */
-;;;146      if (IP_ADDR_PCB_VERSION_MATCH_EXACT(pcb, ip_current_dest_addr())) {
-;;;147    #if LWIP_IPV4
-;;;148        /* Special case: IPv4 broadcast: all or broadcasts in my subnet
-;;;149         * Note: broadcast variable can only be 1 if it is an IPv4 broadcast */
-;;;150        if (broadcast != 0) {
-000002  2a00              CMP      r2,#0
-;;;151    #if IP_SOF_BROADCAST_RECV
-;;;152          if (ip_get_option(pcb, SOF_BROADCAST))
-;;;153    #endif /* IP_SOF_BROADCAST_RECV */
-;;;154          {
-;;;155            if (ip4_addr_isany(ip_2_ip4(&pcb->local_ip)) ||
-;;;156              ((ip4_current_dest_addr()->addr == IPADDR_BROADCAST)) ||
-000004  695b              LDR      r3,[r3,#0x14]
-000006  d00b              BEQ      |L6.32|
-000008  b140              CBZ      r0,|L6.28|
-00000a  6802              LDR      r2,[r0,#0]            ;155
-00000c  b132              CBZ      r2,|L6.28|
-00000e  1c58              ADDS     r0,r3,#1
-000010  d004              BEQ      |L6.28|
-;;;157               ip4_addr_netcmp(ip_2_ip4(&pcb->local_ip), ip4_current_dest_addr(), netif_ip4_netmask(inp))) {
-000012  6888              LDR      r0,[r1,#8]
-000014  4002              ANDS     r2,r2,r0
-000016  4003              ANDS     r3,r3,r0
-000018  429a              CMP      r2,r3
-00001a  d108              BNE      |L6.46|
-                  |L6.28|
-;;;158              return 1;
-00001c  2001              MOVS     r0,#1
-;;;159            }
-;;;160          }
-;;;161        } else
-;;;162    #endif /* LWIP_IPV4 */
-;;;163        /* Handle IPv4 and IPv6: all or exact match */
-;;;164        if (ip_addr_isany(&pcb->local_ip) || ip_addr_cmp(&pcb->local_ip, ip_current_dest_addr())) {
-;;;165          return 1;
-;;;166        }
-;;;167      }
-;;;168    
-;;;169      return 0;
-;;;170    }
-00001e  4770              BX       lr
-                  |L6.32|
-000020  b118              CBZ      r0,|L6.42|
-000022  6800              LDR      r0,[r0,#0]            ;164
-000024  b108              CBZ      r0,|L6.42|
-000026  4298              CMP      r0,r3                 ;164
-000028  d101              BNE      |L6.46|
-                  |L6.42|
-00002a  2001              MOVS     r0,#1                 ;165
-00002c  4770              BX       lr
-                  |L6.46|
-00002e  2000              MOVS     r0,#0                 ;169
-000030  4770              BX       lr
-;;;171    
+;;;135      LWIP_ASSERT("udp_input_local_match: invalid pcb", pcb != NULL);
+000008  2c00              CMP      r4,#0
+00000a  d105              BNE      |L7.24|
+00000c  a318              ADR      r3,|L7.112|
+00000e  2287              MOVS     r2,#0x87
+000010  a123              ADR      r1,|L7.160|
+000012  a02c              ADR      r0,|L7.196|
+000014  f7fffffe          BL       __2printf
+                  |L7.24|
+;;;136      LWIP_ASSERT("udp_input_local_match: invalid netif", inp != NULL);
+000018  2d00              CMP      r5,#0
+00001a  d105              BNE      |L7.40|
+00001c  a314              ADR      r3,|L7.112|
+00001e  2288              MOVS     r2,#0x88
+000020  a132              ADR      r1,|L7.236|
+000022  a028              ADR      r0,|L7.196|
+000024  f7fffffe          BL       __2printf
+                  |L7.40|
+;;;137    
+;;;138      /* check if PCB is bound to specific netif */
+;;;139      if ((pcb->netif_idx != NETIF_NO_INDEX) &&
+000028  7a20              LDRB     r0,[r4,#8]
+;;;140          (pcb->netif_idx != netif_get_index(ip_data.current_input_netif))) {
+00002a  4b3a              LDR      r3,|L7.276|
+00002c  b140              CBZ      r0,|L7.64|
+00002e  6859              LDR      r1,[r3,#4]  ; ip_data
+000030  f8911038          LDRB     r1,[r1,#0x38]
+000034  1c49              ADDS     r1,r1,#1
+000036  b2c9              UXTB     r1,r1
+000038  4288              CMP      r0,r1
+00003a  d001              BEQ      |L7.64|
+;;;141        return 0;
+00003c  2000              MOVS     r0,#0
+;;;142      }
+;;;143    
+;;;144      /* Dual-stack: PCBs listening to any IP type also listen to any IP address */
+;;;145      if (IP_IS_ANY_TYPE_VAL(pcb->local_ip)) {
+;;;146    #if LWIP_IPV4 && IP_SOF_BROADCAST_RECV
+;;;147        if ((broadcast != 0) && !ip_get_option(pcb, SOF_BROADCAST)) {
+;;;148          return 0;
+;;;149        }
+;;;150    #endif /* LWIP_IPV4 && IP_SOF_BROADCAST_RECV */
+;;;151        return 1;
+;;;152      }
+;;;153    
+;;;154      /* Only need to check PCB if incoming IP version matches PCB IP version */
+;;;155      if (IP_ADDR_PCB_VERSION_MATCH_EXACT(pcb, ip_current_dest_addr())) {
+;;;156    #if LWIP_IPV4
+;;;157        /* Special case: IPv4 broadcast: all or broadcasts in my subnet
+;;;158         * Note: broadcast variable can only be 1 if it is an IPv4 broadcast */
+;;;159        if (broadcast != 0) {
+;;;160    #if IP_SOF_BROADCAST_RECV
+;;;161          if (ip_get_option(pcb, SOF_BROADCAST))
+;;;162    #endif /* IP_SOF_BROADCAST_RECV */
+;;;163          {
+;;;164            if (ip4_addr_isany(ip_2_ip4(&pcb->local_ip)) ||
+;;;165                ((ip4_current_dest_addr()->addr == IPADDR_BROADCAST)) ||
+;;;166                ip4_addr_netcmp(ip_2_ip4(&pcb->local_ip), ip4_current_dest_addr(), netif_ip4_netmask(inp))) {
+;;;167              return 1;
+;;;168            }
+;;;169          }
+;;;170        } else
+;;;171    #endif /* LWIP_IPV4 */
+;;;172          /* Handle IPv4 and IPv6: all or exact match */
+;;;173          if (ip_addr_isany(&pcb->local_ip) || ip_addr_cmp(&pcb->local_ip, ip_current_dest_addr())) {
+;;;174            return 1;
+;;;175          }
+;;;176      }
+;;;177    
+;;;178      return 0;
+;;;179    }
+00003e  bd70              POP      {r4-r6,pc}
+                  |L7.64|
+000040  b166              CBZ      r6,|L7.92|
+000042  b14c              CBZ      r4,|L7.88|
+000044  6822              LDR      r2,[r4,#0]            ;164
+000046  b13a              CBZ      r2,|L7.88|
+000048  6958              LDR      r0,[r3,#0x14]         ;165  ; ip_data
+00004a  1c41              ADDS     r1,r0,#1              ;165
+00004c  d004              BEQ      |L7.88|
+00004e  68a9              LDR      r1,[r5,#8]            ;166
+000050  400a              ANDS     r2,r2,r1              ;166
+000052  4008              ANDS     r0,r0,r1              ;166
+000054  4282              CMP      r2,r0                 ;166
+000056  d109              BNE      |L7.108|
+                  |L7.88|
+000058  2001              MOVS     r0,#1                 ;167
+00005a  bd70              POP      {r4-r6,pc}
+                  |L7.92|
+00005c  b124              CBZ      r4,|L7.104|
+00005e  6820              LDR      r0,[r4,#0]            ;173
+000060  b110              CBZ      r0,|L7.104|
+000062  6959              LDR      r1,[r3,#0x14]         ;173  ; ip_data
+000064  4288              CMP      r0,r1                 ;173
+000066  d101              BNE      |L7.108|
+                  |L7.104|
+000068  2001              MOVS     r0,#1                 ;174
+00006a  bd70              POP      {r4-r6,pc}
+                  |L7.108|
+00006c  2000              MOVS     r0,#0                 ;178
+00006e  bd70              POP      {r4-r6,pc}
+;;;180    
                           ENDP
 
-000032  0000              DCW      0x0000
-                  |L6.52|
+                  |L7.112|
+000070  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000074  6964646c
+000078  65776172
+00007c  65735c54
+000080  68697264
+000084  5f506172
+000088  74795c4c
+00008c  7749505c
+000090  7372635c
+000094  636f7265
+000098  5c756470
+00009c  2e6300  
+00009f  00                DCB      0
+                  |L7.160|
+0000a0  7564705f          DCB      "udp_input_local_match: invalid pcb",0
+0000a4  696e7075
+0000a8  745f6c6f
+0000ac  63616c5f
+0000b0  6d617463
+0000b4  683a2069
+0000b8  6e76616c
+0000bc  69642070
+0000c0  636200  
+0000c3  00                DCB      0
+                  |L7.196|
+0000c4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000c8  7274696f
+0000cc  6e202225
+0000d0  73222066
+0000d4  61696c65
+0000d8  64206174
+0000dc  206c696e
+0000e0  65202564
+0000e4  20696e20
+0000e8  25730a00
+                  |L7.236|
+0000ec  7564705f          DCB      "udp_input_local_match: invalid netif",0
+0000f0  696e7075
+0000f4  745f6c6f
+0000f8  63616c5f
+0000fc  6d617463
+000100  683a2069
+000104  6e76616c
+000108  6964206e
+00010c  65746966
+000110  00      
+000111  00                DCB      0
+000112  00                DCB      0
+000113  00                DCB      0
+                  |L7.276|
                           DCD      ip_data
 
                           AREA ||i.udp_netif_ip_addr_changed||, CODE, READONLY, ALIGN=2
 
                   udp_netif_ip_addr_changed PROC
-;;;1154    */
-;;;1155   void udp_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_addr)
+;;;1277    */
+;;;1278   void udp_netif_ip_addr_changed(const ip_addr_t *old_addr, const ip_addr_t *new_addr)
 000000  b510              PUSH     {r4,lr}
-;;;1156   {
-;;;1157     struct udp_pcb* upcb;
-;;;1158   
-;;;1159     if (!ip_addr_isany(old_addr) && !ip_addr_isany(new_addr)) {
+;;;1279   {
+;;;1280     struct udp_pcb *upcb;
+;;;1281   
+;;;1282     if (!ip_addr_isany(old_addr) && !ip_addr_isany(new_addr)) {
 000002  2800              CMP      r0,#0
-000004  d013              BEQ      |L7.46|
+000004  d013              BEQ      |L8.46|
 000006  6802              LDR      r2,[r0,#0]
 000008  2a00              CMP      r2,#0
-00000a  d010              BEQ      |L7.46|
+00000a  d010              BEQ      |L8.46|
 00000c  2900              CMP      r1,#0
-00000e  d00e              BEQ      |L7.46|
+00000e  d00e              BEQ      |L8.46|
 000010  680a              LDR      r2,[r1,#0]
 000012  2a00              CMP      r2,#0
-000014  d00b              BEQ      |L7.46|
-;;;1160       for (upcb = udp_pcbs; upcb != NULL; upcb = upcb->next) {
-000016  4a06              LDR      r2,|L7.48|
+000014  d00b              BEQ      |L8.46|
+;;;1283       for (upcb = udp_pcbs; upcb != NULL; upcb = upcb->next) {
+000016  4a06              LDR      r2,|L8.48|
 000018  6852              LDR      r2,[r2,#4]  ; udp_pcbs
-00001a  e006              B        |L7.42|
-                  |L7.28|
-;;;1161         /* PCB bound to current local interface address? */
-;;;1162         if (ip_addr_cmp(&upcb->local_ip, old_addr)) {
+00001a  e006              B        |L8.42|
+                  |L8.28|
+;;;1284         /* PCB bound to current local interface address? */
+;;;1285         if (ip_addr_cmp(&upcb->local_ip, old_addr)) {
 00001c  6813              LDR      r3,[r2,#0]
 00001e  6804              LDR      r4,[r0,#0]
 000020  42a3              CMP      r3,r4
-000022  d101              BNE      |L7.40|
-;;;1163           /* The PCB is bound to the old ipaddr and
-;;;1164            * is set to bound to the new one instead */
-;;;1165           ip_addr_copy(upcb->local_ip, *new_addr);
+000022  d101              BNE      |L8.40|
+;;;1286           /* The PCB is bound to the old ipaddr and
+;;;1287            * is set to bound to the new one instead */
+;;;1288           ip_addr_copy(upcb->local_ip, *new_addr);
 000024  680b              LDR      r3,[r1,#0]
 000026  6013              STR      r3,[r2,#0]
-                  |L7.40|
-000028  68d2              LDR      r2,[r2,#0xc]          ;1160
-                  |L7.42|
-00002a  2a00              CMP      r2,#0                 ;1160
-00002c  d1f6              BNE      |L7.28|
-                  |L7.46|
-;;;1166         }
-;;;1167       }
-;;;1168     }
-;;;1169   }
+                  |L8.40|
+000028  68d2              LDR      r2,[r2,#0xc]          ;1283
+                  |L8.42|
+00002a  2a00              CMP      r2,#0                 ;1283
+00002c  d1f6              BNE      |L8.28|
+                  |L8.46|
+;;;1289         }
+;;;1290       }
+;;;1291     }
+;;;1292   }
 00002e  bd10              POP      {r4,pc}
-;;;1170   
+;;;1293   
                           ENDP
 
-                  |L7.48|
+                  |L8.48|
                           DCD      ||.data||
 
                           AREA ||i.udp_new||, CODE, READONLY, ALIGN=1
 
                   udp_new PROC
-;;;1102   struct udp_pcb *
-;;;1103   udp_new(void)
+;;;1217   struct udp_pcb *
+;;;1218   udp_new(void)
 000000  b510              PUSH     {r4,lr}
-;;;1104   {
-;;;1105     struct udp_pcb *pcb;
-;;;1106     pcb = (struct udp_pcb *)memp_malloc(MEMP_UDP_PCB);
+;;;1219   {
+;;;1220     struct udp_pcb *pcb;
+;;;1221   
+;;;1222     LWIP_ASSERT_CORE_LOCKED();
+;;;1223   
+;;;1224     pcb = (struct udp_pcb *)memp_malloc(MEMP_UDP_PCB);
 000002  2000              MOVS     r0,#0
 000004  f7fffffe          BL       memp_malloc
 000008  4604              MOV      r4,r0
-;;;1107     /* could allocate UDP PCB? */
-;;;1108     if (pcb != NULL) {
-00000a  b12c              CBZ      r4,|L8.24|
-;;;1109       /* UDP Lite: by initializing to all zeroes, chksum_len is set to 0
-;;;1110        * which means checksum is generated over the whole datagram per default
-;;;1111        * (recommended as default by RFC 3828). */
-;;;1112       /* initialize PCB to all zeroes */
-;;;1113       memset(pcb, 0, sizeof(struct udp_pcb));
+;;;1225     /* could allocate UDP PCB? */
+;;;1226     if (pcb != NULL) {
+00000a  b12c              CBZ      r4,|L9.24|
+;;;1227       /* UDP Lite: by initializing to all zeroes, chksum_len is set to 0
+;;;1228        * which means checksum is generated over the whole datagram per default
+;;;1229        * (recommended as default by RFC 3828). */
+;;;1230       /* initialize PCB to all zeroes */
+;;;1231       memset(pcb, 0, sizeof(struct udp_pcb));
 00000c  2120              MOVS     r1,#0x20
 00000e  4620              MOV      r0,r4
 000010  f7fffffe          BL       __aeabi_memclr4
-;;;1114       pcb->ttl = UDP_TTL;
+;;;1232       pcb->ttl = UDP_TTL;
 000014  20ff              MOVS     r0,#0xff
-000016  72a0              STRB     r0,[r4,#0xa]
-                  |L8.24|
-;;;1115   #if LWIP_MULTICAST_TX_OPTIONS
-;;;1116       udp_set_multicast_ttl(pcb, UDP_TTL);
-;;;1117   #endif /* LWIP_MULTICAST_TX_OPTIONS */
-;;;1118     }
-;;;1119     return pcb;
+000016  72e0              STRB     r0,[r4,#0xb]
+                  |L9.24|
+;;;1233   #if LWIP_MULTICAST_TX_OPTIONS
+;;;1234       udp_set_multicast_ttl(pcb, UDP_TTL);
+;;;1235   #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;1236     }
+;;;1237     return pcb;
 000018  4620              MOV      r0,r4
-;;;1120   }
+;;;1238   }
 00001a  bd10              POP      {r4,pc}
-;;;1121   
+;;;1239   
                           ENDP
 
 
                           AREA ||i.udp_new_ip_type||, CODE, READONLY, ALIGN=1
 
                   udp_new_ip_type PROC
-;;;1134   struct udp_pcb *
-;;;1135   udp_new_ip_type(u8_t type)
+;;;1254   struct udp_pcb *
+;;;1255   udp_new_ip_type(u8_t type)
 000000  f7ffbffe          B.W      udp_new
-;;;1136   {
-;;;1137     struct udp_pcb *pcb;
-;;;1138     pcb = udp_new();
-;;;1139   #if LWIP_IPV4 && LWIP_IPV6
-;;;1140     if (pcb != NULL) {
-;;;1141       IP_SET_TYPE_VAL(pcb->local_ip,  type);
-;;;1142       IP_SET_TYPE_VAL(pcb->remote_ip, type);
-;;;1143     }
-;;;1144   #else
-;;;1145     LWIP_UNUSED_ARG(type);
-;;;1146   #endif /* LWIP_IPV4 && LWIP_IPV6 */
-;;;1147     return pcb;
-;;;1148   }
-;;;1149   
+;;;1256   {
+;;;1257     struct udp_pcb *pcb;
+;;;1258   
+;;;1259     LWIP_ASSERT_CORE_LOCKED();
+;;;1260   
+;;;1261     pcb = udp_new();
+;;;1262   #if LWIP_IPV4 && LWIP_IPV6
+;;;1263     if (pcb != NULL) {
+;;;1264       IP_SET_TYPE_VAL(pcb->local_ip,  type);
+;;;1265       IP_SET_TYPE_VAL(pcb->remote_ip, type);
+;;;1266     }
+;;;1267   #else
+;;;1268     LWIP_UNUSED_ARG(type);
+;;;1269   #endif /* LWIP_IPV4 && LWIP_IPV6 */
+;;;1270     return pcb;
+;;;1271   }
+;;;1272   
                           ENDP
 
 
@@ -947,7 +1332,7 @@
 ;;;104    
 ;;;105    again:
 ;;;106      if (udp_port++ == UDP_LOCAL_PORT_RANGE_END) {
-000004  4d0f              LDR      r5,|L10.68|
+000004  4d0f              LDR      r5,|L11.68|
 000006  f64f76ff          MOV      r6,#0xffff
 ;;;107        udp_port = UDP_LOCAL_PORT_RANGE_START;
 00000a  f44f4740          MOV      r7,#0xc000
@@ -958,25 +1343,25 @@
 ;;;112          if (++n > (UDP_LOCAL_PORT_RANGE_END - UDP_LOCAL_PORT_RANGE_START)) {
 00000e  686c              LDR      r4,[r5,#4]
 000010  f44f4c80          MOV      r12,#0x4000
-                  |L10.20|
+                  |L11.20|
 000014  8828              LDRH     r0,[r5,#0]            ;106  ; udp_port
 000016  1c42              ADDS     r2,r0,#1              ;106
 000018  802a              STRH     r2,[r5,#0]            ;106
 00001a  42b0              CMP      r0,r6                 ;106
-00001c  d100              BNE      |L10.32|
+00001c  d100              BNE      |L11.32|
 00001e  802f              STRH     r7,[r5,#0]            ;107
-                  |L10.32|
+                  |L11.32|
 000020  4620              MOV      r0,r4                 ;110
 000022  882a              LDRH     r2,[r5,#0]            ;106
-000024  e009              B        |L10.58|
-                  |L10.38|
+000024  e009              B        |L11.58|
+                  |L11.38|
 000026  8a43              LDRH     r3,[r0,#0x12]         ;111
 000028  4293              CMP      r3,r2                 ;111
-00002a  d105              BNE      |L10.56|
+00002a  d105              BNE      |L11.56|
 00002c  1c49              ADDS     r1,r1,#1
 00002e  b289              UXTH     r1,r1
 000030  4561              CMP      r1,r12
-000032  d3ef              BCC      |L10.20|
+000032  d3ef              BCC      |L11.20|
 ;;;113            return 0;
 000034  2000              MOVS     r0,#0
 ;;;114          }
@@ -986,318 +1371,710 @@
 ;;;118      return udp_port;
 ;;;119    }
 000036  bdf0              POP      {r4-r7,pc}
-                  |L10.56|
+                  |L11.56|
 000038  68c0              LDR      r0,[r0,#0xc]          ;110
-                  |L10.58|
+                  |L11.58|
 00003a  2800              CMP      r0,#0                 ;110
-00003c  d1f3              BNE      |L10.38|
+00003c  d1f3              BNE      |L11.38|
 00003e  8828              LDRH     r0,[r5,#0]            ;118  ; udp_port
 000040  bdf0              POP      {r4-r7,pc}
 ;;;120    
                           ENDP
 
 000042  0000              DCW      0x0000
-                  |L10.68|
+                  |L11.68|
                           DCD      ||.data||
 
-                          AREA ||i.udp_recv||, CODE, READONLY, ALIGN=1
+                          AREA ||i.udp_recv||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   udp_recv PROC
-;;;1052   void
-;;;1053   udp_recv(struct udp_pcb *pcb, udp_recv_fn recv, void *recv_arg)
-000000  6181              STR      r1,[r0,#0x18]
-;;;1054   {
-;;;1055     /* remember recv() callback and user data */
-;;;1056     pcb->recv = recv;
-;;;1057     pcb->recv_arg = recv_arg;
-000002  61c2              STR      r2,[r0,#0x1c]
-;;;1058   }
-000004  4770              BX       lr
-;;;1059   
+;;;1157   void
+;;;1158   udp_recv(struct udp_pcb *pcb, udp_recv_fn recv, void *recv_arg)
+000000  2800              CMP      r0,#0
+;;;1159   {
+000002  d002              BEQ      |L12.10|
+;;;1160     LWIP_ASSERT_CORE_LOCKED();
+;;;1161   
+;;;1162     LWIP_ERROR("udp_recv: invalid pcb", pcb != NULL, return);
+;;;1163   
+;;;1164     /* remember recv() callback and user data */
+;;;1165     pcb->recv = recv;
+000004  6181              STR      r1,[r0,#0x18]
+;;;1166     pcb->recv_arg = recv_arg;
+000006  61c2              STR      r2,[r0,#0x1c]
+;;;1167   }
+000008  4770              BX       lr
+                  |L12.10|
+00000a  a303              ADR      r3,|L12.24|
+00000c  f240428a          MOV      r2,#0x48a             ;1162
+000010  a10d              ADR      r1,|L12.72|
+000012  a013              ADR      r0,|L12.96|
+000014  f7ffbffe          B.W      __2printf
+;;;1168   
                           ENDP
 
+                  |L12.24|
+000018  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+00001c  6964646c
+000020  65776172
+000024  65735c54
+000028  68697264
+00002c  5f506172
+000030  74795c4c
+000034  7749505c
+000038  7372635c
+00003c  636f7265
+000040  5c756470
+000044  2e6300  
+000047  00                DCB      0
+                  |L12.72|
+000048  7564705f          DCB      "udp_recv: invalid pcb",0
+00004c  72656376
+000050  3a20696e
+000054  76616c69
+000058  64207063
+00005c  6200    
+00005e  00                DCB      0
+00005f  00                DCB      0
+                  |L12.96|
+000060  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000064  7274696f
+000068  6e202225
+00006c  73222066
+000070  61696c65
+000074  64206174
+000078  206c696e
+00007c  65202564
+000080  20696e20
+000084  25730a00
 
                           AREA ||i.udp_remove||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   udp_remove PROC
-;;;1069   void
-;;;1070   udp_remove(struct udp_pcb *pcb)
-000000  490a              LDR      r1,|L12.44|
-;;;1071   {
-;;;1072     struct udp_pcb *pcb2;
-;;;1073   
-;;;1074     mib2_udp_unbind(pcb);
-;;;1075     /* pcb to be removed is first in list? */
-;;;1076     if (udp_pcbs == pcb) {
-000002  684a              LDR      r2,[r1,#4]  ; udp_pcbs
-000004  4282              CMP      r2,r0
-000006  d10a              BNE      |L12.30|
-;;;1077       /* make list start at 2nd pcb */
-;;;1078       udp_pcbs = udp_pcbs->next;
-000008  68d2              LDR      r2,[r2,#0xc]
-00000a  604a              STR      r2,[r1,#4]  ; udp_pcbs
-00000c  e009              B        |L12.34|
-                  |L12.14|
-;;;1079       /* pcb not 1st in list */
-;;;1080     } else {
-;;;1081       for (pcb2 = udp_pcbs; pcb2 != NULL; pcb2 = pcb2->next) {
-;;;1082         /* find pcb in udp_pcbs list */
-;;;1083         if (pcb2->next != NULL && pcb2->next == pcb) {
-00000e  68d3              LDR      r3,[r2,#0xc]
-000010  b123              CBZ      r3,|L12.28|
-000012  4283              CMP      r3,r0
-000014  d102              BNE      |L12.28|
-;;;1084           /* remove pcb from list */
-;;;1085           pcb2->next = pcb->next;
-000016  68c1              LDR      r1,[r0,#0xc]
-000018  60d1              STR      r1,[r2,#0xc]
-;;;1086           break;
-00001a  e002              B        |L12.34|
-                  |L12.28|
-00001c  461a              MOV      r2,r3                 ;1081
-                  |L12.30|
-00001e  2a00              CMP      r2,#0                 ;1081
-000020  d1f5              BNE      |L12.14|
-                  |L12.34|
-;;;1087         }
-;;;1088       }
-;;;1089     }
-;;;1090     memp_free(MEMP_UDP_PCB, pcb);
-000022  4601              MOV      r1,r0
-000024  2000              MOVS     r0,#0
-000026  f7ffbffe          B.W      memp_free
-;;;1091   }
-;;;1092   
-                          ENDP
-
-00002a  0000              DCW      0x0000
-                  |L12.44|
-                          DCD      ||.data||
-
-                          AREA ||i.udp_send||, CODE, READONLY, ALIGN=1
-
-                  udp_send PROC
-;;;454    err_t
-;;;455    udp_send(struct udp_pcb *pcb, struct pbuf *p)
+;;;1178   void
+;;;1179   udp_remove(struct udp_pcb *pcb)
 000000  2800              CMP      r0,#0
-;;;456    {
-000002  d003              BEQ      |L13.12|
-;;;457      if ((pcb == NULL) || IP_IS_ANY_TYPE_VAL(pcb->remote_ip)) {
-;;;458        return ERR_VAL;
-;;;459      }
-;;;460    
-;;;461      /* send to the packet using remote ip and port stored in the pcb */
-;;;462      return udp_sendto(pcb, p, &pcb->remote_ip, pcb->remote_port);
-000004  8a83              LDRH     r3,[r0,#0x14]
-000006  1d02              ADDS     r2,r0,#4
-000008  f7ffbffe          B.W      udp_sendto
-                  |L13.12|
-00000c  f06f0005          MVN      r0,#5                 ;458
-;;;463    }
-000010  4770              BX       lr
-;;;464    
+;;;1180   {
+000002  d006              BEQ      |L13.18|
+;;;1181     struct udp_pcb *pcb2;
+;;;1182   
+;;;1183     LWIP_ASSERT_CORE_LOCKED();
+;;;1184   
+;;;1185     LWIP_ERROR("udp_remove: invalid pcb", pcb != NULL, return);
+;;;1186   
+;;;1187     mib2_udp_unbind(pcb);
+;;;1188     /* pcb to be removed is first in list? */
+;;;1189     if (udp_pcbs == pcb) {
+000004  490d              LDR      r1,|L13.60|
+000006  684a              LDR      r2,[r1,#4]  ; udp_pcbs
+000008  4282              CMP      r2,r0
+00000a  d111              BNE      |L13.48|
+;;;1190       /* make list start at 2nd pcb */
+;;;1191       udp_pcbs = udp_pcbs->next;
+00000c  68d2              LDR      r2,[r2,#0xc]
+00000e  604a              STR      r2,[r1,#4]  ; udp_pcbs
+000010  e010              B        |L13.52|
+                  |L13.18|
+000012  a30b              ADR      r3,|L13.64|
+000014  f24042a1          MOV      r2,#0x4a1             ;1185
+000018  a115              ADR      r1,|L13.112|
+00001a  a01b              ADR      r0,|L13.136|
+00001c  f7ffbffe          B.W      __2printf
+                  |L13.32|
+;;;1192       /* pcb not 1st in list */
+;;;1193     } else {
+;;;1194       for (pcb2 = udp_pcbs; pcb2 != NULL; pcb2 = pcb2->next) {
+;;;1195         /* find pcb in udp_pcbs list */
+;;;1196         if (pcb2->next != NULL && pcb2->next == pcb) {
+000020  68d1              LDR      r1,[r2,#0xc]
+000022  b121              CBZ      r1,|L13.46|
+000024  4281              CMP      r1,r0
+000026  d102              BNE      |L13.46|
+;;;1197           /* remove pcb from list */
+;;;1198           pcb2->next = pcb->next;
+000028  68c1              LDR      r1,[r0,#0xc]
+00002a  60d1              STR      r1,[r2,#0xc]
+;;;1199           break;
+00002c  e002              B        |L13.52|
+                  |L13.46|
+00002e  460a              MOV      r2,r1                 ;1194
+                  |L13.48|
+000030  2a00              CMP      r2,#0                 ;1194
+000032  d1f5              BNE      |L13.32|
+                  |L13.52|
+;;;1200         }
+;;;1201       }
+;;;1202     }
+;;;1203     memp_free(MEMP_UDP_PCB, pcb);
+000034  4601              MOV      r1,r0
+000036  2000              MOVS     r0,#0
+000038  f7ffbffe          B.W      memp_free
+;;;1204   }
+;;;1205   
                           ENDP
 
+                  |L13.60|
+                          DCD      ||.data||
+                  |L13.64|
+000040  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000044  6964646c
+000048  65776172
+00004c  65735c54
+000050  68697264
+000054  5f506172
+000058  74795c4c
+00005c  7749505c
+000060  7372635c
+000064  636f7265
+000068  5c756470
+00006c  2e6300  
+00006f  00                DCB      0
+                  |L13.112|
+000070  7564705f          DCB      "udp_remove: invalid pcb",0
+000074  72656d6f
+000078  76653a20
+00007c  696e7661
+000080  6c696420
+000084  70636200
+                  |L13.136|
+000088  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00008c  7274696f
+000090  6e202225
+000094  73222066
+000098  61696c65
+00009c  64206174
+0000a0  206c696e
+0000a4  65202564
+0000a8  20696e20
+0000ac  25730a00
 
-                          AREA ||i.udp_sendto||, CODE, READONLY, ALIGN=1
+                          AREA ||i.udp_send||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                  udp_send PROC
+;;;466    err_t
+;;;467    udp_send(struct udp_pcb *pcb, struct pbuf *p)
+000000  b510              PUSH     {r4,lr}
+;;;468    {
+;;;469      LWIP_ERROR("udp_send: invalid pcb", pcb != NULL, return ERR_ARG);
+000002  f06f040f          MVN      r4,#0xf
+000006  2800              CMP      r0,#0
+000008  d007              BEQ      |L14.26|
+;;;470      LWIP_ERROR("udp_send: invalid pbuf", p != NULL, return ERR_ARG);
+00000a  2900              CMP      r1,#0
+00000c  d00e              BEQ      |L14.44|
+;;;471    
+;;;472      if (IP_IS_ANY_TYPE_VAL(pcb->remote_ip)) {
+;;;473        return ERR_VAL;
+;;;474      }
+;;;475    
+;;;476      /* send to the packet using remote ip and port stored in the pcb */
+;;;477      return udp_sendto(pcb, p, &pcb->remote_ip, pcb->remote_port);
+00000e  8a83              LDRH     r3,[r0,#0x14]
+000010  e8bd4010          POP      {r4,lr}
+000014  1d02              ADDS     r2,r0,#4
+000016  f7ffbffe          B.W      udp_sendto
+                  |L14.26|
+00001a  a309              ADR      r3,|L14.64|
+00001c  f24012d5          MOV      r2,#0x1d5             ;469
+000020  a113              ADR      r1,|L14.112|
+000022  a019              ADR      r0,|L14.136|
+000024  f7fffffe          BL       __2printf
+000028  4620              MOV      r0,r4                 ;469
+;;;478    }
+00002a  bd10              POP      {r4,pc}
+                  |L14.44|
+00002c  a304              ADR      r3,|L14.64|
+00002e  f44f72eb          MOV      r2,#0x1d6             ;470
+000032  a11f              ADR      r1,|L14.176|
+000034  a014              ADR      r0,|L14.136|
+000036  f7fffffe          BL       __2printf
+00003a  4620              MOV      r0,r4                 ;470
+00003c  bd10              POP      {r4,pc}
+;;;479    
+                          ENDP
+
+00003e  0000              DCW      0x0000
+                  |L14.64|
+000040  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000044  6964646c
+000048  65776172
+00004c  65735c54
+000050  68697264
+000054  5f506172
+000058  74795c4c
+00005c  7749505c
+000060  7372635c
+000064  636f7265
+000068  5c756470
+00006c  2e6300  
+00006f  00                DCB      0
+                  |L14.112|
+000070  7564705f          DCB      "udp_send: invalid pcb",0
+000074  73656e64
+000078  3a20696e
+00007c  76616c69
+000080  64207063
+000084  6200    
+000086  00                DCB      0
+000087  00                DCB      0
+                  |L14.136|
+000088  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00008c  7274696f
+000090  6e202225
+000094  73222066
+000098  61696c65
+00009c  64206174
+0000a0  206c696e
+0000a4  65202564
+0000a8  20696e20
+0000ac  25730a00
+                  |L14.176|
+0000b0  7564705f          DCB      "udp_send: invalid pbuf",0
+0000b4  73656e64
+0000b8  3a20696e
+0000bc  76616c69
+0000c0  64207062
+0000c4  756600  
+0000c7  00                DCB      0
+
+                          AREA ||i.udp_sendto||, CODE, READONLY, ALIGN=2
+
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   udp_sendto PROC
-;;;501    err_t
-;;;502    udp_sendto(struct udp_pcb *pcb, struct pbuf *p,
-000000  b5f8              PUSH     {r3-r7,lr}
-;;;503      const ip_addr_t *dst_ip, u16_t dst_port)
-;;;504    {
-000002  4605              MOV      r5,r0
-000004  460e              MOV      r6,r1
-000006  4614              MOV      r4,r2
-000008  461f              MOV      r7,r3
-;;;505    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-;;;506      return udp_sendto_chksum(pcb, p, dst_ip, dst_port, 0, 0);
-;;;507    }
-;;;508    
-;;;509    /** @ingroup udp_raw
-;;;510     * Same as udp_sendto(), but with checksum */
-;;;511    err_t
-;;;512    udp_sendto_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
-;;;513                      u16_t dst_port, u8_t have_chksum, u16_t chksum)
-;;;514    {
-;;;515    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;516      struct netif *netif;
-;;;517      const ip_addr_t *dst_ip_route = dst_ip;
-00000a  4620              MOV      r0,r4
-;;;518    
-;;;519      if ((pcb == NULL) || (dst_ip == NULL) || !IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
-00000c  2d00              CMP      r5,#0
-00000e  d00b              BEQ      |L14.40|
-000010  b154              CBZ      r4,|L14.40|
-;;;520        return ERR_VAL;
-;;;521      }
-;;;522    
-;;;523      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_send\n"));
-;;;524    
-;;;525    #if LWIP_IPV6 || (LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS)
-;;;526      if (ip_addr_ismulticast(dst_ip_route)) {
-;;;527    #if LWIP_IPV6
-;;;528        if (IP_IS_V6(dst_ip)) {
-;;;529          /* For multicast, find a netif based on source address. */
-;;;530          dst_ip_route = &pcb->local_ip;
-;;;531        } else
-;;;532    #endif /* LWIP_IPV6 */
-;;;533        {
-;;;534    #if LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS
-;;;535          /* IPv4 does not use source-based routing by default, so we use an
-;;;536             administratively selected interface for multicast by default.
-;;;537             However, this can be overridden by setting an interface address
-;;;538             in pcb->multicast_ip that is used for routing. */
-;;;539          if (!ip_addr_isany_val(pcb->multicast_ip) &&
-;;;540              !ip4_addr_cmp(ip_2_ip4(&pcb->multicast_ip), IP4_ADDR_BROADCAST)) {
-;;;541            dst_ip_route = &pcb->multicast_ip;
-;;;542          }
-;;;543    #endif /* LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS */
-;;;544        }
-;;;545      }
-;;;546    #endif /* LWIP_IPV6 || (LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS) */
-;;;547    
-;;;548      /* find the outgoing network interface for this packet */
-;;;549      if(IP_IS_ANY_TYPE_VAL(pcb->local_ip)) {
-;;;550        /* Don't call ip_route() with IP_ANY_TYPE */
-;;;551        netif = ip_route(IP46_ADDR_ANY(IP_GET_TYPE(dst_ip_route)), dst_ip_route);
-;;;552      } else {
-;;;553        netif = ip_route(&pcb->local_ip, dst_ip_route);
-000012  f7fffffe          BL       ip4_route
-;;;554      }
-;;;555    
-;;;556      /* no outgoing network interface could be found? */
-;;;557      if (netif == NULL) {
-000016  b150              CBZ      r0,|L14.46|
-;;;558        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: No route to "));
-;;;559        ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, dst_ip);
-;;;560        LWIP_DEBUGF(UDP_DEBUG, ("\n"));
-;;;561        UDP_STATS_INC(udp.rterr);
-;;;562        return ERR_RTE;
-;;;563      }
-;;;564    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-;;;565      return udp_sendto_if_chksum(pcb, p, dst_ip, dst_port, netif, have_chksum, chksum);
-;;;566    #else /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;567      return udp_sendto_if(pcb, p, dst_ip, dst_port, netif);
-000018  9000              STR      r0,[sp,#0]
-00001a  463b              MOV      r3,r7
-00001c  4622              MOV      r2,r4
-00001e  4631              MOV      r1,r6
-000020  4628              MOV      r0,r5
-000022  f7fffffe          BL       udp_sendto_if
-;;;568    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;569    }
-000026  bdf8              POP      {r3-r7,pc}
-                  |L14.40|
-000028  f06f0005          MVN      r0,#5                 ;520
-00002c  bdf8              POP      {r3-r7,pc}
-                  |L14.46|
-00002e  f06f0003          MVN      r0,#3                 ;562
-000032  bdf8              POP      {r3-r7,pc}
-;;;570    
-                          ENDP
-
-
-                          AREA ||i.udp_sendto_if||, CODE, READONLY, ALIGN=1
-
-                  udp_sendto_if PROC
-;;;591    err_t
-;;;592    udp_sendto_if(struct udp_pcb *pcb, struct pbuf *p,
-000000  b57c              PUSH     {r2-r6,lr}
-;;;593      const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif)
-;;;594    {
-000002  9d06              LDR      r5,[sp,#0x18]
-;;;595    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-;;;596      return udp_sendto_if_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0);
-;;;597    }
-;;;598    
-;;;599    /** Same as udp_sendto_if(), but with checksum */
-;;;600    err_t
-;;;601    udp_sendto_if_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
-;;;602                         u16_t dst_port, struct netif *netif, u8_t have_chksum,
-;;;603                         u16_t chksum)
-;;;604    {
-;;;605    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;606      const ip_addr_t *src_ip;
-;;;607    
-;;;608      if ((pcb == NULL) || (dst_ip == NULL) || !IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
-000004  2800              CMP      r0,#0
-000006  d00c              BEQ      |L15.34|
-000008  b15a              CBZ      r2,|L15.34|
-;;;609        return ERR_VAL;
-;;;610      }
-;;;611    
-;;;612      /* PCB local address is IP_ANY_ADDR? */
-;;;613    #if LWIP_IPV6
-;;;614      if (IP_IS_V6(dst_ip)) {
-;;;615        if (ip6_addr_isany(ip_2_ip6(&pcb->local_ip))) {
-;;;616          src_ip = ip6_select_source_address(netif, ip_2_ip6(dst_ip));
-;;;617          if (src_ip == NULL) {
-;;;618            /* No suitable source address was found. */
-;;;619            return ERR_RTE;
-;;;620          }
-;;;621        } else {
-;;;622          /* use UDP PCB local IPv6 address as source address, if still valid. */
-;;;623          if (netif_get_ip6_addr_match(netif, ip_2_ip6(&pcb->local_ip)) < 0) {
-;;;624            /* Address isn't valid anymore. */
-;;;625            return ERR_RTE;
-;;;626          }
-;;;627          src_ip = &pcb->local_ip;
-;;;628        }
-;;;629      }
-;;;630    #endif /* LWIP_IPV6 */
-;;;631    #if LWIP_IPV4 && LWIP_IPV6
-;;;632      else
-;;;633    #endif /* LWIP_IPV4 && LWIP_IPV6 */
-;;;634    #if LWIP_IPV4
-;;;635      if (ip4_addr_isany(ip_2_ip4(&pcb->local_ip)) ||
-00000a  6804              LDR      r4,[r0,#0]
-00000c  b164              CBZ      r4,|L15.40|
-;;;636          ip4_addr_ismulticast(ip_2_ip4(&pcb->local_ip))) {
-00000e  f3c41603          UBFX     r6,r4,#4,#4
-000012  2e0e              CMP      r6,#0xe
-000014  d008              BEQ      |L15.40|
-;;;637        /* if the local_ip is any or multicast
-;;;638         * use the outgoing network interface IP address as source address */
-;;;639        src_ip = netif_ip_addr4(netif);
-;;;640      } else {
-;;;641        /* check if UDP PCB local IP address is correct
-;;;642         * this could be an old address if netif->ip_addr has changed */
-;;;643        if (!ip4_addr_cmp(ip_2_ip4(&(pcb->local_ip)), netif_ip4_addr(netif))) {
-000016  686e              LDR      r6,[r5,#4]
-000018  42b4              CMP      r4,r6
-00001a  d007              BEQ      |L15.44|
-;;;644          /* local_ip doesn't match, drop the packet */
-;;;645          return ERR_RTE;
-00001c  f06f0003          MVN      r0,#3
-;;;646        }
-;;;647        /* use UDP PCB local IP address as source address */
-;;;648        src_ip = &pcb->local_ip;
-;;;649      }
-;;;650    #endif /* LWIP_IPV4 */
-;;;651    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-;;;652      return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, have_chksum, chksum, src_ip);
-;;;653    #else /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;654      return udp_sendto_if_src(pcb, p, dst_ip, dst_port, netif, src_ip);
-;;;655    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;656    }
-000020  bd7c              POP      {r2-r6,pc}
-                  |L15.34|
-000022  f06f0005          MVN      r0,#5                 ;609
-000026  bd7c              POP      {r2-r6,pc}
+;;;519    err_t
+;;;520    udp_sendto(struct udp_pcb *pcb, struct pbuf *p,
+000000  e92d43f8          PUSH     {r3-r9,lr}
+;;;521               const ip_addr_t *dst_ip, u16_t dst_port)
+;;;522    {
+000004  4604              MOV      r4,r0
+000006  460e              MOV      r6,r1
+000008  4615              MOV      r5,r2
+00000a  461f              MOV      r7,r3
+;;;523    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
+;;;524      return udp_sendto_chksum(pcb, p, dst_ip, dst_port, 0, 0);
+;;;525    }
+;;;526    
+;;;527    /** @ingroup udp_raw
+;;;528     * Same as udp_sendto(), but with checksum */
+;;;529    err_t
+;;;530    udp_sendto_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
+;;;531                      u16_t dst_port, u8_t have_chksum, u16_t chksum)
+;;;532    {
+;;;533    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;534      struct netif *netif;
+;;;535    
+;;;536      LWIP_ERROR("udp_sendto: invalid pcb", pcb != NULL, return ERR_ARG);
+00000c  f06f080f          MVN      r8,#0xf
+000010  2c00              CMP      r4,#0
+000012  d009              BEQ      |L15.40|
+;;;537      LWIP_ERROR("udp_sendto: invalid pbuf", p != NULL, return ERR_ARG);
+000014  2e00              CMP      r6,#0
+000016  d011              BEQ      |L15.60|
+;;;538      LWIP_ERROR("udp_sendto: invalid dst_ip", dst_ip != NULL, return ERR_ARG);
+000018  2d00              CMP      r5,#0
+00001a  d018              BEQ      |L15.78|
+;;;539    
+;;;540      if (!IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
+;;;541        return ERR_VAL;
+;;;542      }
+;;;543    
+;;;544      LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_send\n"));
+;;;545    
+;;;546      if (pcb->netif_idx != NETIF_NO_INDEX) {
+00001c  7a20              LDRB     r0,[r4,#8]
+00001e  2800              CMP      r0,#0
+000020  d01e              BEQ      |L15.96|
+;;;547        netif = netif_get_by_index(pcb->netif_idx);
+000022  f7fffffe          BL       netif_get_by_index
+000026  e01e              B        |L15.102|
                   |L15.40|
-000028  1d2c              ADDS     r4,r5,#4              ;639
-00002a  e000              B        |L15.46|
-                  |L15.44|
-00002c  4604              MOV      r4,r0                 ;648
-                  |L15.46|
-00002e  e9cd5400          STRD     r5,r4,[sp,#0]         ;654
-000032  f7fffffe          BL       udp_sendto_if_src
-000036  bd7c              POP      {r2-r6,pc}
-;;;657    
+000028  a315              ADR      r3,|L15.128|
+00002a  f44f7206          MOV      r2,#0x218             ;536
+00002e  a120              ADR      r1,|L15.176|
+000030  a025              ADR      r0,|L15.200|
+000032  f7fffffe          BL       __2printf
+000036  4640              MOV      r0,r8                 ;536
+                  |L15.56|
+;;;548      } else {
+;;;549    #if LWIP_MULTICAST_TX_OPTIONS
+;;;550        netif = NULL;
+;;;551        if (ip_addr_ismulticast(dst_ip)) {
+;;;552          /* For IPv6, the interface to use for packets with a multicast destination
+;;;553           * is specified using an interface index. The same approach may be used for
+;;;554           * IPv4 as well, in which case it overrides the IPv4 multicast override
+;;;555           * address below. Here we have to look up the netif by going through the
+;;;556           * list, but by doing so we skip a route lookup. If the interface index has
+;;;557           * gone stale, we fall through and do the regular route lookup after all. */
+;;;558          if (pcb->mcast_ifindex != NETIF_NO_INDEX) {
+;;;559            netif = netif_get_by_index(pcb->mcast_ifindex);
+;;;560          }
+;;;561    #if LWIP_IPV4
+;;;562          else
+;;;563    #if LWIP_IPV6
+;;;564            if (IP_IS_V4(dst_ip))
+;;;565    #endif /* LWIP_IPV6 */
+;;;566            {
+;;;567              /* IPv4 does not use source-based routing by default, so we use an
+;;;568                 administratively selected interface for multicast by default.
+;;;569                 However, this can be overridden by setting an interface address
+;;;570                 in pcb->mcast_ip4 that is used for routing. If this routing lookup
+;;;571                 fails, we try regular routing as though no override was set. */
+;;;572              if (!ip4_addr_isany_val(pcb->mcast_ip4) &&
+;;;573                  !ip4_addr_cmp(&pcb->mcast_ip4, IP4_ADDR_BROADCAST)) {
+;;;574                netif = ip4_route_src(ip_2_ip4(&pcb->local_ip), &pcb->mcast_ip4);
+;;;575              }
+;;;576            }
+;;;577    #endif /* LWIP_IPV4 */
+;;;578        }
+;;;579    
+;;;580        if (netif == NULL)
+;;;581    #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;582        {
+;;;583          /* find the outgoing network interface for this packet */
+;;;584          netif = ip_route(&pcb->local_ip, dst_ip);
+;;;585        }
+;;;586      }
+;;;587    
+;;;588      /* no outgoing network interface could be found? */
+;;;589      if (netif == NULL) {
+;;;590        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: No route to "));
+;;;591        ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, dst_ip);
+;;;592        LWIP_DEBUGF(UDP_DEBUG, ("\n"));
+;;;593        UDP_STATS_INC(udp.rterr);
+;;;594        return ERR_RTE;
+;;;595      }
+;;;596    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
+;;;597      return udp_sendto_if_chksum(pcb, p, dst_ip, dst_port, netif, have_chksum, chksum);
+;;;598    #else /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;599      return udp_sendto_if(pcb, p, dst_ip, dst_port, netif);
+;;;600    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;601    }
+000038  e8bd83f8          POP      {r3-r9,pc}
+                  |L15.60|
+00003c  a310              ADR      r3,|L15.128|
+00003e  f2402219          MOV      r2,#0x219             ;537
+000042  a12b              ADR      r1,|L15.240|
+000044  a020              ADR      r0,|L15.200|
+000046  f7fffffe          BL       __2printf
+00004a  4640              MOV      r0,r8                 ;537
+00004c  e7f4              B        |L15.56|
+                  |L15.78|
+00004e  a30c              ADR      r3,|L15.128|
+000050  f240221a          MOV      r2,#0x21a             ;538
+000054  a12d              ADR      r1,|L15.268|
+000056  a01c              ADR      r0,|L15.200|
+000058  f7fffffe          BL       __2printf
+00005c  4640              MOV      r0,r8                 ;538
+00005e  e7eb              B        |L15.56|
+                  |L15.96|
+000060  4628              MOV      r0,r5                 ;584
+000062  f7fffffe          BL       ip4_route
+                  |L15.102|
+000066  b138              CBZ      r0,|L15.120|
+000068  9000              STR      r0,[sp,#0]            ;599
+00006a  463b              MOV      r3,r7                 ;599
+00006c  462a              MOV      r2,r5                 ;599
+00006e  4631              MOV      r1,r6                 ;599
+000070  4620              MOV      r0,r4                 ;599
+000072  f7fffffe          BL       udp_sendto_if
+000076  e7df              B        |L15.56|
+                  |L15.120|
+000078  f06f0003          MVN      r0,#3                 ;594
+00007c  e7dc              B        |L15.56|
+;;;602    
                           ENDP
 
+00007e  0000              DCW      0x0000
+                  |L15.128|
+000080  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000084  6964646c
+000088  65776172
+00008c  65735c54
+000090  68697264
+000094  5f506172
+000098  74795c4c
+00009c  7749505c
+0000a0  7372635c
+0000a4  636f7265
+0000a8  5c756470
+0000ac  2e6300  
+0000af  00                DCB      0
+                  |L15.176|
+0000b0  7564705f          DCB      "udp_sendto: invalid pcb",0
+0000b4  73656e64
+0000b8  746f3a20
+0000bc  696e7661
+0000c0  6c696420
+0000c4  70636200
+                  |L15.200|
+0000c8  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000cc  7274696f
+0000d0  6e202225
+0000d4  73222066
+0000d8  61696c65
+0000dc  64206174
+0000e0  206c696e
+0000e4  65202564
+0000e8  20696e20
+0000ec  25730a00
+                  |L15.240|
+0000f0  7564705f          DCB      "udp_sendto: invalid pbuf",0
+0000f4  73656e64
+0000f8  746f3a20
+0000fc  696e7661
+000100  6c696420
+000104  70627566
+000108  00      
+000109  00                DCB      0
+00010a  00                DCB      0
+00010b  00                DCB      0
+                  |L15.268|
+00010c  7564705f          DCB      "udp_sendto: invalid dst_ip",0
+000110  73656e64
+000114  746f3a20
+000118  696e7661
+00011c  6c696420
+000120  6473745f
+000124  697000  
+000127  00                DCB      0
+
+                          AREA ||i.udp_sendto_if||, CODE, READONLY, ALIGN=2
+
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                  udp_sendto_if PROC
+;;;623    err_t
+;;;624    udp_sendto_if(struct udp_pcb *pcb, struct pbuf *p,
+000000  b57c              PUSH     {r2-r6,lr}
+;;;625                  const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif)
+;;;626    {
+000002  9c06              LDR      r4,[sp,#0x18]
+;;;627    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
+;;;628      return udp_sendto_if_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0);
+;;;629    }
+;;;630    
+;;;631    /** Same as udp_sendto_if(), but with checksum */
+;;;632    err_t
+;;;633    udp_sendto_if_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
+;;;634                         u16_t dst_port, struct netif *netif, u8_t have_chksum,
+;;;635                         u16_t chksum)
+;;;636    {
+;;;637    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;638      const ip_addr_t *src_ip;
+;;;639    
+;;;640      LWIP_ERROR("udp_sendto_if: invalid pcb", pcb != NULL, return ERR_ARG);
+000004  f06f050f          MVN      r5,#0xf
+000008  2800              CMP      r0,#0
+00000a  d012              BEQ      |L16.50|
+;;;641      LWIP_ERROR("udp_sendto_if: invalid pbuf", p != NULL, return ERR_ARG);
+00000c  2900              CMP      r1,#0
+00000e  d019              BEQ      |L16.68|
+;;;642      LWIP_ERROR("udp_sendto_if: invalid dst_ip", dst_ip != NULL, return ERR_ARG);
+000010  2a00              CMP      r2,#0
+000012  d020              BEQ      |L16.86|
+;;;643      LWIP_ERROR("udp_sendto_if: invalid netif", netif != NULL, return ERR_ARG);
+000014  2c00              CMP      r4,#0
+000016  d027              BEQ      |L16.104|
+;;;644    
+;;;645      if (!IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
+;;;646        return ERR_VAL;
+;;;647      }
+;;;648    
+;;;649      /* PCB local address is IP_ANY_ADDR or multicast? */
+;;;650    #if LWIP_IPV6
+;;;651      if (IP_IS_V6(dst_ip)) {
+;;;652        if (ip6_addr_isany(ip_2_ip6(&pcb->local_ip)) ||
+;;;653            ip6_addr_ismulticast(ip_2_ip6(&pcb->local_ip))) {
+;;;654          src_ip = ip6_select_source_address(netif, ip_2_ip6(dst_ip));
+;;;655          if (src_ip == NULL) {
+;;;656            /* No suitable source address was found. */
+;;;657            return ERR_RTE;
+;;;658          }
+;;;659        } else {
+;;;660          /* use UDP PCB local IPv6 address as source address, if still valid. */
+;;;661          if (netif_get_ip6_addr_match(netif, ip_2_ip6(&pcb->local_ip)) < 0) {
+;;;662            /* Address isn't valid anymore. */
+;;;663            return ERR_RTE;
+;;;664          }
+;;;665          src_ip = &pcb->local_ip;
+;;;666        }
+;;;667      }
+;;;668    #endif /* LWIP_IPV6 */
+;;;669    #if LWIP_IPV4 && LWIP_IPV6
+;;;670      else
+;;;671    #endif /* LWIP_IPV4 && LWIP_IPV6 */
+;;;672    #if LWIP_IPV4
+;;;673        if (ip4_addr_isany(ip_2_ip4(&pcb->local_ip)) ||
+000018  6805              LDR      r5,[r0,#0]
+00001a  2d00              CMP      r5,#0
+00001c  d02d              BEQ      |L16.122|
+;;;674            ip4_addr_ismulticast(ip_2_ip4(&pcb->local_ip))) {
+00001e  f3c51603          UBFX     r6,r5,#4,#4
+000022  2e0e              CMP      r6,#0xe
+000024  d029              BEQ      |L16.122|
+;;;675          /* if the local_ip is any or multicast
+;;;676           * use the outgoing network interface IP address as source address */
+;;;677          src_ip = netif_ip_addr4(netif);
+;;;678        } else {
+;;;679          /* check if UDP PCB local IP address is correct
+;;;680           * this could be an old address if netif->ip_addr has changed */
+;;;681          if (!ip4_addr_cmp(ip_2_ip4(&(pcb->local_ip)), netif_ip4_addr(netif))) {
+000026  6866              LDR      r6,[r4,#4]
+000028  42b5              CMP      r5,r6
+00002a  d028              BEQ      |L16.126|
+;;;682            /* local_ip doesn't match, drop the packet */
+;;;683            return ERR_RTE;
+00002c  f06f0003          MVN      r0,#3
+;;;684          }
+;;;685          /* use UDP PCB local IP address as source address */
+;;;686          src_ip = &pcb->local_ip;
+;;;687        }
+;;;688    #endif /* LWIP_IPV4 */
+;;;689    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
+;;;690      return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, have_chksum, chksum, src_ip);
+;;;691    #else /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;692      return udp_sendto_if_src(pcb, p, dst_ip, dst_port, netif, src_ip);
+;;;693    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;694    }
+000030  bd7c              POP      {r2-r6,pc}
+                  |L16.50|
+000032  a316              ADR      r3,|L16.140|
+000034  f44f7220          MOV      r2,#0x280             ;640
+000038  a120              ADR      r1,|L16.188|
+00003a  a027              ADR      r0,|L16.216|
+00003c  f7fffffe          BL       __2printf
+000040  4628              MOV      r0,r5                 ;640
+000042  bd7c              POP      {r2-r6,pc}
+                  |L16.68|
+000044  a311              ADR      r3,|L16.140|
+000046  f2402281          MOV      r2,#0x281             ;641
+00004a  a12d              ADR      r1,|L16.256|
+00004c  a022              ADR      r0,|L16.216|
+00004e  f7fffffe          BL       __2printf
+000052  4628              MOV      r0,r5                 ;641
+000054  bd7c              POP      {r2-r6,pc}
+                  |L16.86|
+000056  a30d              ADR      r3,|L16.140|
+000058  f2402282          MOV      r2,#0x282             ;642
+00005c  a12f              ADR      r1,|L16.284|
+00005e  a01e              ADR      r0,|L16.216|
+000060  f7fffffe          BL       __2printf
+000064  4628              MOV      r0,r5                 ;642
+000066  bd7c              POP      {r2-r6,pc}
+                  |L16.104|
+000068  a308              ADR      r3,|L16.140|
+00006a  f2402283          MOV      r2,#0x283             ;643
+00006e  a133              ADR      r1,|L16.316|
+000070  a019              ADR      r0,|L16.216|
+000072  f7fffffe          BL       __2printf
+000076  4628              MOV      r0,r5                 ;643
+000078  bd7c              POP      {r2-r6,pc}
+                  |L16.122|
+00007a  1d25              ADDS     r5,r4,#4              ;677
+00007c  e000              B        |L16.128|
+                  |L16.126|
+00007e  4605              MOV      r5,r0                 ;686
+                  |L16.128|
+000080  e9cd4500          STRD     r4,r5,[sp,#0]         ;692
+000084  f7fffffe          BL       udp_sendto_if_src
+000088  bd7c              POP      {r2-r6,pc}
+;;;695    
+                          ENDP
+
+00008a  0000              DCW      0x0000
+                  |L16.140|
+00008c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000090  6964646c
+000094  65776172
+000098  65735c54
+00009c  68697264
+0000a0  5f506172
+0000a4  74795c4c
+0000a8  7749505c
+0000ac  7372635c
+0000b0  636f7265
+0000b4  5c756470
+0000b8  2e6300  
+0000bb  00                DCB      0
+                  |L16.188|
+0000bc  7564705f          DCB      "udp_sendto_if: invalid pcb",0
+0000c0  73656e64
+0000c4  746f5f69
+0000c8  663a2069
+0000cc  6e76616c
+0000d0  69642070
+0000d4  636200  
+0000d7  00                DCB      0
+                  |L16.216|
+0000d8  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000dc  7274696f
+0000e0  6e202225
+0000e4  73222066
+0000e8  61696c65
+0000ec  64206174
+0000f0  206c696e
+0000f4  65202564
+0000f8  20696e20
+0000fc  25730a00
+                  |L16.256|
+000100  7564705f          DCB      "udp_sendto_if: invalid pbuf",0
+000104  73656e64
+000108  746f5f69
+00010c  663a2069
+000110  6e76616c
+000114  69642070
+000118  62756600
+                  |L16.284|
+00011c  7564705f          DCB      "udp_sendto_if: invalid dst_ip",0
+000120  73656e64
+000124  746f5f69
+000128  663a2069
+00012c  6e76616c
+000130  69642064
+000134  73745f69
+000138  7000    
+00013a  00                DCB      0
+00013b  00                DCB      0
+                  |L16.316|
+00013c  7564705f          DCB      "udp_sendto_if: invalid netif",0
+000140  73656e64
+000144  746f5f69
+000148  663a2069
+00014c  6e76616c
+000150  6964206e
+000154  65746966
+000158  00      
+000159  00                DCB      0
+00015a  00                DCB      0
+00015b  00                DCB      0
 
                           AREA ||i.udp_sendto_if_src||, CODE, READONLY, ALIGN=2
 
@@ -1306,335 +2083,463 @@
                           REQUIRE _printf_s
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   udp_sendto_if_src PROC
-;;;660    err_t
-;;;661    udp_sendto_if_src(struct udp_pcb *pcb, struct pbuf *p,
+;;;698    err_t
+;;;699    udp_sendto_if_src(struct udp_pcb *pcb, struct pbuf *p,
 000000  e92d4ffe          PUSH     {r1-r11,lr}
-;;;662      const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip)
-;;;663    {
-000004  e9dd9b0c          LDRD     r9,r11,[sp,#0x30]
-000008  4605              MOV      r5,r0
-00000a  460f              MOV      r7,r1
-00000c  4690              MOV      r8,r2
-00000e  469a              MOV      r10,r3
-;;;664    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
-;;;665      return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0, src_ip);
-;;;666    }
-;;;667    
-;;;668    /** Same as udp_sendto_if_src(), but with checksum */
-;;;669    err_t
-;;;670    udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
-;;;671                         u16_t dst_port, struct netif *netif, u8_t have_chksum,
-;;;672                         u16_t chksum, const ip_addr_t *src_ip)
-;;;673    {
-;;;674    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
-;;;675      struct udp_hdr *udphdr;
-;;;676      err_t err;
-;;;677      struct pbuf *q; /* q will be sent down the stack */
-;;;678      u8_t ip_proto;
-;;;679      u8_t ttl;
-;;;680    
-;;;681      if ((pcb == NULL) || (dst_ip == NULL) || !IP_ADDR_PCB_VERSION_MATCH(pcb, src_ip) ||
-000010  2d00              CMP      r5,#0
-000012  d005              BEQ      |L16.32|
-000014  f1b80f00          CMP      r8,#0
-000018  d002              BEQ      |L16.32|
-;;;682          !IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
-;;;683        return ERR_VAL;
-;;;684      }
-;;;685    
-;;;686    #if LWIP_IPV4 && IP_SOF_BROADCAST
-;;;687      /* broadcast filter? */
-;;;688      if (!ip_get_option(pcb, SOF_BROADCAST) &&
-;;;689    #if LWIP_IPV6
-;;;690          IP_IS_V4(dst_ip) &&
-;;;691    #endif /* LWIP_IPV6 */
-;;;692          ip_addr_isbroadcast(dst_ip, netif)) {
-;;;693        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;694          ("udp_sendto_if: SOF_BROADCAST not enabled on pcb %p\n", (void *)pcb));
-;;;695        return ERR_VAL;
-;;;696      }
-;;;697    #endif /* LWIP_IPV4 && IP_SOF_BROADCAST */
-;;;698    
-;;;699      /* if the PCB is not yet bound to a port, bind it here */
-;;;700      if (pcb->local_port == 0) {
-00001a  8a6a              LDRH     r2,[r5,#0x12]
-00001c  b122              CBZ      r2,|L16.40|
-00001e  e009              B        |L16.52|
-                  |L16.32|
-000020  f06f0005          MVN      r0,#5                 ;683
-                  |L16.36|
-;;;701        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_send: not yet bound to a port, binding now\n"));
-;;;702        err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
-;;;703        if (err != ERR_OK) {
-;;;704          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: forced port bind failed\n"));
-;;;705          return err;
-;;;706        }
-;;;707      }
-;;;708    
-;;;709      /* not enough space to add an UDP header to first pbuf in given p chain? */
-;;;710      if (pbuf_header(p, UDP_HLEN)) {
-;;;711        /* allocate header in a separate new pbuf */
-;;;712        q = pbuf_alloc(PBUF_IP, UDP_HLEN, PBUF_RAM);
-;;;713        /* new header pbuf could not be allocated? */
-;;;714        if (q == NULL) {
-;;;715          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: could not allocate header\n"));
-;;;716          return ERR_MEM;
-;;;717        }
-;;;718        if (p->tot_len != 0) {
-;;;719          /* chain header q in front of given pbuf p (only if p contains data) */
-;;;720          pbuf_chain(q, p);
-;;;721        }
-;;;722        /* first pbuf q points to header pbuf */
-;;;723        LWIP_DEBUGF(UDP_DEBUG,
-;;;724                    ("udp_send: added header pbuf %p before given pbuf %p\n", (void *)q, (void *)p));
-;;;725      } else {
-;;;726        /* adding space for header within p succeeded */
-;;;727        /* first pbuf q equals given pbuf */
-;;;728        q = p;
-;;;729        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: added header in given pbuf %p\n", (void *)p));
+;;;700                      const ip_addr_t *dst_ip, u16_t dst_port, struct netif *netif, const ip_addr_t *src_ip)
+;;;701    {
+000004  e9dd8a0c          LDRD     r8,r10,[sp,#0x30]
+000008  4606              MOV      r6,r0
+00000a  460d              MOV      r5,r1
+00000c  4691              MOV      r9,r2
+00000e  469b              MOV      r11,r3
+;;;702    #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
+;;;703      return udp_sendto_if_src_chksum(pcb, p, dst_ip, dst_port, netif, 0, 0, src_ip);
+;;;704    }
+;;;705    
+;;;706    /** Same as udp_sendto_if_src(), but with checksum */
+;;;707    err_t
+;;;708    udp_sendto_if_src_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
+;;;709                             u16_t dst_port, struct netif *netif, u8_t have_chksum,
+;;;710                             u16_t chksum, const ip_addr_t *src_ip)
+;;;711    {
+;;;712    #endif /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
+;;;713      struct udp_hdr *udphdr;
+;;;714      err_t err;
+;;;715      struct pbuf *q; /* q will be sent down the stack */
+;;;716      u8_t ip_proto;
+;;;717      u8_t ttl;
+;;;718    
+;;;719      LWIP_ASSERT_CORE_LOCKED();
+;;;720    
+;;;721      LWIP_ERROR("udp_sendto_if_src: invalid pcb", pcb != NULL, return ERR_ARG);
+000010  f06f040f          MVN      r4,#0xf
+000014  2e00              CMP      r6,#0
+000016  d00e              BEQ      |L17.54|
+;;;722      LWIP_ERROR("udp_sendto_if_src: invalid pbuf", p != NULL, return ERR_ARG);
+000018  2d00              CMP      r5,#0
+00001a  d016              BEQ      |L17.74|
+;;;723      LWIP_ERROR("udp_sendto_if_src: invalid dst_ip", dst_ip != NULL, return ERR_ARG);
+00001c  f1b90f00          CMP      r9,#0
+000020  d01c              BEQ      |L17.92|
+;;;724      LWIP_ERROR("udp_sendto_if_src: invalid src_ip", src_ip != NULL, return ERR_ARG);
+000022  f1ba0f00          CMP      r10,#0
+000026  d022              BEQ      |L17.110|
+;;;725      LWIP_ERROR("udp_sendto_if_src: invalid netif", netif != NULL, return ERR_ARG);
+000028  f1b80f00          CMP      r8,#0
+00002c  d028              BEQ      |L17.128|
+;;;726    
+;;;727      if (!IP_ADDR_PCB_VERSION_MATCH(pcb, src_ip) ||
+;;;728          !IP_ADDR_PCB_VERSION_MATCH(pcb, dst_ip)) {
+;;;729        return ERR_VAL;
 ;;;730      }
-;;;731      LWIP_ASSERT("check that first pbuf can hold struct udp_hdr",
-;;;732                  (q->len >= sizeof(struct udp_hdr)));
-;;;733      /* q now represents the packet to be sent */
-;;;734      udphdr = (struct udp_hdr *)q->payload;
-;;;735      udphdr->src = lwip_htons(pcb->local_port);
-;;;736      udphdr->dest = lwip_htons(dst_port);
-;;;737      /* in UDP, 0 checksum means 'no checksum' */
-;;;738      udphdr->chksum = 0x0000;
-;;;739    
-;;;740      /* Multicast Loop? */
-;;;741    #if (LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS) || (LWIP_IPV6 && LWIP_IPV6_MLD)
-;;;742      if (((pcb->flags & UDP_FLAGS_MULTICAST_LOOP) != 0) && ip_addr_ismulticast(dst_ip)) {
-;;;743        q->flags |= PBUF_FLAG_MCASTLOOP;
-;;;744      }
-;;;745    #endif /* (LWIP_IPV4 && LWIP_MULTICAST_TX_OPTIONS) || (LWIP_IPV6 && LWIP_IPV6_MLD) */
-;;;746    
-;;;747      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: sending datagram of length %"U16_F"\n", q->tot_len));
-;;;748    
-;;;749    #if LWIP_UDPLITE
-;;;750      /* UDP Lite protocol? */
-;;;751      if (pcb->flags & UDP_FLAGS_UDPLITE) {
-;;;752        u16_t chklen, chklen_hdr;
-;;;753        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP LITE packet length %"U16_F"\n", q->tot_len));
-;;;754        /* set UDP message length in UDP header */
-;;;755        chklen_hdr = chklen = pcb->chksum_len_tx;
-;;;756        if ((chklen < sizeof(struct udp_hdr)) || (chklen > q->tot_len)) {
-;;;757          if (chklen != 0) {
-;;;758            LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP LITE pcb->chksum_len is illegal: %"U16_F"\n", chklen));
-;;;759          }
-;;;760          /* For UDP-Lite, checksum length of 0 means checksum
-;;;761             over the complete packet. (See RFC 3828 chap. 3.1)
-;;;762             At least the UDP-Lite header must be covered by the
-;;;763             checksum, therefore, if chksum_len has an illegal
-;;;764             value, we generate the checksum over the complete
-;;;765             packet to be safe. */
-;;;766          chklen_hdr = 0;
-;;;767          chklen = q->tot_len;
-;;;768        }
-;;;769        udphdr->len = lwip_htons(chklen_hdr);
-;;;770        /* calculate checksum */
-;;;771    #if CHECKSUM_GEN_UDP
-;;;772        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_UDP) {
-;;;773    #if LWIP_CHECKSUM_ON_COPY
-;;;774          if (have_chksum) {
-;;;775            chklen = UDP_HLEN;
-;;;776          }
-;;;777    #endif /* LWIP_CHECKSUM_ON_COPY */
-;;;778          udphdr->chksum = ip_chksum_pseudo_partial(q, IP_PROTO_UDPLITE,
-;;;779            q->tot_len, chklen, src_ip, dst_ip);
-;;;780    #if LWIP_CHECKSUM_ON_COPY
-;;;781          if (have_chksum) {
-;;;782            u32_t acc;
-;;;783            acc = udphdr->chksum + (u16_t)~(chksum);
-;;;784            udphdr->chksum = FOLD_U32T(acc);
-;;;785          }
-;;;786    #endif /* LWIP_CHECKSUM_ON_COPY */
-;;;787    
-;;;788          /* chksum zero must become 0xffff, as zero means 'no checksum' */
-;;;789          if (udphdr->chksum == 0x0000) {
-;;;790            udphdr->chksum = 0xffff;
-;;;791          }
-;;;792        }
-;;;793    #endif /* CHECKSUM_GEN_UDP */
-;;;794    
-;;;795        ip_proto = IP_PROTO_UDPLITE;
-;;;796      } else
-;;;797    #endif /* LWIP_UDPLITE */
-;;;798      {      /* UDP */
-;;;799        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP packet length %"U16_F"\n", q->tot_len));
-;;;800        udphdr->len = lwip_htons(q->tot_len);
-;;;801        /* calculate checksum */
-;;;802    #if CHECKSUM_GEN_UDP
-;;;803        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_UDP) {
-;;;804          /* Checksum is mandatory over IPv6. */
-;;;805          if (IP_IS_V6(dst_ip) || (pcb->flags & UDP_FLAGS_NOCHKSUM) == 0) {
-;;;806            u16_t udpchksum;
-;;;807    #if LWIP_CHECKSUM_ON_COPY
-;;;808            if (have_chksum) {
-;;;809              u32_t acc;
-;;;810              udpchksum = ip_chksum_pseudo_partial(q, IP_PROTO_UDP,
-;;;811                q->tot_len, UDP_HLEN, src_ip, dst_ip);
-;;;812              acc = udpchksum + (u16_t)~(chksum);
-;;;813              udpchksum = FOLD_U32T(acc);
-;;;814            } else
-;;;815    #endif /* LWIP_CHECKSUM_ON_COPY */
-;;;816            {
-;;;817              udpchksum = ip_chksum_pseudo(q, IP_PROTO_UDP, q->tot_len,
-;;;818                src_ip, dst_ip);
-;;;819            }
-;;;820    
-;;;821            /* chksum zero must become 0xffff, as zero means 'no checksum' */
-;;;822            if (udpchksum == 0x0000) {
-;;;823              udpchksum = 0xffff;
-;;;824            }
-;;;825            udphdr->chksum = udpchksum;
+;;;731    
+;;;732    #if LWIP_IPV4 && IP_SOF_BROADCAST
+;;;733      /* broadcast filter? */
+;;;734      if (!ip_get_option(pcb, SOF_BROADCAST) &&
+;;;735    #if LWIP_IPV6
+;;;736          IP_IS_V4(dst_ip) &&
+;;;737    #endif /* LWIP_IPV6 */
+;;;738          ip_addr_isbroadcast(dst_ip, netif)) {
+;;;739        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;740                    ("udp_sendto_if: SOF_BROADCAST not enabled on pcb %p\n", (void *)pcb));
+;;;741        return ERR_VAL;
+;;;742      }
+;;;743    #endif /* LWIP_IPV4 && IP_SOF_BROADCAST */
+;;;744    
+;;;745      /* if the PCB is not yet bound to a port, bind it here */
+;;;746      if (pcb->local_port == 0) {
+00002e  8a72              LDRH     r2,[r6,#0x12]
+000030  2a00              CMP      r2,#0
+000032  d02e              BEQ      |L17.146|
+000034  e033              B        |L17.158|
+                  |L17.54|
+000036  a341              ADR      r3,|L17.316|
+000038  f24022d1          MOV      r2,#0x2d1             ;721
+00003c  a14b              ADR      r1,|L17.364|
+00003e  a053              ADR      r0,|L17.396|
+000040  f7fffffe          BL       __2printf
+000044  4620              MOV      r0,r4                 ;721
+                  |L17.70|
+;;;747        LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE, ("udp_send: not yet bound to a port, binding now\n"));
+;;;748        err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
+;;;749        if (err != ERR_OK) {
+;;;750          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: forced port bind failed\n"));
+;;;751          return err;
+;;;752        }
+;;;753      }
+;;;754    
+;;;755      /* packet too large to add a UDP header without causing an overflow? */
+;;;756      if ((u16_t)(p->tot_len + UDP_HLEN) < p->tot_len) {
+;;;757        return ERR_MEM;
+;;;758      }
+;;;759      /* not enough space to add an UDP header to first pbuf in given p chain? */
+;;;760      if (pbuf_add_header(p, UDP_HLEN)) {
+;;;761        /* allocate header in a separate new pbuf */
+;;;762        q = pbuf_alloc(PBUF_IP, UDP_HLEN, PBUF_RAM);
+;;;763        /* new header pbuf could not be allocated? */
+;;;764        if (q == NULL) {
+;;;765          LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("udp_send: could not allocate header\n"));
+;;;766          return ERR_MEM;
+;;;767        }
+;;;768        if (p->tot_len != 0) {
+;;;769          /* chain header q in front of given pbuf p (only if p contains data) */
+;;;770          pbuf_chain(q, p);
+;;;771        }
+;;;772        /* first pbuf q points to header pbuf */
+;;;773        LWIP_DEBUGF(UDP_DEBUG,
+;;;774                    ("udp_send: added header pbuf %p before given pbuf %p\n", (void *)q, (void *)p));
+;;;775      } else {
+;;;776        /* adding space for header within p succeeded */
+;;;777        /* first pbuf q equals given pbuf */
+;;;778        q = p;
+;;;779        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: added header in given pbuf %p\n", (void *)p));
+;;;780      }
+;;;781      LWIP_ASSERT("check that first pbuf can hold struct udp_hdr",
+;;;782                  (q->len >= sizeof(struct udp_hdr)));
+;;;783      /* q now represents the packet to be sent */
+;;;784      udphdr = (struct udp_hdr *)q->payload;
+;;;785      udphdr->src = lwip_htons(pcb->local_port);
+;;;786      udphdr->dest = lwip_htons(dst_port);
+;;;787      /* in UDP, 0 checksum means 'no checksum' */
+;;;788      udphdr->chksum = 0x0000;
+;;;789    
+;;;790      /* Multicast Loop? */
+;;;791    #if LWIP_MULTICAST_TX_OPTIONS
+;;;792      if (((pcb->flags & UDP_FLAGS_MULTICAST_LOOP) != 0) && ip_addr_ismulticast(dst_ip)) {
+;;;793        q->flags |= PBUF_FLAG_MCASTLOOP;
+;;;794      }
+;;;795    #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;796    
+;;;797      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: sending datagram of length %"U16_F"\n", q->tot_len));
+;;;798    
+;;;799    #if LWIP_UDPLITE
+;;;800      /* UDP Lite protocol? */
+;;;801      if (pcb->flags & UDP_FLAGS_UDPLITE) {
+;;;802        u16_t chklen, chklen_hdr;
+;;;803        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP LITE packet length %"U16_F"\n", q->tot_len));
+;;;804        /* set UDP message length in UDP header */
+;;;805        chklen_hdr = chklen = pcb->chksum_len_tx;
+;;;806        if ((chklen < sizeof(struct udp_hdr)) || (chklen > q->tot_len)) {
+;;;807          if (chklen != 0) {
+;;;808            LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP LITE pcb->chksum_len is illegal: %"U16_F"\n", chklen));
+;;;809          }
+;;;810          /* For UDP-Lite, checksum length of 0 means checksum
+;;;811             over the complete packet. (See RFC 3828 chap. 3.1)
+;;;812             At least the UDP-Lite header must be covered by the
+;;;813             checksum, therefore, if chksum_len has an illegal
+;;;814             value, we generate the checksum over the complete
+;;;815             packet to be safe. */
+;;;816          chklen_hdr = 0;
+;;;817          chklen = q->tot_len;
+;;;818        }
+;;;819        udphdr->len = lwip_htons(chklen_hdr);
+;;;820        /* calculate checksum */
+;;;821    #if CHECKSUM_GEN_UDP
+;;;822        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_UDP) {
+;;;823    #if LWIP_CHECKSUM_ON_COPY
+;;;824          if (have_chksum) {
+;;;825            chklen = UDP_HLEN;
 ;;;826          }
-;;;827        }
-;;;828    #endif /* CHECKSUM_GEN_UDP */
-;;;829        ip_proto = IP_PROTO_UDP;
-;;;830      }
-;;;831    
-;;;832      /* Determine TTL to use */
-;;;833    #if LWIP_MULTICAST_TX_OPTIONS
-;;;834      ttl = (ip_addr_ismulticast(dst_ip) ? udp_get_multicast_ttl(pcb) : pcb->ttl);
-;;;835    #else /* LWIP_MULTICAST_TX_OPTIONS */
-;;;836      ttl = pcb->ttl;
-;;;837    #endif /* LWIP_MULTICAST_TX_OPTIONS */
-;;;838    
-;;;839      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP checksum 0x%04"X16_F"\n", udphdr->chksum));
-;;;840      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: ip_output_if (,,,,0x%02"X16_F",)\n", (u16_t)ip_proto));
-;;;841      /* output to IP */
-;;;842      NETIF_SET_HWADDRHINT(netif, &(pcb->addr_hint));
-;;;843      err = ip_output_if_src(q, src_ip, dst_ip, ttl, pcb->tos, ip_proto, netif);
-;;;844      NETIF_SET_HWADDRHINT(netif, NULL);
-;;;845    
-;;;846      /* @todo: must this be increased even if error occurred? */
-;;;847      MIB2_STATS_INC(mib2.udpoutdatagrams);
-;;;848    
-;;;849      /* did we chain a separate header pbuf earlier? */
-;;;850      if (q != p) {
-;;;851        /* free the header pbuf */
-;;;852        pbuf_free(q);
-;;;853        q = NULL;
-;;;854        /* p is still referenced by the caller, and will live on */
-;;;855      }
-;;;856    
-;;;857      UDP_STATS_INC(udp.xmit);
-;;;858      return err;
-;;;859    }
-000024  e8bd8ffe          POP      {r1-r11,pc}
-                  |L16.40|
-000028  4629              MOV      r1,r5                 ;702
-00002a  4628              MOV      r0,r5                 ;702
-00002c  f7fffffe          BL       udp_bind
-000030  2800              CMP      r0,#0                 ;703
-000032  d1f7              BNE      |L16.36|
-                  |L16.52|
-000034  2108              MOVS     r1,#8                 ;710
-000036  4638              MOV      r0,r7                 ;710
-000038  f7fffffe          BL       pbuf_header
-00003c  b188              CBZ      r0,|L16.98|
-00003e  2200              MOVS     r2,#0                 ;712
-000040  2108              MOVS     r1,#8                 ;712
-000042  2001              MOVS     r0,#1                 ;712
-000044  f7fffffe          BL       pbuf_alloc
-000048  4604              MOV      r4,r0                 ;712
-00004a  0020              MOVS     r0,r4                 ;714
-00004c  d006              BEQ      |L16.92|
-00004e  8938              LDRH     r0,[r7,#8]            ;718
-000050  b140              CBZ      r0,|L16.100|
-000052  4639              MOV      r1,r7                 ;720
-000054  4620              MOV      r0,r4                 ;720
-000056  f7fffffe          BL       pbuf_chain
-00005a  e003              B        |L16.100|
-                  |L16.92|
-00005c  f04f30ff          MOV      r0,#0xffffffff        ;716
-000060  e7e0              B        |L16.36|
-                  |L16.98|
-000062  463c              MOV      r4,r7                 ;728
-                  |L16.100|
-000064  8960              LDRH     r0,[r4,#0xa]          ;731
-000066  2808              CMP      r0,#8                 ;731
-000068  d206              BCS      |L16.120|
-00006a  a314              ADR      r3,|L16.188|
-00006c  f24022db          MOV      r2,#0x2db             ;731
-000070  a11e              ADR      r1,|L16.236|
-000072  a02a              ADR      r0,|L16.284|
-000074  f7fffffe          BL       __2printf
-                  |L16.120|
-000078  6866              LDR      r6,[r4,#4]            ;734
-00007a  8a68              LDRH     r0,[r5,#0x12]         ;735
-00007c  f7fffffe          BL       lwip_htons
-000080  8030              STRH     r0,[r6,#0]            ;735
-000082  4650              MOV      r0,r10                ;736
-000084  f7fffffe          BL       lwip_htons
-000088  8070              STRH     r0,[r6,#2]            ;736
-00008a  2000              MOVS     r0,#0                 ;738
-00008c  80f0              STRH     r0,[r6,#6]            ;738
-00008e  8920              LDRH     r0,[r4,#8]            ;800
-000090  f7fffffe          BL       lwip_htons
-000094  80b0              STRH     r0,[r6,#4]            ;800
-000096  2011              MOVS     r0,#0x11              ;829
-000098  7aab              LDRB     r3,[r5,#0xa]          ;836
-00009a  7a69              LDRB     r1,[r5,#9]            ;843
-00009c  e9cd0901          STRD     r0,r9,[sp,#4]         ;843
-0000a0  9100              STR      r1,[sp,#0]            ;843
-0000a2  4642              MOV      r2,r8                 ;843
-0000a4  4659              MOV      r1,r11                ;843
-0000a6  4620              MOV      r0,r4                 ;843
-0000a8  f7fffffe          BL       ip4_output_if_src
-0000ac  4605              MOV      r5,r0                 ;843
-0000ae  42bc              CMP      r4,r7                 ;850
-0000b0  d002              BEQ      |L16.184|
-0000b2  4620              MOV      r0,r4                 ;852
-0000b4  f7fffffe          BL       pbuf_free
-                  |L16.184|
-0000b8  4628              MOV      r0,r5                 ;858
-0000ba  e7b3              B        |L16.36|
-;;;860    
+;;;827    #endif /* LWIP_CHECKSUM_ON_COPY */
+;;;828          udphdr->chksum = ip_chksum_pseudo_partial(q, IP_PROTO_UDPLITE,
+;;;829                           q->tot_len, chklen, src_ip, dst_ip);
+;;;830    #if LWIP_CHECKSUM_ON_COPY
+;;;831          if (have_chksum) {
+;;;832            u32_t acc;
+;;;833            acc = udphdr->chksum + (u16_t)~(chksum);
+;;;834            udphdr->chksum = FOLD_U32T(acc);
+;;;835          }
+;;;836    #endif /* LWIP_CHECKSUM_ON_COPY */
+;;;837    
+;;;838          /* chksum zero must become 0xffff, as zero means 'no checksum' */
+;;;839          if (udphdr->chksum == 0x0000) {
+;;;840            udphdr->chksum = 0xffff;
+;;;841          }
+;;;842        }
+;;;843    #endif /* CHECKSUM_GEN_UDP */
+;;;844    
+;;;845        ip_proto = IP_PROTO_UDPLITE;
+;;;846      } else
+;;;847    #endif /* LWIP_UDPLITE */
+;;;848      {      /* UDP */
+;;;849        LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP packet length %"U16_F"\n", q->tot_len));
+;;;850        udphdr->len = lwip_htons(q->tot_len);
+;;;851        /* calculate checksum */
+;;;852    #if CHECKSUM_GEN_UDP
+;;;853        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_UDP) {
+;;;854          /* Checksum is mandatory over IPv6. */
+;;;855          if (IP_IS_V6(dst_ip) || (pcb->flags & UDP_FLAGS_NOCHKSUM) == 0) {
+;;;856            u16_t udpchksum;
+;;;857    #if LWIP_CHECKSUM_ON_COPY
+;;;858            if (have_chksum) {
+;;;859              u32_t acc;
+;;;860              udpchksum = ip_chksum_pseudo_partial(q, IP_PROTO_UDP,
+;;;861                                                   q->tot_len, UDP_HLEN, src_ip, dst_ip);
+;;;862              acc = udpchksum + (u16_t)~(chksum);
+;;;863              udpchksum = FOLD_U32T(acc);
+;;;864            } else
+;;;865    #endif /* LWIP_CHECKSUM_ON_COPY */
+;;;866            {
+;;;867              udpchksum = ip_chksum_pseudo(q, IP_PROTO_UDP, q->tot_len,
+;;;868                                           src_ip, dst_ip);
+;;;869            }
+;;;870    
+;;;871            /* chksum zero must become 0xffff, as zero means 'no checksum' */
+;;;872            if (udpchksum == 0x0000) {
+;;;873              udpchksum = 0xffff;
+;;;874            }
+;;;875            udphdr->chksum = udpchksum;
+;;;876          }
+;;;877        }
+;;;878    #endif /* CHECKSUM_GEN_UDP */
+;;;879        ip_proto = IP_PROTO_UDP;
+;;;880      }
+;;;881    
+;;;882      /* Determine TTL to use */
+;;;883    #if LWIP_MULTICAST_TX_OPTIONS
+;;;884      ttl = (ip_addr_ismulticast(dst_ip) ? udp_get_multicast_ttl(pcb) : pcb->ttl);
+;;;885    #else /* LWIP_MULTICAST_TX_OPTIONS */
+;;;886      ttl = pcb->ttl;
+;;;887    #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;888    
+;;;889      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: UDP checksum 0x%04"X16_F"\n", udphdr->chksum));
+;;;890      LWIP_DEBUGF(UDP_DEBUG, ("udp_send: ip_output_if (,,,,0x%02"X16_F",)\n", (u16_t)ip_proto));
+;;;891      /* output to IP */
+;;;892      NETIF_SET_HINTS(netif, &(pcb->netif_hints));
+;;;893      err = ip_output_if_src(q, src_ip, dst_ip, ttl, pcb->tos, ip_proto, netif);
+;;;894      NETIF_RESET_HINTS(netif);
+;;;895    
+;;;896      /* @todo: must this be increased even if error occurred? */
+;;;897      MIB2_STATS_INC(mib2.udpoutdatagrams);
+;;;898    
+;;;899      /* did we chain a separate header pbuf earlier? */
+;;;900      if (q != p) {
+;;;901        /* free the header pbuf */
+;;;902        pbuf_free(q);
+;;;903        q = NULL;
+;;;904        /* p is still referenced by the caller, and will live on */
+;;;905      }
+;;;906    
+;;;907      UDP_STATS_INC(udp.xmit);
+;;;908      return err;
+;;;909    }
+000046  e8bd8ffe          POP      {r1-r11,pc}
+                  |L17.74|
+00004a  a33c              ADR      r3,|L17.316|
+00004c  f24022d2          MOV      r2,#0x2d2             ;722
+000050  a158              ADR      r1,|L17.436|
+000052  a04e              ADR      r0,|L17.396|
+000054  f7fffffe          BL       __2printf
+000058  4620              MOV      r0,r4                 ;722
+00005a  e7f4              B        |L17.70|
+                  |L17.92|
+00005c  a337              ADR      r3,|L17.316|
+00005e  f24022d3          MOV      r2,#0x2d3             ;723
+000062  a15c              ADR      r1,|L17.468|
+000064  a049              ADR      r0,|L17.396|
+000066  f7fffffe          BL       __2printf
+00006a  4620              MOV      r0,r4                 ;723
+00006c  e7eb              B        |L17.70|
+                  |L17.110|
+00006e  a333              ADR      r3,|L17.316|
+000070  f44f7235          MOV      r2,#0x2d4             ;724
+000074  a160              ADR      r1,|L17.504|
+000076  a045              ADR      r0,|L17.396|
+000078  f7fffffe          BL       __2printf
+00007c  4620              MOV      r0,r4                 ;724
+00007e  e7e2              B        |L17.70|
+                  |L17.128|
+000080  a32e              ADR      r3,|L17.316|
+000082  f24022d5          MOV      r2,#0x2d5             ;725
+000086  a165              ADR      r1,|L17.540|
+000088  a040              ADR      r0,|L17.396|
+00008a  f7fffffe          BL       __2printf
+00008e  4620              MOV      r0,r4                 ;725
+000090  e7d9              B        |L17.70|
+                  |L17.146|
+000092  4631              MOV      r1,r6                 ;748
+000094  4630              MOV      r0,r6                 ;748
+000096  f7fffffe          BL       udp_bind
+00009a  2800              CMP      r0,#0                 ;749
+00009c  d1d3              BNE      |L17.70|
+                  |L17.158|
+00009e  8928              LDRH     r0,[r5,#8]            ;756
+0000a0  f04f37ff          MOV      r7,#0xffffffff        ;757
+0000a4  f1000108          ADD      r1,r0,#8              ;756
+0000a8  b289              UXTH     r1,r1                 ;756
+0000aa  4281              CMP      r1,r0                 ;756
+0000ac  d201              BCS      |L17.178|
+0000ae  4638              MOV      r0,r7                 ;757
+0000b0  e7c9              B        |L17.70|
+                  |L17.178|
+0000b2  2108              MOVS     r1,#8                 ;760
+0000b4  4628              MOV      r0,r5                 ;760
+0000b6  f7fffffe          BL       pbuf_add_header
+0000ba  b188              CBZ      r0,|L17.224|
+0000bc  f44f7220          MOV      r2,#0x280             ;762
+0000c0  2108              MOVS     r1,#8                 ;762
+0000c2  2022              MOVS     r0,#0x22              ;762
+0000c4  f7fffffe          BL       pbuf_alloc
+0000c8  4604              MOV      r4,r0                 ;762
+0000ca  0020              MOVS     r0,r4                 ;764
+0000cc  d006              BEQ      |L17.220|
+0000ce  8928              LDRH     r0,[r5,#8]            ;768
+0000d0  b138              CBZ      r0,|L17.226|
+0000d2  4629              MOV      r1,r5                 ;770
+0000d4  4620              MOV      r0,r4                 ;770
+0000d6  f7fffffe          BL       pbuf_chain
+0000da  e002              B        |L17.226|
+                  |L17.220|
+0000dc  4638              MOV      r0,r7                 ;766
+0000de  e7b2              B        |L17.70|
+                  |L17.224|
+0000e0  462c              MOV      r4,r5                 ;778
+                  |L17.226|
+0000e2  8960              LDRH     r0,[r4,#0xa]          ;781
+0000e4  2808              CMP      r0,#8                 ;781
+0000e6  d206              BCS      |L17.246|
+0000e8  a314              ADR      r3,|L17.316|
+0000ea  f240320d          MOV      r2,#0x30d             ;781
+0000ee  a154              ADR      r1,|L17.576|
+0000f0  a026              ADR      r0,|L17.396|
+0000f2  f7fffffe          BL       __2printf
+                  |L17.246|
+0000f6  6867              LDR      r7,[r4,#4]            ;784
+0000f8  8a70              LDRH     r0,[r6,#0x12]         ;785
+0000fa  f7fffffe          BL       lwip_htons
+0000fe  8038              STRH     r0,[r7,#0]            ;785
+000100  4658              MOV      r0,r11                ;786
+000102  f7fffffe          BL       lwip_htons
+000106  8078              STRH     r0,[r7,#2]            ;786
+000108  2000              MOVS     r0,#0                 ;788
+00010a  80f8              STRH     r0,[r7,#6]            ;788
+00010c  8920              LDRH     r0,[r4,#8]            ;850
+00010e  f7fffffe          BL       lwip_htons
+000112  80b8              STRH     r0,[r7,#4]            ;850
+000114  2011              MOVS     r0,#0x11              ;879
+000116  7af3              LDRB     r3,[r6,#0xb]          ;886
+000118  7ab1              LDRB     r1,[r6,#0xa]          ;893
+00011a  e9cd0801          STRD     r0,r8,[sp,#4]         ;893
+00011e  9100              STR      r1,[sp,#0]            ;893
+000120  464a              MOV      r2,r9                 ;893
+000122  4651              MOV      r1,r10                ;893
+000124  4620              MOV      r0,r4                 ;893
+000126  f7fffffe          BL       ip4_output_if_src
+00012a  4606              MOV      r6,r0                 ;893
+00012c  42ac              CMP      r4,r5                 ;900
+00012e  d002              BEQ      |L17.310|
+000130  4620              MOV      r0,r4                 ;902
+000132  f7fffffe          BL       pbuf_free
+                  |L17.310|
+000136  4630              MOV      r0,r6                 ;908
+000138  e785              B        |L17.70|
+;;;910    
                           ENDP
 
-                  |L16.188|
-0000bc  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
-0000c0  6964646c
-0000c4  65776172
-0000c8  65735c54
-0000cc  68697264
-0000d0  5f506172
-0000d4  74795c4c
-0000d8  7749505c
-0000dc  7372635c
-0000e0  636f7265
-0000e4  5c756470
-0000e8  2e6300  
-0000eb  00                DCB      0
-                  |L16.236|
-0000ec  63686563          DCB      "check that first pbuf can hold struct udp_hdr",0
-0000f0  6b207468
-0000f4  61742066
-0000f8  69727374
-0000fc  20706275
-000100  66206361
-000104  6e20686f
-000108  6c642073
-00010c  74727563
-000110  74207564
-000114  705f6864
-000118  7200    
-00011a  00                DCB      0
-00011b  00                DCB      0
-                  |L16.284|
-00011c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000120  7274696f
-000124  6e202225
-000128  73222066
-00012c  61696c65
-000130  64206174
-000134  206c696e
-000138  65202564
-00013c  20696e20
-000140  25730a00
+00013a  0000              DCW      0x0000
+                  |L17.316|
+00013c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\udp.c",0
+000140  6964646c
+000144  65776172
+000148  65735c54
+00014c  68697264
+000150  5f506172
+000154  74795c4c
+000158  7749505c
+00015c  7372635c
+000160  636f7265
+000164  5c756470
+000168  2e6300  
+00016b  00                DCB      0
+                  |L17.364|
+00016c  7564705f          DCB      "udp_sendto_if_src: invalid pcb",0
+000170  73656e64
+000174  746f5f69
+000178  665f7372
+00017c  633a2069
+000180  6e76616c
+000184  69642070
+000188  636200  
+00018b  00                DCB      0
+                  |L17.396|
+00018c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000190  7274696f
+000194  6e202225
+000198  73222066
+00019c  61696c65
+0001a0  64206174
+0001a4  206c696e
+0001a8  65202564
+0001ac  20696e20
+0001b0  25730a00
+                  |L17.436|
+0001b4  7564705f          DCB      "udp_sendto_if_src: invalid pbuf",0
+0001b8  73656e64
+0001bc  746f5f69
+0001c0  665f7372
+0001c4  633a2069
+0001c8  6e76616c
+0001cc  69642070
+0001d0  62756600
+                  |L17.468|
+0001d4  7564705f          DCB      "udp_sendto_if_src: invalid dst_ip",0
+0001d8  73656e64
+0001dc  746f5f69
+0001e0  665f7372
+0001e4  633a2069
+0001e8  6e76616c
+0001ec  69642064
+0001f0  73745f69
+0001f4  7000    
+0001f6  00                DCB      0
+0001f7  00                DCB      0
+                  |L17.504|
+0001f8  7564705f          DCB      "udp_sendto_if_src: invalid src_ip",0
+0001fc  73656e64
+000200  746f5f69
+000204  665f7372
+000208  633a2069
+00020c  6e76616c
+000210  69642073
+000214  72635f69
+000218  7000    
+00021a  00                DCB      0
+00021b  00                DCB      0
+                  |L17.540|
+00021c  7564705f          DCB      "udp_sendto_if_src: invalid netif",0
+000220  73656e64
+000224  746f5f69
+000228  665f7372
+00022c  633a2069
+000230  6e76616c
+000234  6964206e
+000238  65746966
+00023c  00      
+00023d  00                DCB      0
+00023e  00                DCB      0
+00023f  00                DCB      0
+                  |L17.576|
+000240  63686563          DCB      "check that first pbuf can hold struct udp_hdr",0
+000244  6b207468
+000248  61742066
+00024c  69727374
+000250  20706275
+000254  66206361
+000258  6e20686f
+00025c  6c642073
+000260  74727563
+000264  74207564
+000268  705f6864
+00026c  7200    
+00026e  00                DCB      0
+00026f  00                DCB      0
 
                           AREA ||.data||, DATA, ALIGN=2
 

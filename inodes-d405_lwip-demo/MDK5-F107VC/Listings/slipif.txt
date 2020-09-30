@@ -4,112 +4,156 @@
 
                           AREA ||i.slipif_init||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   slipif_init PROC
-;;;360    err_t
-;;;361    slipif_init(struct netif *netif)
+;;;359    err_t
+;;;360    slipif_init(struct netif *netif)
 000000  b570              PUSH     {r4-r6,lr}
-;;;362    {
+;;;361    {
 000002  4605              MOV      r5,r0
-;;;363      struct slipif_priv *priv;
-;;;364      u8_t sio_num;
-;;;365    
-;;;366      LWIP_DEBUGF(SLIP_DEBUG, ("slipif_init: netif->num=%"U16_F"\n", (u16_t)netif->num));
-;;;367    
-;;;368      /* Allocate private data */
-;;;369      priv = (struct slipif_priv *)mem_malloc(sizeof(struct slipif_priv));
-000004  2014              MOVS     r0,#0x14
-000006  f7fffffe          BL       mem_malloc
-00000a  4604              MOV      r4,r0
-;;;370      if (!priv) {
-00000c  0020              MOVS     r0,r4
-00000e  d00e              BEQ      |L1.46|
-;;;371        return ERR_MEM;
-;;;372      }
-;;;373    
-;;;374      netif->name[0] = 's';
-000010  2073              MOVS     r0,#0x73
-000012  f8850038          STRB     r0,[r5,#0x38]
-;;;375      netif->name[1] = 'l';
-000016  206c              MOVS     r0,#0x6c
-000018  f8850039          STRB     r0,[r5,#0x39]
-;;;376    #if LWIP_IPV4
-;;;377      netif->output = slipif_output_v4;
-00001c  480f              LDR      r0,|L1.92|
-00001e  6168              STR      r0,[r5,#0x14]
-;;;378    #endif /* LWIP_IPV4 */
-;;;379    #if LWIP_IPV6
-;;;380      netif->output_ip6 = slipif_output_v6;
-;;;381    #endif /* LWIP_IPV6 */
-;;;382      netif->mtu = SLIP_MAX_SIZE;
-000020  f24050dc          MOV      r0,#0x5dc
-000024  85e8              STRH     r0,[r5,#0x2e]
-;;;383    
-;;;384      /* netif->state or netif->num contain the port number */
-;;;385      if (netif->state != NULL) {
-000026  6a68              LDR      r0,[r5,#0x24]
-000028  b120              CBZ      r0,|L1.52|
-;;;386        sio_num = *(u8_t*)netif->state;
-00002a  7800              LDRB     r0,[r0,#0]
-00002c  e004              B        |L1.56|
-                  |L1.46|
-00002e  f04f30ff          MOV      r0,#0xffffffff        ;371
-;;;387      } else {
-;;;388        sio_num = netif->num;
-;;;389      }
-;;;390      /* Try to open the serial port. */
-;;;391      priv->sd = sio_open(sio_num);
-;;;392      if (!priv->sd) {
-;;;393        /* Opening the serial port failed. */
-;;;394        mem_free(priv);
-;;;395        return ERR_IF;
-;;;396      }
-;;;397    
-;;;398      /* Initialize private data */
-;;;399      priv->p = NULL;
-;;;400      priv->q = NULL;
-;;;401      priv->state = SLIP_RECV_NORMAL;
-;;;402      priv->i = 0;
-;;;403      priv->recved = 0;
-;;;404    #if SLIP_RX_FROM_ISR
-;;;405      priv->rxpackets = NULL;
-;;;406    #endif
+;;;362      struct slipif_priv *priv;
+;;;363      u8_t sio_num;
+;;;364    
+;;;365      LWIP_ASSERT("slipif needs an input callback", netif->input != NULL);
+000004  6928              LDR      r0,[r5,#0x10]
+000006  2800              CMP      r0,#0
+000008  d106              BNE      |L1.24|
+00000a  a317              ADR      r3,|L1.104|
+00000c  f240126d          MOV      r2,#0x16d
+000010  a122              ADR      r1,|L1.156|
+000012  a02a              ADR      r0,|L1.188|
+000014  f7fffffe          BL       __2printf
+                  |L1.24|
+;;;366    
+;;;367      /* netif->state contains serial port number */
+;;;368      sio_num = LWIP_PTR_NUMERIC_CAST(u8_t, netif->state);
+000018  f8956024          LDRB     r6,[r5,#0x24]
+;;;369    
+;;;370      LWIP_DEBUGF(SLIP_DEBUG, ("slipif_init: netif->num=%"U16_F"\n", (u16_t)sio_num));
+;;;371    
+;;;372      /* Allocate private data */
+;;;373      priv = (struct slipif_priv *)mem_malloc(sizeof(struct slipif_priv));
+00001c  2014              MOVS     r0,#0x14
+00001e  f7fffffe          BL       mem_malloc
+000022  4604              MOV      r4,r0
+;;;374      if (!priv) {
+000024  b1bc              CBZ      r4,|L1.86|
+;;;375        return ERR_MEM;
+;;;376      }
+;;;377    
+;;;378      netif->name[0] = 's';
+000026  2073              MOVS     r0,#0x73
+000028  f8850036          STRB     r0,[r5,#0x36]
+;;;379      netif->name[1] = 'l';
+00002c  206c              MOVS     r0,#0x6c
+00002e  f8850037          STRB     r0,[r5,#0x37]
+;;;380    #if LWIP_IPV4
+;;;381      netif->output = slipif_output_v4;
+000032  482c              LDR      r0,|L1.228|
+000034  6168              STR      r0,[r5,#0x14]
+;;;382    #endif /* LWIP_IPV4 */
+;;;383    #if LWIP_IPV6
+;;;384      netif->output_ip6 = slipif_output_v6;
+;;;385    #endif /* LWIP_IPV6 */
+;;;386      netif->mtu = SLIP_MAX_SIZE;
+000036  f24050dc          MOV      r0,#0x5dc
+00003a  85a8              STRH     r0,[r5,#0x2c]
+;;;387    
+;;;388      /* Try to open the serial port. */
+;;;389      priv->sd = sio_open(sio_num);
+00003c  4630              MOV      r0,r6
+00003e  f7fffffe          BL       sio_open
+000042  6020              STR      r0,[r4,#0]
+;;;390      if (!priv->sd) {
+000044  b150              CBZ      r0,|L1.92|
+;;;391        /* Opening the serial port failed. */
+;;;392        mem_free(priv);
+;;;393        return ERR_IF;
+;;;394      }
+;;;395    
+;;;396      /* Initialize private data */
+;;;397      priv->p = NULL;
+000046  2000              MOVS     r0,#0
+000048  6060              STR      r0,[r4,#4]
+;;;398      priv->q = NULL;
+00004a  60a0              STR      r0,[r4,#8]
+;;;399      priv->state = SLIP_RECV_NORMAL;
+00004c  7320              STRB     r0,[r4,#0xc]
+;;;400      priv->i = 0;
+00004e  81e0              STRH     r0,[r4,#0xe]
+;;;401      priv->recved = 0;
+000050  8220              STRH     r0,[r4,#0x10]
+;;;402    #if SLIP_RX_FROM_ISR
+;;;403      priv->rxpackets = NULL;
+;;;404    #endif
+;;;405    
+;;;406      netif->state = priv;
+000052  626c              STR      r4,[r5,#0x24]
 ;;;407    
-;;;408      netif->state = priv;
-;;;409    
-;;;410      /* initialize the snmp variables and counters inside the struct netif */
-;;;411      MIB2_INIT_NETIF(netif, snmp_ifType_slip, SLIP_SIO_SPEED(priv->sd));
-;;;412    
-;;;413    #if SLIP_USE_RX_THREAD
-;;;414      /* Create a thread to poll the serial line. */
-;;;415      sys_thread_new(SLIPIF_THREAD_NAME, slipif_loop_thread, netif,
-;;;416        SLIPIF_THREAD_STACKSIZE, SLIPIF_THREAD_PRIO);
-;;;417    #endif /* SLIP_USE_RX_THREAD */
-;;;418      return ERR_OK;
-;;;419    }
-000032  bd70              POP      {r4-r6,pc}
-                  |L1.52|
-000034  f895003a          LDRB     r0,[r5,#0x3a]         ;388
-                  |L1.56|
-000038  f7fffffe          BL       sio_open
-00003c  6020              STR      r0,[r4,#0]            ;391
-00003e  b138              CBZ      r0,|L1.80|
-000040  2000              MOVS     r0,#0                 ;399
-000042  6060              STR      r0,[r4,#4]            ;399
-000044  60a0              STR      r0,[r4,#8]            ;400
-000046  7320              STRB     r0,[r4,#0xc]          ;401
-000048  81e0              STRH     r0,[r4,#0xe]          ;402
-00004a  8220              STRH     r0,[r4,#0x10]         ;403
-00004c  626c              STR      r4,[r5,#0x24]         ;408
-00004e  bd70              POP      {r4-r6,pc}
-                  |L1.80|
-000050  4620              MOV      r0,r4                 ;394
-000052  f7fffffe          BL       mem_free
-000056  f06f000b          MVN      r0,#0xb               ;395
+;;;408      /* initialize the snmp variables and counters inside the struct netif */
+;;;409      MIB2_INIT_NETIF(netif, snmp_ifType_slip, SLIP_SIO_SPEED(priv->sd));
+;;;410    
+;;;411    #if SLIP_USE_RX_THREAD
+;;;412      /* Create a thread to poll the serial line. */
+;;;413      sys_thread_new(SLIPIF_THREAD_NAME, slipif_loop_thread, netif,
+;;;414                     SLIPIF_THREAD_STACKSIZE, SLIPIF_THREAD_PRIO);
+;;;415    #endif /* SLIP_USE_RX_THREAD */
+;;;416      return ERR_OK;
+;;;417    }
+000054  bd70              POP      {r4-r6,pc}
+                  |L1.86|
+000056  f04f30ff          MOV      r0,#0xffffffff        ;375
 00005a  bd70              POP      {r4-r6,pc}
-;;;420    
+                  |L1.92|
+00005c  4620              MOV      r0,r4                 ;392
+00005e  f7fffffe          BL       mem_free
+000062  f06f000b          MVN      r0,#0xb               ;393
+000066  bd70              POP      {r4-r6,pc}
+;;;418    
                           ENDP
 
-                  |L1.92|
+                  |L1.104|
+000068  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\netif\\slipif."
+00006c  6964646c
+000070  65776172
+000074  65735c54
+000078  68697264
+00007c  5f506172
+000080  74795c4c
+000084  7749505c
+000088  7372635c
+00008c  6e657469
+000090  665c736c
+000094  69706966
+000098  2e      
+000099  6300              DCB      "c",0
+00009b  00                DCB      0
+                  |L1.156|
+00009c  736c6970          DCB      "slipif needs an input callback",0
+0000a0  6966206e
+0000a4  65656473
+0000a8  20616e20
+0000ac  696e7075
+0000b0  74206361
+0000b4  6c6c6261
+0000b8  636b00  
+0000bb  00                DCB      0
+                  |L1.188|
+0000bc  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000c0  7274696f
+0000c4  6e202225
+0000c8  73222066
+0000cc  61696c65
+0000d0  64206174
+0000d4  206c696e
+0000d8  65202564
+0000dc  20696e20
+0000e0  25730a00
+                  |L1.228|
                           DCD      slipif_output_v4
 
                           AREA ||i.slipif_output||, CODE, READONLY, ALIGN=2
@@ -160,7 +204,7 @@
 000030  f7fffffe          BL       __2printf
                   |L2.52|
 ;;;126    
-;;;127      LWIP_DEBUGF(SLIP_DEBUG, ("slipif_output(%"U16_F"): sending %"U16_F" bytes\n", (u16_t)netif->num, p->tot_len));
+;;;127      LWIP_DEBUGF(SLIP_DEBUG, ("slipif_output: sending %"U16_F" bytes\n", p->tot_len));
 ;;;128      priv = (struct slipif_priv *)netif->state;
 000034  6a64              LDR      r4,[r4,#0x24]
 ;;;129    
@@ -186,19 +230,19 @@
 00004a  d012              BEQ      |L2.114|
 00004c  28db              CMP      r0,#0xdb
 00004e  d019              BEQ      |L2.132|
-;;;138          case SLIP_END:
-;;;139            /* need to escape this byte (0xC0 -> 0xDB, 0xDC) */
-;;;140            sio_send(SLIP_ESC, priv->sd);
-;;;141            sio_send(SLIP_ESC_END, priv->sd);
-;;;142            break;
-;;;143          case SLIP_ESC:
-;;;144            /* need to escape this byte (0xDB -> 0xDB, 0xDD) */
-;;;145            sio_send(SLIP_ESC, priv->sd);
-;;;146            sio_send(SLIP_ESC_ESC, priv->sd);
-;;;147            break;
-;;;148          default:
-;;;149            /* normal byte - no need for escaping */
-;;;150            sio_send(c, priv->sd);
+;;;138            case SLIP_END:
+;;;139              /* need to escape this byte (0xC0 -> 0xDB, 0xDC) */
+;;;140              sio_send(SLIP_ESC, priv->sd);
+;;;141              sio_send(SLIP_ESC_END, priv->sd);
+;;;142              break;
+;;;143            case SLIP_ESC:
+;;;144              /* need to escape this byte (0xDB -> 0xDB, 0xDD) */
+;;;145              sio_send(SLIP_ESC, priv->sd);
+;;;146              sio_send(SLIP_ESC_ESC, priv->sd);
+;;;147              break;
+;;;148            default:
+;;;149              /* normal byte - no need for escaping */
+;;;150              sio_send(c, priv->sd);
 000050  6821              LDR      r1,[r4,#0]
 000052  f7fffffe          BL       sio_send
                   |L2.86|
@@ -212,7 +256,7 @@
                   |L2.98|
 000062  2e00              CMP      r6,#0                 ;134
 000064  d1ec              BNE      |L2.64|
-;;;151            break;
+;;;151              break;
 ;;;152          }
 ;;;153        }
 ;;;154      }
@@ -319,54 +363,54 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   slipif_poll PROC
-;;;426    void
-;;;427    slipif_poll(struct netif *netif)
+;;;425    void
+;;;426    slipif_poll(struct netif *netif)
 000000  b538              PUSH     {r3-r5,lr}
-;;;428    {
+;;;427    {
 000002  4605              MOV      r5,r0
-;;;429      u8_t c;
-;;;430      struct slipif_priv *priv;
-;;;431    
-;;;432      LWIP_ASSERT("netif != NULL", (netif != NULL));
+;;;428      u8_t c;
+;;;429      struct slipif_priv *priv;
+;;;430    
+;;;431      LWIP_ASSERT("netif != NULL", (netif != NULL));
 000004  2d00              CMP      r5,#0
 000006  d106              BNE      |L4.22|
 000008  a30f              ADR      r3,|L4.72|
-00000a  f44f72d8          MOV      r2,#0x1b0
+00000a  f24012af          MOV      r2,#0x1af
 00000e  a11b              ADR      r1,|L4.124|
 000010  a01e              ADR      r0,|L4.140|
 000012  f7fffffe          BL       __2printf
                   |L4.22|
-;;;433      LWIP_ASSERT("netif->state != NULL", (netif->state != NULL));
+;;;432      LWIP_ASSERT("netif->state != NULL", (netif->state != NULL));
 000016  6a68              LDR      r0,[r5,#0x24]
 000018  b930              CBNZ     r0,|L4.40|
 00001a  a30b              ADR      r3,|L4.72|
-00001c  f24012b1          MOV      r2,#0x1b1
+00001c  f44f72d8          MOV      r2,#0x1b0
 000020  a124              ADR      r1,|L4.180|
 000022  a01a              ADR      r0,|L4.140|
 000024  f7fffffe          BL       __2printf
                   |L4.40|
-;;;434    
-;;;435      priv = (struct slipif_priv *)netif->state;
+;;;433    
+;;;434      priv = (struct slipif_priv *)netif->state;
 000028  6a6c              LDR      r4,[r5,#0x24]
-;;;436    
-;;;437      while (sio_tryread(priv->sd, &c, 1) > 0) {
+;;;435    
+;;;436      while (sio_tryread(priv->sd, &c, 1) > 0) {
 00002a  e004              B        |L4.54|
                   |L4.44|
-;;;438        slipif_rxbyte_input(netif, c);
+;;;437        slipif_rxbyte_input(netif, c);
 00002c  f89d1000          LDRB     r1,[sp,#0]
 000030  4628              MOV      r0,r5
 000032  f7fffffe          BL       slipif_rxbyte_input
                   |L4.54|
-000036  2201              MOVS     r2,#1                 ;437
-000038  4669              MOV      r1,sp                 ;437
-00003a  6820              LDR      r0,[r4,#0]            ;437
+000036  2201              MOVS     r2,#1                 ;436
+000038  4669              MOV      r1,sp                 ;436
+00003a  6820              LDR      r0,[r4,#0]            ;436
 00003c  f7fffffe          BL       sio_tryread
-000040  2800              CMP      r0,#0                 ;437
+000040  2800              CMP      r0,#0                 ;436
 000042  d1f3              BNE      |L4.44|
-;;;439      }
-;;;440    }
+;;;438      }
+;;;439    }
 000044  bd38              POP      {r3-r5,pc}
-;;;441    
+;;;440    
                           ENDP
 
 000046  0000              DCW      0x0000
@@ -424,7 +468,7 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   slipif_rxbyte PROC
-;;;206    static struct pbuf*
+;;;206    static struct pbuf *
 ;;;207    slipif_rxbyte(struct netif *netif, u8_t c)
 000000  b570              PUSH     {r4-r6,lr}
 ;;;208    {
@@ -436,19 +480,19 @@
 ;;;212      LWIP_ASSERT("netif != NULL", (netif != NULL));
 000006  2c00              CMP      r4,#0
 000008  d105              BNE      |L5.22|
-00000a  a333              ADR      r3,|L5.216|
+00000a  a334              ADR      r3,|L5.220|
 00000c  22d4              MOVS     r2,#0xd4
-00000e  a13f              ADR      r1,|L5.268|
-000010  a042              ADR      r0,|L5.284|
+00000e  a140              ADR      r1,|L5.272|
+000010  a043              ADR      r0,|L5.288|
 000012  f7fffffe          BL       __2printf
                   |L5.22|
 ;;;213      LWIP_ASSERT("netif->state != NULL", (netif->state != NULL));
 000016  6a60              LDR      r0,[r4,#0x24]
 000018  b928              CBNZ     r0,|L5.38|
-00001a  a32f              ADR      r3,|L5.216|
+00001a  a330              ADR      r3,|L5.220|
 00001c  22d5              MOVS     r2,#0xd5
-00001e  a149              ADR      r1,|L5.324|
-000020  a03e              ADR      r0,|L5.284|
+00001e  a14a              ADR      r1,|L5.328|
+000020  a03f              ADR      r0,|L5.288|
 000022  f7fffffe          BL       __2printf
                   |L5.38|
 ;;;214    
@@ -463,62 +507,62 @@
 000030  d11f              BNE      |L5.114|
 000032  e015              B        |L5.96|
                   |L5.52|
-;;;218      case SLIP_RECV_NORMAL:
-;;;219        switch (c) {
+;;;218        case SLIP_RECV_NORMAL:
+;;;219          switch (c) {
 000034  2dc0              CMP      r5,#0xc0
 000036  d002              BEQ      |L5.62|
 000038  2ddb              CMP      r5,#0xdb
 00003a  d11a              BNE      |L5.114|
 00003c  e00c              B        |L5.88|
                   |L5.62|
-;;;220        case SLIP_END:
-;;;221          if (priv->recved > 0) {
+;;;220            case SLIP_END:
+;;;221              if (priv->recved > 0) {
 00003e  8a21              LDRH     r1,[r4,#0x10]
 000040  b141              CBZ      r1,|L5.84|
-;;;222            /* Received whole packet. */
-;;;223            /* Trim the pbuf to the size of the received packet. */
-;;;224            pbuf_realloc(priv->q, priv->recved);
+;;;222                /* Received whole packet. */
+;;;223                /* Trim the pbuf to the size of the received packet. */
+;;;224                pbuf_realloc(priv->q, priv->recved);
 000042  68a0              LDR      r0,[r4,#8]
 000044  f7fffffe          BL       pbuf_realloc
 ;;;225    
-;;;226            LINK_STATS_INC(link.recv);
+;;;226                LINK_STATS_INC(link.recv);
 ;;;227    
-;;;228            LWIP_DEBUGF(SLIP_DEBUG, ("slipif: Got packet (%"U16_F" bytes)\n", priv->recved));
-;;;229            t = priv->q;
+;;;228                LWIP_DEBUGF(SLIP_DEBUG, ("slipif: Got packet (%"U16_F" bytes)\n", priv->recved));
+;;;229                t = priv->q;
 000048  68a0              LDR      r0,[r4,#8]
-;;;230            priv->p = priv->q = NULL;
+;;;230                priv->p = priv->q = NULL;
 00004a  60a6              STR      r6,[r4,#8]
 00004c  6066              STR      r6,[r4,#4]
-;;;231            priv->i = priv->recved = 0;
+;;;231                priv->i = priv->recved = 0;
 00004e  8226              STRH     r6,[r4,#0x10]
 000050  81e6              STRH     r6,[r4,#0xe]
-;;;232            return t;
-;;;233          }
-;;;234          return NULL;
-;;;235        case SLIP_ESC:
-;;;236          priv->state = SLIP_RECV_ESCAPE;
-;;;237          return NULL;
-;;;238        default:
-;;;239          break;
-;;;240        } /* end switch (c) */
-;;;241        break;
-;;;242      case SLIP_RECV_ESCAPE:
-;;;243        /* un-escape END or ESC bytes, leave other bytes
-;;;244           (although that would be a protocol error) */
-;;;245        switch (c) {
-;;;246        case SLIP_ESC_END:
-;;;247          c = SLIP_END;
-;;;248          break;
-;;;249        case SLIP_ESC_ESC:
-;;;250          c = SLIP_ESC;
-;;;251          break;
-;;;252        default:
-;;;253          break;
-;;;254        }
-;;;255        priv->state = SLIP_RECV_NORMAL;
-;;;256        break;
-;;;257      default:
-;;;258        break;
+;;;232                return t;
+;;;233              }
+;;;234              return NULL;
+;;;235            case SLIP_ESC:
+;;;236              priv->state = SLIP_RECV_ESCAPE;
+;;;237              return NULL;
+;;;238            default:
+;;;239              break;
+;;;240          } /* end switch (c) */
+;;;241          break;
+;;;242        case SLIP_RECV_ESCAPE:
+;;;243          /* un-escape END or ESC bytes, leave other bytes
+;;;244             (although that would be a protocol error) */
+;;;245          switch (c) {
+;;;246            case SLIP_ESC_END:
+;;;247              c = SLIP_END;
+;;;248              break;
+;;;249            case SLIP_ESC_ESC:
+;;;250              c = SLIP_ESC;
+;;;251              break;
+;;;252            default:
+;;;253              break;
+;;;254          }
+;;;255          priv->state = SLIP_RECV_NORMAL;
+;;;256          break;
+;;;257        default:
+;;;258          break;
 ;;;259      } /* end switch (priv->state) */
 ;;;260    
 ;;;261      /* byte received, packet not yet completely received */
@@ -553,11 +597,11 @@
 ;;;290          priv->i = 0;
 ;;;291          if (priv->p->next != NULL && priv->p->next->len > 0) {
 ;;;292            /* p is a chain, on to the next in the chain */
-;;;293              priv->p = priv->p->next;
+;;;293            priv->p = priv->p->next;
 ;;;294          } else {
 ;;;295            /* p is a single pbuf, set it to NULL so next time a new
 ;;;296             * pbuf is allocated */
-;;;297              priv->p = NULL;
+;;;297            priv->p = NULL;
 ;;;298          }
 ;;;299        }
 ;;;300      }
@@ -587,104 +631,105 @@
 000070  7326              STRB     r6,[r4,#0xc]          ;255
                   |L5.114|
 000072  6860              LDR      r0,[r4,#4]            ;262
-000074  b988              CBNZ     r0,|L5.154|
-000076  2203              MOVS     r2,#3                 ;265
-000078  f2402142          MOV      r1,#0x242             ;265
-00007c  2002              MOVS     r0,#2                 ;265
-00007e  f7fffffe          BL       pbuf_alloc
-000082  6060              STR      r0,[r4,#4]            ;265
-000084  b130              CBZ      r0,|L5.148|
-000086  68a2              LDR      r2,[r4,#8]            ;274
-000088  b132              CBZ      r2,|L5.152|
-00008a  4601              MOV      r1,r0                 ;276
-00008c  4610              MOV      r0,r2                 ;276
-00008e  f7fffffe          BL       pbuf_cat
-000092  e002              B        |L5.154|
-                  |L5.148|
-000094  2000              MOVS     r0,#0                 ;271
-000096  bd70              POP      {r4-r6,pc}
-                  |L5.152|
-000098  60a0              STR      r0,[r4,#8]            ;279
+000074  b990              CBNZ     r0,|L5.156|
+000076  f44f72c1          MOV      r2,#0x182             ;265
+00007a  f2402142          MOV      r1,#0x242             ;265
+00007e  200e              MOVS     r0,#0xe               ;265
+000080  f7fffffe          BL       pbuf_alloc
+000084  6060              STR      r0,[r4,#4]            ;265
+000086  b130              CBZ      r0,|L5.150|
+000088  68a2              LDR      r2,[r4,#8]            ;274
+00008a  b132              CBZ      r2,|L5.154|
+00008c  4601              MOV      r1,r0                 ;276
+00008e  4610              MOV      r0,r2                 ;276
+000090  f7fffffe          BL       pbuf_cat
+000094  e002              B        |L5.156|
+                  |L5.150|
+000096  2000              MOVS     r0,#0                 ;271
+000098  bd70              POP      {r4-r6,pc}
                   |L5.154|
-00009a  6860              LDR      r0,[r4,#4]            ;284
-00009c  b1d0              CBZ      r0,|L5.212|
-00009e  8a21              LDRH     r1,[r4,#0x10]         ;284
-0000a0  f24052dc          MOV      r2,#0x5dc             ;284
-0000a4  4291              CMP      r1,r2                 ;284
-0000a6  d815              BHI      |L5.212|
-0000a8  6840              LDR      r0,[r0,#4]            ;285
-0000aa  89e1              LDRH     r1,[r4,#0xe]          ;285
-0000ac  5445              STRB     r5,[r0,r1]            ;285
-0000ae  8a20              LDRH     r0,[r4,#0x10]         ;286
-0000b0  1c40              ADDS     r0,r0,#1              ;286
-0000b2  8220              STRH     r0,[r4,#0x10]         ;286
-0000b4  89e0              LDRH     r0,[r4,#0xe]          ;287
-0000b6  1c40              ADDS     r0,r0,#1              ;287
-0000b8  b280              UXTH     r0,r0                 ;287
-0000ba  81e0              STRH     r0,[r4,#0xe]          ;287
-0000bc  6861              LDR      r1,[r4,#4]            ;288
-0000be  894a              LDRH     r2,[r1,#0xa]          ;288
-0000c0  4290              CMP      r0,r2                 ;288
-0000c2  d307              BCC      |L5.212|
-0000c4  81e6              STRH     r6,[r4,#0xe]          ;290
-0000c6  6808              LDR      r0,[r1,#0]            ;291
-0000c8  b118              CBZ      r0,|L5.210|
-0000ca  8941              LDRH     r1,[r0,#0xa]          ;291
-0000cc  b109              CBZ      r1,|L5.210|
-0000ce  6060              STR      r0,[r4,#4]            ;293
-0000d0  e000              B        |L5.212|
-                  |L5.210|
-0000d2  6066              STR      r6,[r4,#4]            ;297
+00009a  60a0              STR      r0,[r4,#8]            ;279
+                  |L5.156|
+00009c  6860              LDR      r0,[r4,#4]            ;284
+00009e  b1d0              CBZ      r0,|L5.214|
+0000a0  8a21              LDRH     r1,[r4,#0x10]         ;284
+0000a2  f24052dc          MOV      r2,#0x5dc             ;284
+0000a6  4291              CMP      r1,r2                 ;284
+0000a8  d815              BHI      |L5.214|
+0000aa  6840              LDR      r0,[r0,#4]            ;285
+0000ac  89e1              LDRH     r1,[r4,#0xe]          ;285
+0000ae  5445              STRB     r5,[r0,r1]            ;285
+0000b0  8a20              LDRH     r0,[r4,#0x10]         ;286
+0000b2  1c40              ADDS     r0,r0,#1              ;286
+0000b4  8220              STRH     r0,[r4,#0x10]         ;286
+0000b6  89e0              LDRH     r0,[r4,#0xe]          ;287
+0000b8  1c40              ADDS     r0,r0,#1              ;287
+0000ba  b280              UXTH     r0,r0                 ;287
+0000bc  81e0              STRH     r0,[r4,#0xe]          ;287
+0000be  6861              LDR      r1,[r4,#4]            ;288
+0000c0  894a              LDRH     r2,[r1,#0xa]          ;288
+0000c2  4290              CMP      r0,r2                 ;288
+0000c4  d307              BCC      |L5.214|
+0000c6  81e6              STRH     r6,[r4,#0xe]          ;290
+0000c8  6808              LDR      r0,[r1,#0]            ;291
+0000ca  b118              CBZ      r0,|L5.212|
+0000cc  8941              LDRH     r1,[r0,#0xa]          ;291
+0000ce  b109              CBZ      r1,|L5.212|
+0000d0  6060              STR      r0,[r4,#4]            ;293
+0000d2  e000              B        |L5.214|
                   |L5.212|
-0000d4  2000              MOVS     r0,#0                 ;301
-0000d6  bd70              POP      {r4-r6,pc}
+0000d4  6066              STR      r6,[r4,#4]            ;297
+                  |L5.214|
+0000d6  2000              MOVS     r0,#0                 ;301
+0000d8  bd70              POP      {r4-r6,pc}
 ;;;303    
                           ENDP
 
-                  |L5.216|
-0000d8  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\netif\\slipif."
-0000dc  6964646c
-0000e0  65776172
-0000e4  65735c54
-0000e8  68697264
-0000ec  5f506172
-0000f0  74795c4c
-0000f4  7749505c
-0000f8  7372635c
-0000fc  6e657469
-000100  665c736c
-000104  69706966
-000108  2e      
-000109  6300              DCB      "c",0
-00010b  00                DCB      0
-                  |L5.268|
-00010c  6e657469          DCB      "netif != NULL",0
-000110  6620213d
-000114  204e554c
-000118  4c00    
-00011a  00                DCB      0
-00011b  00                DCB      0
-                  |L5.284|
-00011c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000120  7274696f
-000124  6e202225
-000128  73222066
-00012c  61696c65
-000130  64206174
-000134  206c696e
-000138  65202564
-00013c  20696e20
-000140  25730a00
-                  |L5.324|
-000144  6e657469          DCB      "netif->state != NULL",0
-000148  662d3e73
-00014c  74617465
-000150  20213d20
-000154  4e554c4c
-000158  00      
-000159  00                DCB      0
-00015a  00                DCB      0
-00015b  00                DCB      0
+0000da  0000              DCW      0x0000
+                  |L5.220|
+0000dc  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\netif\\slipif."
+0000e0  6964646c
+0000e4  65776172
+0000e8  65735c54
+0000ec  68697264
+0000f0  5f506172
+0000f4  74795c4c
+0000f8  7749505c
+0000fc  7372635c
+000100  6e657469
+000104  665c736c
+000108  69706966
+00010c  2e      
+00010d  6300              DCB      "c",0
+00010f  00                DCB      0
+                  |L5.272|
+000110  6e657469          DCB      "netif != NULL",0
+000114  6620213d
+000118  204e554c
+00011c  4c00    
+00011e  00                DCB      0
+00011f  00                DCB      0
+                  |L5.288|
+000120  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000124  7274696f
+000128  6e202225
+00012c  73222066
+000130  61696c65
+000134  64206174
+000138  206c696e
+00013c  65202564
+000140  20696e20
+000144  25730a00
+                  |L5.328|
+000148  6e657469          DCB      "netif->state != NULL",0
+00014c  662d3e73
+000150  74617465
+000154  20213d20
+000158  4e554c4c
+00015c  00      
+00015d  00                DCB      0
+00015e  00                DCB      0
+00015f  00                DCB      0
 
                           AREA ||i.slipif_rxbyte_input||, CODE, READONLY, ALIGN=1
 

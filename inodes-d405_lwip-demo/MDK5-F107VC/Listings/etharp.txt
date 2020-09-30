@@ -10,12 +10,12 @@
 000000  b570              PUSH     {r4-r6,lr}
 ;;;560    {
 000002  4605              MOV      r5,r0
-;;;561      u8_t i;
+;;;561      int i;
 ;;;562    
 ;;;563      for (i = 0; i < ARP_TABLE_SIZE; ++i) {
 000004  2400              MOVS     r4,#0
 ;;;564        u8_t state = arp_table[i].state;
-000006  4e09              LDR      r6,|L1.44|
+000006  4e08              LDR      r6,|L1.40|
                   |L1.8|
 000008  eb040044          ADD      r0,r4,r4,LSL #1
 00000c  eb0600c0          ADD      r0,r6,r0,LSL #3
@@ -30,18 +30,16 @@
 00001c  f7fffffe          BL       etharp_free_entry
                   |L1.32|
 000020  1c64              ADDS     r4,r4,#1              ;563
-000022  b2e4              UXTB     r4,r4                 ;563
-000024  2c0a              CMP      r4,#0xa               ;563
-000026  d3ef              BCC      |L1.8|
+000022  2c0a              CMP      r4,#0xa               ;563
+000024  dbf0              BLT      |L1.8|
 ;;;567        }
 ;;;568      }
 ;;;569    }
-000028  bd70              POP      {r4-r6,pc}
+000026  bd70              POP      {r4-r6,pc}
 ;;;570    
                           ENDP
 
-00002a  0000              DCW      0x0000
-                  |L1.44|
+                  |L1.40|
                           DCD      ||.bss||
 
                           AREA ||i.etharp_find_addr||, CODE, READONLY, ALIGN=2
@@ -52,16 +50,16 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   etharp_find_addr PROC
-;;;582    s8_t
+;;;582    ssize_t
 ;;;583    etharp_find_addr(struct netif *netif, const ip4_addr_t *ipaddr,
 000000  e92d41f0          PUSH     {r4-r8,lr}
-;;;584             struct eth_addr **eth_ret, const ip4_addr_t **ip_ret)
+;;;584                     struct eth_addr **eth_ret, const ip4_addr_t **ip_ret)
 ;;;585    {
 000004  4606              MOV      r6,r0
 000006  460f              MOV      r7,r1
 000008  4614              MOV      r4,r2
 00000a  461d              MOV      r5,r3
-;;;586      s8_t i;
+;;;586      s16_t i;
 ;;;587    
 ;;;588      LWIP_ASSERT("eth_ret != NULL && ip_ret != NULL",
 00000c  2c00              CMP      r4,#0
@@ -75,7 +73,7 @@
 00001c  a024              ADR      r0,|L2.176|
 00001e  f7fffffe          BL       __2printf
                   |L2.34|
-;;;589        eth_ret != NULL && ip_ret != NULL);
+;;;589                  eth_ret != NULL && ip_ret != NULL);
 ;;;590    
 ;;;591      LWIP_UNUSED_ARG(netif);
 ;;;592    
@@ -93,14 +91,14 @@
 00003a  7d0a              LDRB     r2,[r1,#0x14]
 00003c  2a02              CMP      r2,#2
 00003e  d306              BCC      |L2.78|
-;;;595          *eth_ret = &arp_table[i].ethaddr;
+;;;595        *eth_ret = &arp_table[i].ethaddr;
 000040  f101020c          ADD      r2,r1,#0xc
 000044  6022              STR      r2,[r4,#0]
-;;;596          *ip_ret = &arp_table[i].ipaddr;
+;;;596        *ip_ret = &arp_table[i].ipaddr;
 000046  1d09              ADDS     r1,r1,#4
 000048  6029              STR      r1,[r5,#0]
                   |L2.74|
-;;;597          return i;
+;;;597        return i;
 ;;;598      }
 ;;;599      return -1;
 ;;;600    }
@@ -165,448 +163,452 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   etharp_find_entry PROC
-;;;257    static s8_t
-;;;258    etharp_find_entry(const ip4_addr_t *ipaddr, u8_t flags, struct netif* netif)
+;;;255    static s16_t
+;;;256    etharp_find_entry(const ip4_addr_t *ipaddr, u8_t flags, struct netif *netif)
 000000  e92d4ff7          PUSH     {r0-r2,r4-r11,lr}
-;;;259    {
+;;;257    {
 000004  b084              SUB      sp,sp,#0x10
 000006  4680              MOV      r8,r0
-;;;260      s8_t old_pending = ARP_TABLE_SIZE, old_stable = ARP_TABLE_SIZE;
-000008  200a              MOVS     r0,#0xa
-00000a  9002              STR      r0,[sp,#8]
-00000c  4683              MOV      r11,r0
-;;;261      s8_t empty = ARP_TABLE_SIZE;
+;;;258      s16_t old_pending = ARP_TABLE_SIZE, old_stable = ARP_TABLE_SIZE;
+000008  f04f0a0a          MOV      r10,#0xa
+00000c  46d1              MOV      r9,r10
+;;;259      s16_t empty = ARP_TABLE_SIZE;
 00000e  270a              MOVS     r7,#0xa
-;;;262      u8_t i = 0;
+;;;260      s16_t i = 0;
 000010  2400              MOVS     r4,#0
-;;;263      /* oldest entry with packets on queue */
-;;;264      s8_t old_queue = ARP_TABLE_SIZE;
-000012  9001              STR      r0,[sp,#4]
-;;;265      /* its age */
-;;;266      u16_t age_queue = 0, age_pending = 0, age_stable = 0;
-000014  f04f0900          MOV      r9,#0
-000018  f04f0a00          MOV      r10,#0
-00001c  2000              MOVS     r0,#0
-00001e  9000              STR      r0,[sp,#0]
-                  |L3.32|
+;;;261      /* oldest entry with packets on queue */
+;;;262      s16_t old_queue = ARP_TABLE_SIZE;
+000012  46bb              MOV      r11,r7
+;;;263      /* its age */
+;;;264      u16_t age_queue = 0, age_pending = 0, age_stable = 0;
+000014  2000              MOVS     r0,#0
+000016  9002              STR      r0,[sp,#8]
+000018  9001              STR      r0,[sp,#4]
+00001a  9000              STR      r0,[sp,#0]
+                  |L3.28|
+;;;265    
+;;;266      LWIP_UNUSED_ARG(netif);
 ;;;267    
-;;;268      LWIP_UNUSED_ARG(netif);
-;;;269    
-;;;270      /**
-;;;271       * a) do a search through the cache, remember candidates
-;;;272       * b) select candidate entry
-;;;273       * c) create new entry
-;;;274       */
-;;;275    
-;;;276      /* a) in a single search sweep, do all of this
-;;;277       * 1) remember the first empty entry (if any)
-;;;278       * 2) remember the oldest stable entry (if any)
-;;;279       * 3) remember the oldest pending entry without queued packets (if any)
-;;;280       * 4) remember the oldest pending entry with queued packets (if any)
-;;;281       * 5) search for a matching IP entry, either pending or stable
-;;;282       *    until 5 matches, or all entries are searched for.
-;;;283       */
-;;;284    
-;;;285      for (i = 0; i < ARP_TABLE_SIZE; ++i) {
-;;;286        u8_t state = arp_table[i].state;
-000020  4952              LDR      r1,|L3.364|
-000022  eb040044          ADD      r0,r4,r4,LSL #1
-000026  eb0106c0          ADD      r6,r1,r0,LSL #3
-00002a  9003              STR      r0,[sp,#0xc]
-00002c  7d35              LDRB     r5,[r6,#0x14]
-;;;287        /* no empty entry found yet and now we do find one? */
-;;;288        if ((empty == ARP_TABLE_SIZE) && (state == ETHARP_STATE_EMPTY)) {
-00002e  2f0a              CMP      r7,#0xa
-000030  d101              BNE      |L3.54|
+;;;268      /**
+;;;269       * a) do a search through the cache, remember candidates
+;;;270       * b) select candidate entry
+;;;271       * c) create new entry
+;;;272       */
+;;;273    
+;;;274      /* a) in a single search sweep, do all of this
+;;;275       * 1) remember the first empty entry (if any)
+;;;276       * 2) remember the oldest stable entry (if any)
+;;;277       * 3) remember the oldest pending entry without queued packets (if any)
+;;;278       * 4) remember the oldest pending entry with queued packets (if any)
+;;;279       * 5) search for a matching IP entry, either pending or stable
+;;;280       *    until 5 matches, or all entries are searched for.
+;;;281       */
+;;;282    
+;;;283      for (i = 0; i < ARP_TABLE_SIZE; ++i) {
+;;;284        u8_t state = arp_table[i].state;
+00001c  4954              LDR      r1,|L3.368|
+00001e  eb040044          ADD      r0,r4,r4,LSL #1
+000022  eb0106c0          ADD      r6,r1,r0,LSL #3
+000026  9003              STR      r0,[sp,#0xc]
+000028  7d35              LDRB     r5,[r6,#0x14]
+;;;285        /* no empty entry found yet and now we do find one? */
+;;;286        if ((empty == ARP_TABLE_SIZE) && (state == ETHARP_STATE_EMPTY)) {
+00002a  2f0a              CMP      r7,#0xa
+00002c  d101              BNE      |L3.50|
+00002e  2d00              CMP      r5,#0
+000030  d01e              BEQ      |L3.112|
+                  |L3.50|
+;;;287          LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_find_entry: found empty entry %d\n", (int)i));
+;;;288          /* remember first empty entry */
+;;;289          empty = i;
+;;;290        } else if (state != ETHARP_STATE_EMPTY) {
 000032  2d00              CMP      r5,#0
-000034  d018              BEQ      |L3.104|
-                  |L3.54|
-;;;289          LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_find_entry: found empty entry %"U16_F"\n", (u16_t)i));
-;;;290          /* remember first empty entry */
-;;;291          empty = i;
-;;;292        } else if (state != ETHARP_STATE_EMPTY) {
-000036  2d00              CMP      r5,#0
-000038  d023              BEQ      |L3.130|
-;;;293          LWIP_ASSERT("state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_STABLE",
-00003a  2d01              CMP      r5,#1
-00003c  d008              BEQ      |L3.80|
-00003e  2d02              CMP      r5,#2
-000040  d206              BCS      |L3.80|
-000042  a34b              ADR      r3,|L3.368|
-000044  f2401225          MOV      r2,#0x125
-000048  a157              ADR      r1,|L3.424|
-00004a  a067              ADR      r0,|L3.488|
-00004c  f7fffffe          BL       __2printf
-                  |L3.80|
-;;;294            state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_STABLE);
-;;;295          /* if given, does IP address match IP address in ARP entry? */
-;;;296          if (ipaddr && ip4_addr_cmp(ipaddr, &arp_table[i].ipaddr)
-000050  f1b80f00          CMP      r8,#0
-000054  d00a              BEQ      |L3.108|
-000056  f8d80000          LDR      r0,[r8,#0]
-00005a  6871              LDR      r1,[r6,#4]
-00005c  4288              CMP      r0,r1
-00005e  d105              BNE      |L3.108|
-;;;297    #if ETHARP_TABLE_MATCH_NETIF
-;;;298              && ((netif == NULL) || (netif == arp_table[i].netif))
-;;;299    #endif /* ETHARP_TABLE_MATCH_NETIF */
-;;;300            ) {
-;;;301            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: found matching entry %"U16_F"\n", (u16_t)i));
-;;;302            /* found exact IP address match, simply bail out */
-;;;303            return i;
-000060  b260              SXTB     r0,r4
-                  |L3.98|
-;;;304          }
-;;;305          /* pending entry? */
-;;;306          if (state == ETHARP_STATE_PENDING) {
-;;;307            /* pending with queued packets? */
-;;;308            if (arp_table[i].q != NULL) {
-;;;309              if (arp_table[i].ctime >= age_queue) {
-;;;310                old_queue = i;
-;;;311                age_queue = arp_table[i].ctime;
-;;;312              }
-;;;313            } else
-;;;314            /* pending without queued packets? */
-;;;315            {
-;;;316              if (arp_table[i].ctime >= age_pending) {
-;;;317                old_pending = i;
-;;;318                age_pending = arp_table[i].ctime;
-;;;319              }
-;;;320            }
-;;;321          /* stable entry? */
-;;;322          } else if (state >= ETHARP_STATE_STABLE) {
-;;;323    #if ETHARP_SUPPORT_STATIC_ENTRIES
-;;;324            /* don't record old_stable for static entries since they never expire */
-;;;325            if (state < ETHARP_STATE_STATIC)
-;;;326    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-;;;327            {
-;;;328              /* remember entry with oldest stable entry in oldest, its age in maxtime */
-;;;329              if (arp_table[i].ctime >= age_stable) {
-;;;330                old_stable = i;
-;;;331                age_stable = arp_table[i].ctime;
-;;;332              }
-;;;333            }
-;;;334          }
-;;;335        }
-;;;336      }
-;;;337      /* { we have no match } => try to create a new entry */
-;;;338    
-;;;339      /* don't create new entry, only search? */
-;;;340      if (((flags & ETHARP_FLAG_FIND_ONLY) != 0) ||
-;;;341          /* or no empty entry found and not allowed to recycle? */
-;;;342          ((empty == ARP_TABLE_SIZE) && ((flags & ETHARP_FLAG_TRY_HARD) == 0))) {
-;;;343        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: no empty entry found and not allowed to recycle\n"));
-;;;344        return (s8_t)ERR_MEM;
-;;;345      }
-;;;346    
-;;;347      /* b) choose the least destructive entry to recycle:
-;;;348       * 1) empty entry
-;;;349       * 2) oldest stable entry
-;;;350       * 3) oldest pending entry without queued packets
-;;;351       * 4) oldest pending entry with queued packets
-;;;352       *
-;;;353       * { ETHARP_FLAG_TRY_HARD is set at this point }
-;;;354       */
-;;;355    
-;;;356      /* 1) empty entry available? */
-;;;357      if (empty < ARP_TABLE_SIZE) {
-;;;358        i = empty;
-;;;359        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting empty entry %"U16_F"\n", (u16_t)i));
-;;;360      } else {
-;;;361        /* 2) found recyclable stable entry? */
-;;;362        if (old_stable < ARP_TABLE_SIZE) {
-;;;363          /* recycle oldest stable*/
-;;;364          i = old_stable;
-;;;365          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest stable entry %"U16_F"\n", (u16_t)i));
-;;;366          /* no queued packets should exist on stable entries */
-;;;367          LWIP_ASSERT("arp_table[i].q == NULL", arp_table[i].q == NULL);
-;;;368        /* 3) found recyclable pending entry without queued packets? */
-;;;369        } else if (old_pending < ARP_TABLE_SIZE) {
-;;;370          /* recycle oldest pending */
-;;;371          i = old_pending;
-;;;372          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest pending entry %"U16_F" (without queue)\n", (u16_t)i));
-;;;373        /* 4) found recyclable pending entry with queued packets? */
-;;;374        } else if (old_queue < ARP_TABLE_SIZE) {
-;;;375          /* recycle oldest pending (queued packets are free in etharp_free_entry) */
-;;;376          i = old_queue;
-;;;377          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest pending entry %"U16_F", freeing packet queue %p\n", (u16_t)i, (void *)(arp_table[i].q)));
-;;;378          /* no empty or recyclable entries found */
-;;;379        } else {
-;;;380          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: no empty or recyclable entries found\n"));
-;;;381          return (s8_t)ERR_MEM;
-;;;382        }
-;;;383    
-;;;384        /* { empty or recyclable entry found } */
-;;;385        LWIP_ASSERT("i < ARP_TABLE_SIZE", i < ARP_TABLE_SIZE);
-;;;386        etharp_free_entry(i);
-;;;387      }
-;;;388    
-;;;389      LWIP_ASSERT("i < ARP_TABLE_SIZE", i < ARP_TABLE_SIZE);
-;;;390      LWIP_ASSERT("arp_table[i].state == ETHARP_STATE_EMPTY",
-;;;391        arp_table[i].state == ETHARP_STATE_EMPTY);
-;;;392    
-;;;393      /* IP address given? */
-;;;394      if (ipaddr != NULL) {
-;;;395        /* set IP address */
-;;;396        ip4_addr_copy(arp_table[i].ipaddr, *ipaddr);
-;;;397      }
-;;;398      arp_table[i].ctime = 0;
-;;;399    #if ETHARP_TABLE_MATCH_NETIF
-;;;400      arp_table[i].netif = netif;
-;;;401    #endif /* ETHARP_TABLE_MATCH_NETIF*/
-;;;402      return (err_t)i;
-;;;403    }
-000062  b007              ADD      sp,sp,#0x1c
-000064  e8bd8ff0          POP      {r4-r11,pc}
+000034  d028              BEQ      |L3.136|
+;;;291          LWIP_ASSERT("state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_STABLE",
+000036  2d01              CMP      r5,#1
+000038  d008              BEQ      |L3.76|
+00003a  2d02              CMP      r5,#2
+00003c  d206              BCS      |L3.76|
+00003e  a34d              ADR      r3,|L3.372|
+000040  f2401223          MOV      r2,#0x123
+000044  a159              ADR      r1,|L3.428|
+000046  a069              ADR      r0,|L3.492|
+000048  f7fffffe          BL       __2printf
+                  |L3.76|
+;;;292                      state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_STABLE);
+;;;293          /* if given, does IP address match IP address in ARP entry? */
+;;;294          if (ipaddr && ip4_addr_cmp(ipaddr, &arp_table[i].ipaddr)
+00004c  f1b80f00          CMP      r8,#0
+000050  d010              BEQ      |L3.116|
+000052  f8d80000          LDR      r0,[r8,#0]
+000056  6871              LDR      r1,[r6,#4]
+000058  4288              CMP      r0,r1
+00005a  d10b              BNE      |L3.116|
+;;;295    #if ETHARP_TABLE_MATCH_NETIF
+;;;296              && ((netif == NULL) || (netif == arp_table[i].netif))
+00005c  9806              LDR      r0,[sp,#0x18]
+00005e  b118              CBZ      r0,|L3.104|
+000060  68b1              LDR      r1,[r6,#8]
+000062  9806              LDR      r0,[sp,#0x18]
+000064  4281              CMP      r1,r0
+000066  d105              BNE      |L3.116|
                   |L3.104|
-000068  b267              SXTB     r7,r4                 ;291
-00006a  e00a              B        |L3.130|
-                  |L3.108|
-00006c  2d01              CMP      r5,#1                 ;306
-00006e  d014              BEQ      |L3.154|
-000070  2d02              CMP      r5,#2                 ;322
-000072  d306              BCC      |L3.130|
-000074  8a70              LDRH     r0,[r6,#0x12]         ;329
-000076  9900              LDR      r1,[sp,#0]            ;329
-000078  4288              CMP      r0,r1                 ;329
-00007a  d302              BCC      |L3.130|
-00007c  fa4ffb84          SXTB     r11,r4                ;330
-000080  9000              STR      r0,[sp,#0]            ;331
-                  |L3.130|
-000082  1c64              ADDS     r4,r4,#1              ;285
-000084  b2e4              UXTB     r4,r4                 ;285
-000086  2c0a              CMP      r4,#0xa               ;285
-000088  d3ca              BCC      |L3.32|
-00008a  9805              LDR      r0,[sp,#0x14]         ;340
-00008c  f04f31ff          MOV      r1,#0xffffffff        ;344
-000090  0780              LSLS     r0,r0,#30             ;340
-000092  d41c              BMI      |L3.206|
-000094  2f0a              CMP      r7,#0xa               ;342
-000096  d013              BEQ      |L3.192|
-000098  e015              B        |L3.198|
-                  |L3.154|
-00009a  4834              LDR      r0,|L3.364|
-00009c  9903              LDR      r1,[sp,#0xc]          ;308
-00009e  f8500031          LDR      r0,[r0,r1,LSL #3]     ;308
-0000a2  b130              CBZ      r0,|L3.178|
-0000a4  8a70              LDRH     r0,[r6,#0x12]         ;309
-0000a6  4548              CMP      r0,r9                 ;309
-0000a8  d3eb              BCC      |L3.130|
-0000aa  b261              SXTB     r1,r4                 ;310
-0000ac  9101              STR      r1,[sp,#4]            ;310
-0000ae  4681              MOV      r9,r0                 ;311
-0000b0  e7e7              B        |L3.130|
-                  |L3.178|
-0000b2  8a70              LDRH     r0,[r6,#0x12]         ;316
-0000b4  4550              CMP      r0,r10                ;316
-0000b6  d3e4              BCC      |L3.130|
-0000b8  b261              SXTB     r1,r4                 ;317
-0000ba  9102              STR      r1,[sp,#8]            ;317
-0000bc  4682              MOV      r10,r0                ;318
-0000be  e7e0              B        |L3.130|
-                  |L3.192|
-0000c0  9805              LDR      r0,[sp,#0x14]         ;342
-0000c2  07c0              LSLS     r0,r0,#31             ;342
-0000c4  d003              BEQ      |L3.206|
+;;;297    #endif /* ETHARP_TABLE_MATCH_NETIF */
+;;;298             ) {
+;;;299            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: found matching entry %d\n", (int)i));
+;;;300            /* found exact IP address match, simply bail out */
+;;;301            return i;
+000068  4620              MOV      r0,r4
+                  |L3.106|
+;;;302          }
+;;;303          /* pending entry? */
+;;;304          if (state == ETHARP_STATE_PENDING) {
+;;;305            /* pending with queued packets? */
+;;;306            if (arp_table[i].q != NULL) {
+;;;307              if (arp_table[i].ctime >= age_queue) {
+;;;308                old_queue = i;
+;;;309                age_queue = arp_table[i].ctime;
+;;;310              }
+;;;311            } else
+;;;312              /* pending without queued packets? */
+;;;313            {
+;;;314              if (arp_table[i].ctime >= age_pending) {
+;;;315                old_pending = i;
+;;;316                age_pending = arp_table[i].ctime;
+;;;317              }
+;;;318            }
+;;;319            /* stable entry? */
+;;;320          } else if (state >= ETHARP_STATE_STABLE) {
+;;;321    #if ETHARP_SUPPORT_STATIC_ENTRIES
+;;;322            /* don't record old_stable for static entries since they never expire */
+;;;323            if (state < ETHARP_STATE_STATIC)
+;;;324    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
+;;;325            {
+;;;326              /* remember entry with oldest stable entry in oldest, its age in maxtime */
+;;;327              if (arp_table[i].ctime >= age_stable) {
+;;;328                old_stable = i;
+;;;329                age_stable = arp_table[i].ctime;
+;;;330              }
+;;;331            }
+;;;332          }
+;;;333        }
+;;;334      }
+;;;335      /* { we have no match } => try to create a new entry */
+;;;336    
+;;;337      /* don't create new entry, only search? */
+;;;338      if (((flags & ETHARP_FLAG_FIND_ONLY) != 0) ||
+;;;339          /* or no empty entry found and not allowed to recycle? */
+;;;340          ((empty == ARP_TABLE_SIZE) && ((flags & ETHARP_FLAG_TRY_HARD) == 0))) {
+;;;341        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: no empty entry found and not allowed to recycle\n"));
+;;;342        return (s16_t)ERR_MEM;
+;;;343      }
+;;;344    
+;;;345      /* b) choose the least destructive entry to recycle:
+;;;346       * 1) empty entry
+;;;347       * 2) oldest stable entry
+;;;348       * 3) oldest pending entry without queued packets
+;;;349       * 4) oldest pending entry with queued packets
+;;;350       *
+;;;351       * { ETHARP_FLAG_TRY_HARD is set at this point }
+;;;352       */
+;;;353    
+;;;354      /* 1) empty entry available? */
+;;;355      if (empty < ARP_TABLE_SIZE) {
+;;;356        i = empty;
+;;;357        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting empty entry %d\n", (int)i));
+;;;358      } else {
+;;;359        /* 2) found recyclable stable entry? */
+;;;360        if (old_stable < ARP_TABLE_SIZE) {
+;;;361          /* recycle oldest stable*/
+;;;362          i = old_stable;
+;;;363          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest stable entry %d\n", (int)i));
+;;;364          /* no queued packets should exist on stable entries */
+;;;365          LWIP_ASSERT("arp_table[i].q == NULL", arp_table[i].q == NULL);
+;;;366          /* 3) found recyclable pending entry without queued packets? */
+;;;367        } else if (old_pending < ARP_TABLE_SIZE) {
+;;;368          /* recycle oldest pending */
+;;;369          i = old_pending;
+;;;370          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest pending entry %d (without queue)\n", (int)i));
+;;;371          /* 4) found recyclable pending entry with queued packets? */
+;;;372        } else if (old_queue < ARP_TABLE_SIZE) {
+;;;373          /* recycle oldest pending (queued packets are free in etharp_free_entry) */
+;;;374          i = old_queue;
+;;;375          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: selecting oldest pending entry %d, freeing packet queue %p\n", (int)i, (void *)(arp_table[i].q)));
+;;;376          /* no empty or recyclable entries found */
+;;;377        } else {
+;;;378          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_find_entry: no empty or recyclable entries found\n"));
+;;;379          return (s16_t)ERR_MEM;
+;;;380        }
+;;;381    
+;;;382        /* { empty or recyclable entry found } */
+;;;383        LWIP_ASSERT("i < ARP_TABLE_SIZE", i < ARP_TABLE_SIZE);
+;;;384        etharp_free_entry(i);
+;;;385      }
+;;;386    
+;;;387      LWIP_ASSERT("i < ARP_TABLE_SIZE", i < ARP_TABLE_SIZE);
+;;;388      LWIP_ASSERT("arp_table[i].state == ETHARP_STATE_EMPTY",
+;;;389                  arp_table[i].state == ETHARP_STATE_EMPTY);
+;;;390    
+;;;391      /* IP address given? */
+;;;392      if (ipaddr != NULL) {
+;;;393        /* set IP address */
+;;;394        ip4_addr_copy(arp_table[i].ipaddr, *ipaddr);
+;;;395      }
+;;;396      arp_table[i].ctime = 0;
+;;;397    #if ETHARP_TABLE_MATCH_NETIF
+;;;398      arp_table[i].netif = netif;
+;;;399    #endif /* ETHARP_TABLE_MATCH_NETIF */
+;;;400      return (s16_t)i;
+;;;401    }
+00006a  b007              ADD      sp,sp,#0x1c
+00006c  e8bd8ff0          POP      {r4-r11,pc}
+                  |L3.112|
+000070  4627              MOV      r7,r4                 ;289
+000072  e009              B        |L3.136|
+                  |L3.116|
+000074  2d01              CMP      r5,#1                 ;304
+000076  d013              BEQ      |L3.160|
+000078  2d02              CMP      r5,#2                 ;320
+00007a  d305              BCC      |L3.136|
+00007c  8a70              LDRH     r0,[r6,#0x12]         ;327
+00007e  9900              LDR      r1,[sp,#0]            ;327
+000080  4288              CMP      r0,r1                 ;327
+000082  d301              BCC      |L3.136|
+000084  46a1              MOV      r9,r4                 ;328
+000086  9000              STR      r0,[sp,#0]            ;329
+                  |L3.136|
+000088  1c64              ADDS     r4,r4,#1              ;283
+00008a  b224              SXTH     r4,r4                 ;283
+00008c  2c0a              CMP      r4,#0xa               ;283
+00008e  dbc5              BLT      |L3.28|
+000090  9805              LDR      r0,[sp,#0x14]         ;338
+000092  f04f31ff          MOV      r1,#0xffffffff        ;342
+000096  0780              LSLS     r0,r0,#30             ;338
+000098  d41c              BMI      |L3.212|
+00009a  2f0a              CMP      r7,#0xa               ;340
+00009c  d013              BEQ      |L3.198|
+00009e  e015              B        |L3.204|
+                  |L3.160|
+0000a0  4833              LDR      r0,|L3.368|
+0000a2  9903              LDR      r1,[sp,#0xc]          ;306
+0000a4  f8500031          LDR      r0,[r0,r1,LSL #3]     ;306
+0000a8  b130              CBZ      r0,|L3.184|
+0000aa  8a70              LDRH     r0,[r6,#0x12]         ;307
+0000ac  9902              LDR      r1,[sp,#8]            ;307
+0000ae  4288              CMP      r0,r1                 ;307
+0000b0  d3ea              BCC      |L3.136|
+0000b2  46a3              MOV      r11,r4                ;308
+0000b4  9002              STR      r0,[sp,#8]            ;309
+0000b6  e7e7              B        |L3.136|
+                  |L3.184|
+0000b8  8a70              LDRH     r0,[r6,#0x12]         ;314
+0000ba  9901              LDR      r1,[sp,#4]            ;314
+0000bc  4288              CMP      r0,r1                 ;314
+0000be  d3e3              BCC      |L3.136|
+0000c0  46a2              MOV      r10,r4                ;315
+0000c2  9001              STR      r0,[sp,#4]            ;316
+0000c4  e7e0              B        |L3.136|
                   |L3.198|
-0000c6  2f0a              CMP      r7,#0xa               ;357
-0000c8  da03              BGE      |L3.210|
-0000ca  b2fc              UXTB     r4,r7                 ;358
-0000cc  e02b              B        |L3.294|
-                  |L3.206|
-0000ce  4608              MOV      r0,r1                 ;344
-0000d0  e7c7              B        |L3.98|
-                  |L3.210|
-0000d2  f1bb0f0a          CMP      r11,#0xa              ;362
-0000d6  da0f              BGE      |L3.248|
-0000d8  f00b04ff          AND      r4,r11,#0xff          ;364
-0000dc  4823              LDR      r0,|L3.364|
-0000de  eb040144          ADD      r1,r4,r4,LSL #1       ;367
-0000e2  f8500031          LDR      r0,[r0,r1,LSL #3]     ;367
-0000e6  b190              CBZ      r0,|L3.270|
-0000e8  a321              ADR      r3,|L3.368|
-0000ea  f240126f          MOV      r2,#0x16f             ;367
-0000ee  a148              ADR      r1,|L3.528|
-0000f0  a03d              ADR      r0,|L3.488|
-0000f2  f7fffffe          BL       __2printf
-0000f6  e00a              B        |L3.270|
-                  |L3.248|
-0000f8  9802              LDR      r0,[sp,#8]            ;369
-0000fa  280a              CMP      r0,#0xa               ;369
-0000fc  da02              BGE      |L3.260|
-0000fe  9802              LDR      r0,[sp,#8]            ;371
-000100  b2c4              UXTB     r4,r0                 ;371
-000102  e004              B        |L3.270|
-                  |L3.260|
-000104  9801              LDR      r0,[sp,#4]            ;374
-000106  280a              CMP      r0,#0xa               ;374
-000108  da2e              BGE      |L3.360|
-00010a  9801              LDR      r0,[sp,#4]            ;376
-00010c  b2c4              UXTB     r4,r0                 ;376
+0000c6  9805              LDR      r0,[sp,#0x14]         ;340
+0000c8  07c0              LSLS     r0,r0,#31             ;340
+0000ca  d003              BEQ      |L3.212|
+                  |L3.204|
+0000cc  2f0a              CMP      r7,#0xa               ;355
+0000ce  da03              BGE      |L3.216|
+0000d0  463c              MOV      r4,r7                 ;356
+0000d2  e028              B        |L3.294|
+                  |L3.212|
+0000d4  4608              MOV      r0,r1                 ;342
+0000d6  e7c8              B        |L3.106|
+                  |L3.216|
+0000d8  f1b90f0a          CMP      r9,#0xa               ;360
+0000dc  da0e              BGE      |L3.252|
+0000de  464c              MOV      r4,r9                 ;362
+0000e0  4823              LDR      r0,|L3.368|
+0000e2  eb040144          ADD      r1,r4,r4,LSL #1       ;365
+0000e6  f8500031          LDR      r0,[r0,r1,LSL #3]     ;365
+0000ea  b180              CBZ      r0,|L3.270|
+0000ec  a321              ADR      r3,|L3.372|
+0000ee  f240126d          MOV      r2,#0x16d             ;365
+0000f2  a148              ADR      r1,|L3.532|
+0000f4  a03d              ADR      r0,|L3.492|
+0000f6  f7fffffe          BL       __2printf
+0000fa  e008              B        |L3.270|
+                  |L3.252|
+0000fc  f1ba0f0a          CMP      r10,#0xa              ;367
+000100  da01              BGE      |L3.262|
+000102  4654              MOV      r4,r10                ;369
+000104  e003              B        |L3.270|
+                  |L3.262|
+000106  f1bb0f0a          CMP      r11,#0xa              ;372
+00010a  da2f              BGE      |L3.364|
+00010c  465c              MOV      r4,r11                ;374
                   |L3.270|
-00010e  2c0a              CMP      r4,#0xa               ;385
-000110  d306              BCC      |L3.288|
-000112  a317              ADR      r3,|L3.368|
-000114  f2401281          MOV      r2,#0x181             ;385
-000118  a143              ADR      r1,|L3.552|
-00011a  a033              ADR      r0,|L3.488|
+00010e  2c0a              CMP      r4,#0xa               ;383
+000110  db06              BLT      |L3.288|
+000112  a318              ADR      r3,|L3.372|
+000114  f240127f          MOV      r2,#0x17f             ;383
+000118  a144              ADR      r1,|L3.556|
+00011a  a034              ADR      r0,|L3.492|
 00011c  f7fffffe          BL       __2printf
                   |L3.288|
-000120  4620              MOV      r0,r4                 ;386
+000120  4620              MOV      r0,r4                 ;384
 000122  f7fffffe          BL       etharp_free_entry
                   |L3.294|
-000126  2c0a              CMP      r4,#0xa               ;389
-000128  d306              BCC      |L3.312|
-00012a  a311              ADR      r3,|L3.368|
-00012c  f2401285          MOV      r2,#0x185             ;389
-000130  a13d              ADR      r1,|L3.552|
-000132  a02d              ADR      r0,|L3.488|
+000126  2c0a              CMP      r4,#0xa               ;387
+000128  db06              BLT      |L3.312|
+00012a  a312              ADR      r3,|L3.372|
+00012c  f2401283          MOV      r2,#0x183             ;387
+000130  a13e              ADR      r1,|L3.556|
+000132  a02e              ADR      r0,|L3.492|
 000134  f7fffffe          BL       __2printf
                   |L3.312|
-000138  480c              LDR      r0,|L3.364|
-00013a  eb040144          ADD      r1,r4,r4,LSL #1       ;390
-00013e  eb0005c1          ADD      r5,r0,r1,LSL #3       ;390
-000142  7d28              LDRB     r0,[r5,#0x14]         ;390
+000138  480d              LDR      r0,|L3.368|
+00013a  eb040144          ADD      r1,r4,r4,LSL #1       ;388
+00013e  eb0005c1          ADD      r5,r0,r1,LSL #3       ;388
+000142  7d28              LDRB     r0,[r5,#0x14]         ;388
 000144  b130              CBZ      r0,|L3.340|
-000146  a30a              ADR      r3,|L3.368|
-000148  f44f72c3          MOV      r2,#0x186             ;390
-00014c  a13b              ADR      r1,|L3.572|
-00014e  a026              ADR      r0,|L3.488|
+000146  a30b              ADR      r3,|L3.372|
+000148  f44f72c2          MOV      r2,#0x184             ;388
+00014c  a13c              ADR      r1,|L3.576|
+00014e  a027              ADR      r0,|L3.492|
 000150  f7fffffe          BL       __2printf
                   |L3.340|
-000154  f1b80f00          CMP      r8,#0                 ;394
+000154  f1b80f00          CMP      r8,#0                 ;392
 000158  d002              BEQ      |L3.352|
-00015a  f8d80000          LDR      r0,[r8,#0]            ;396
-00015e  6068              STR      r0,[r5,#4]            ;396
+00015a  f8d80000          LDR      r0,[r8,#0]            ;394
+00015e  6068              STR      r0,[r5,#4]            ;394
                   |L3.352|
-000160  2000              MOVS     r0,#0                 ;398
-000162  8268              STRH     r0,[r5,#0x12]         ;398
-000164  b260              SXTB     r0,r4                 ;402
-000166  e77c              B        |L3.98|
-                  |L3.360|
-000168  4608              MOV      r0,r1                 ;381
-00016a  e77a              B        |L3.98|
-;;;404    
+000160  2000              MOVS     r0,#0                 ;396
+000162  8268              STRH     r0,[r5,#0x12]         ;396
+000164  9806              LDR      r0,[sp,#0x18]         ;398
+000166  60a8              STR      r0,[r5,#8]            ;398
+000168  4620              MOV      r0,r4                 ;400
+00016a  e77e              B        |L3.106|
+                  |L3.364|
+00016c  4608              MOV      r0,r1                 ;379
+00016e  e77c              B        |L3.106|
+;;;402    
                           ENDP
 
-                  |L3.364|
-                          DCD      ||.bss||
                   |L3.368|
-000170  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
-000174  6964646c
-000178  65776172
-00017c  65735c54
-000180  68697264
-000184  5f506172
-000188  74795c4c
-00018c  7749505c
-000190  7372635c
-000194  636f7265
-000198  5c697076
-00019c  345c6574
-0001a0  68617270          DCB      "harp.c",0
-0001a4  2e6300  
-0001a7  00                DCB      0
-                  |L3.424|
-0001a8  73746174          DCB      "state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_"
-0001ac  65203d3d
-0001b0  20455448
-0001b4  4152505f
-0001b8  53544154
-0001bc  455f5045
-0001c0  4e44494e
-0001c4  47207c7c
-0001c8  20737461
-0001cc  7465203e
-0001d0  3d204554
-0001d4  48415250
-0001d8  5f535441
-0001dc  54455f  
-0001df  53544142          DCB      "STABLE",0
-0001e3  4c4500  
-0001e6  00                DCB      0
-0001e7  00                DCB      0
-                  |L3.488|
-0001e8  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0001ec  7274696f
-0001f0  6e202225
-0001f4  73222066
-0001f8  61696c65
-0001fc  64206174
-000200  206c696e
-000204  65202564
-000208  20696e20
-00020c  25730a00
-                  |L3.528|
-000210  6172705f          DCB      "arp_table[i].q == NULL",0
-000214  7461626c
-000218  655b695d
-00021c  2e71203d
-000220  3d204e55
-000224  4c4c00  
-000227  00                DCB      0
-                  |L3.552|
-000228  69203c20          DCB      "i < ARP_TABLE_SIZE",0
-00022c  4152505f
-000230  5441424c
-000234  455f5349
-000238  5a4500  
-00023b  00                DCB      0
-                  |L3.572|
-00023c  6172705f          DCB      "arp_table[i].state == ETHARP_STATE_EMPTY",0
-000240  7461626c
-000244  655b695d
-000248  2e737461
-00024c  7465203d
-000250  3d204554
-000254  48415250
-000258  5f535441
-00025c  54455f45
-000260  4d505459
-000264  00      
-000265  00                DCB      0
-000266  00                DCB      0
-000267  00                DCB      0
+                          DCD      ||.bss||
+                  |L3.372|
+000174  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
+000178  6964646c
+00017c  65776172
+000180  65735c54
+000184  68697264
+000188  5f506172
+00018c  74795c4c
+000190  7749505c
+000194  7372635c
+000198  636f7265
+00019c  5c697076
+0001a0  345c6574
+0001a4  68617270          DCB      "harp.c",0
+0001a8  2e6300  
+0001ab  00                DCB      0
+                  |L3.428|
+0001ac  73746174          DCB      "state == ETHARP_STATE_PENDING || state >= ETHARP_STATE_"
+0001b0  65203d3d
+0001b4  20455448
+0001b8  4152505f
+0001bc  53544154
+0001c0  455f5045
+0001c4  4e44494e
+0001c8  47207c7c
+0001cc  20737461
+0001d0  7465203e
+0001d4  3d204554
+0001d8  48415250
+0001dc  5f535441
+0001e0  54455f  
+0001e3  53544142          DCB      "STABLE",0
+0001e7  4c4500  
+0001ea  00                DCB      0
+0001eb  00                DCB      0
+                  |L3.492|
+0001ec  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0001f0  7274696f
+0001f4  6e202225
+0001f8  73222066
+0001fc  61696c65
+000200  64206174
+000204  206c696e
+000208  65202564
+00020c  20696e20
+000210  25730a00
+                  |L3.532|
+000214  6172705f          DCB      "arp_table[i].q == NULL",0
+000218  7461626c
+00021c  655b695d
+000220  2e71203d
+000224  3d204e55
+000228  4c4c00  
+00022b  00                DCB      0
+                  |L3.556|
+00022c  69203c20          DCB      "i < ARP_TABLE_SIZE",0
+000230  4152505f
+000234  5441424c
+000238  455f5349
+00023c  5a4500  
+00023f  00                DCB      0
+                  |L3.576|
+000240  6172705f          DCB      "arp_table[i].state == ETHARP_STATE_EMPTY",0
+000244  7461626c
+000248  655b695d
+00024c  2e737461
+000250  7465203d
+000254  3d204554
+000258  48415250
+00025c  5f535441
+000260  54455f45
+000264  4d505459
+000268  00      
+000269  00                DCB      0
+00026a  00                DCB      0
+00026b  00                DCB      0
 
                           AREA ||i.etharp_free_entry||, CODE, READONLY, ALIGN=2
 
                   etharp_free_entry PROC
-;;;169    static void
-;;;170    etharp_free_entry(int i)
+;;;167    static void
+;;;168    etharp_free_entry(int i)
 000000  b570              PUSH     {r4-r6,lr}
-;;;171    {
-;;;172      /* remove from SNMP ARP index tree */
-;;;173      mib2_remove_arp_entry(arp_table[i].netif, &arp_table[i].ipaddr);
-;;;174      /* and empty packet queue */
-;;;175      if (arp_table[i].q != NULL) {
+;;;169    {
+;;;170      /* remove from SNMP ARP index tree */
+;;;171      mib2_remove_arp_entry(arp_table[i].netif, &arp_table[i].ipaddr);
+;;;172      /* and empty packet queue */
+;;;173      if (arp_table[i].q != NULL) {
 000002  4d08              LDR      r5,|L4.36|
 000004  eb000440          ADD      r4,r0,r0,LSL #1
 000008  2600              MOVS     r6,#0
 00000a  f8550034          LDR      r0,[r5,r4,LSL #3]
 00000e  2800              CMP      r0,#0
 000010  d003              BEQ      |L4.26|
-;;;176        /* remove all queued packets */
-;;;177        LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_free_entry: freeing entry %"U16_F", packet queue %p.\n", (u16_t)i, (void *)(arp_table[i].q)));
-;;;178        free_etharp_q(arp_table[i].q);
+;;;174        /* remove all queued packets */
+;;;175        LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_free_entry: freeing entry %"U16_F", packet queue %p.\n", (u16_t)i, (void *)(arp_table[i].q)));
+;;;176        free_etharp_q(arp_table[i].q);
 000012  f7fffffe          BL       pbuf_free
-;;;179        arp_table[i].q = NULL;
+;;;177        arp_table[i].q = NULL;
 000016  f8456034          STR      r6,[r5,r4,LSL #3]
                   |L4.26|
-;;;180      }
-;;;181      /* recycle entry for re-use */
-;;;182      arp_table[i].state = ETHARP_STATE_EMPTY;
+;;;178      }
+;;;179      /* recycle entry for re-use */
+;;;180      arp_table[i].state = ETHARP_STATE_EMPTY;
 00001a  eb0500c4          ADD      r0,r5,r4,LSL #3
 00001e  7506              STRB     r6,[r0,#0x14]
-;;;183    #ifdef LWIP_DEBUG
-;;;184      /* for debugging, clean out the complete entry */
-;;;185      arp_table[i].ctime = 0;
-;;;186      arp_table[i].netif = NULL;
-;;;187      ip4_addr_set_zero(&arp_table[i].ipaddr);
-;;;188      arp_table[i].ethaddr = ethzero;
-;;;189    #endif /* LWIP_DEBUG */
-;;;190    }
+;;;181    #ifdef LWIP_DEBUG
+;;;182      /* for debugging, clean out the complete entry */
+;;;183      arp_table[i].ctime = 0;
+;;;184      arp_table[i].netif = NULL;
+;;;185      ip4_addr_set_zero(&arp_table[i].ipaddr);
+;;;186      arp_table[i].ethaddr = ethzero;
+;;;187    #endif /* LWIP_DEBUG */
+;;;188    }
 000020  bd70              POP      {r4-r6,pc}
-;;;191    
+;;;189    
                           ENDP
 
 000022  0000              DCW      0x0000
@@ -623,8 +625,8 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   etharp_get_entry PROC
-;;;611    u8_t
-;;;612    etharp_get_entry(u8_t i, ip4_addr_t **ipaddr, struct netif **netif, struct eth_addr **eth_ret)
+;;;611    int
+;;;612    etharp_get_entry(size_t i, ip4_addr_t **ipaddr, struct netif **netif, struct eth_addr **eth_ret)
 000000  e92d41f0          PUSH     {r4-r8,lr}
 ;;;613    {
 000004  4604              MOV      r4,r0
@@ -657,7 +659,7 @@
 00003a  f7fffffe          BL       __2printf
                   |L5.62|
 ;;;617    
-;;;618      if((i < ARP_TABLE_SIZE) && (arp_table[i].state >= ETHARP_STATE_STABLE)) {
+;;;618      if ((i < ARP_TABLE_SIZE) && (arp_table[i].state >= ETHARP_STATE_STABLE)) {
 00003e  2c0a              CMP      r4,#0xa
 000040  d210              BCS      |L5.100|
 000042  482d              LDR      r0,|L5.248|
@@ -757,187 +759,189 @@
 ;;;645      ip4_addr_t sipaddr, dipaddr;
 ;;;646      u8_t for_us;
 ;;;647    
-;;;648      LWIP_ERROR("netif != NULL", (netif != NULL), return;);
+;;;648      LWIP_ASSERT_CORE_LOCKED();
+;;;649    
+;;;650      LWIP_ERROR("netif != NULL", (netif != NULL), return;);
 00000a  2d00              CMP      r5,#0
 00000c  d009              BEQ      |L6.34|
-;;;649    
-;;;650      hdr = (struct etharp_hdr *)p->payload;
-00000e  687c              LDR      r4,[r7,#4]
 ;;;651    
-;;;652      /* RFC 826 "Packet Reception": */
-;;;653      if ((hdr->hwtype != PP_HTONS(HWTYPE_ETHERNET)) ||
+;;;652      hdr = (struct etharp_hdr *)p->payload;
+00000e  687c              LDR      r4,[r7,#4]
+;;;653    
+;;;654      /* RFC 826 "Packet Reception": */
+;;;655      if ((hdr->hwtype != PP_HTONS(LWIP_IANA_HWTYPE_ETHERNET)) ||
 000010  f44f7880          MOV      r8,#0x100
 000014  8820              LDRH     r0,[r4,#0]
 000016  4540              CMP      r0,r8
 000018  d113              BNE      |L6.66|
-;;;654          (hdr->hwlen != ETH_HWADDR_LEN) ||
+;;;656          (hdr->hwlen != ETH_HWADDR_LEN) ||
 00001a  7920              LDRB     r0,[r4,#4]
 00001c  2806              CMP      r0,#6
 00001e  d110              BNE      |L6.66|
 000020  e009              B        |L6.54|
                   |L6.34|
 000022  a326              ADR      r3,|L6.188|
-000024  f44f7222          MOV      r2,#0x288             ;648
+000024  f240228a          MOV      r2,#0x28a             ;650
 000028  a132              ADR      r1,|L6.244|
 00002a  a036              ADR      r0,|L6.260|
 00002c  f7fffffe          BL       __2printf
                   |L6.48|
-;;;655          (hdr->protolen != sizeof(ip4_addr_t)) ||
-;;;656          (hdr->proto != PP_HTONS(ETHTYPE_IP)))  {
-;;;657        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
-;;;658          ("etharp_input: packet dropped, wrong hw type, hwlen, proto, protolen or ethernet type (%"U16_F"/%"U16_F"/%"U16_F"/%"U16_F")\n",
-;;;659          hdr->hwtype, (u16_t)hdr->hwlen, hdr->proto, (u16_t)hdr->protolen));
-;;;660        ETHARP_STATS_INC(etharp.proterr);
-;;;661        ETHARP_STATS_INC(etharp.drop);
-;;;662        pbuf_free(p);
-;;;663        return;
-;;;664      }
-;;;665      ETHARP_STATS_INC(etharp.recv);
-;;;666    
-;;;667    #if LWIP_AUTOIP
-;;;668      /* We have to check if a host already has configured our random
-;;;669       * created link local address and continuously check if there is
-;;;670       * a host with this IP-address so we can detect collisions */
-;;;671      autoip_arp_reply(netif, hdr);
-;;;672    #endif /* LWIP_AUTOIP */
-;;;673    
-;;;674      /* Copy struct ip4_addr2 to aligned ip4_addr, to support compilers without
-;;;675       * structure packing (not using structure copy which breaks strict-aliasing rules). */
-;;;676      IPADDR2_COPY(&sipaddr, &hdr->sipaddr);
-;;;677      IPADDR2_COPY(&dipaddr, &hdr->dipaddr);
-;;;678    
-;;;679      /* this interface is not configured? */
-;;;680      if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-;;;681        for_us = 0;
-;;;682      } else {
-;;;683        /* ARP packet directed to us? */
-;;;684        for_us = (u8_t)ip4_addr_cmp(&dipaddr, netif_ip4_addr(netif));
-;;;685      }
-;;;686    
-;;;687      /* ARP message directed to us?
-;;;688          -> add IP address in ARP cache; assume requester wants to talk to us,
-;;;689             can result in directly sending the queued packets for this host.
-;;;690         ARP message not directed to us?
-;;;691          ->  update the source IP address in the cache, if present */
-;;;692      etharp_update_arp_entry(netif, &sipaddr, &(hdr->shwaddr),
-;;;693                       for_us ? ETHARP_FLAG_TRY_HARD : ETHARP_FLAG_FIND_ONLY);
-;;;694    
-;;;695      /* now act on the message itself */
-;;;696      switch (hdr->opcode) {
-;;;697      /* ARP request? */
-;;;698      case PP_HTONS(ARP_REQUEST):
-;;;699        /* ARP request. If it asked for our address, we send out a
-;;;700         * reply. In any case, we time-stamp any existing ARP entry,
-;;;701         * and possibly send out an IP packet that was queued on it. */
-;;;702    
-;;;703        LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP request\n"));
-;;;704        /* ARP request for our address? */
-;;;705        if (for_us) {
-;;;706          /* send ARP response */
-;;;707          etharp_raw(netif,
-;;;708                     (struct eth_addr *)netif->hwaddr, &hdr->shwaddr,
-;;;709                     (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif),
-;;;710                     &hdr->shwaddr, &sipaddr,
-;;;711                     ARP_REPLY);
-;;;712        /* we are not configured? */
-;;;713        } else if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-;;;714          /* { for_us == 0 and netif->ip_addr.addr == 0 } */
-;;;715          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: we are unconfigured, ARP request ignored.\n"));
-;;;716        /* request was not directed to us */
-;;;717        } else {
-;;;718          /* { for_us == 0 and netif->ip_addr.addr != 0 } */
-;;;719          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
-;;;720        }
-;;;721        break;
-;;;722      case PP_HTONS(ARP_REPLY):
-;;;723        /* ARP reply. We already updated the ARP cache earlier. */
-;;;724        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
-;;;725    #if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
-;;;726        /* DHCP wants to know about ARP replies from any host with an
-;;;727         * IP address also offered to us by the DHCP server. We do not
-;;;728         * want to take a duplicate IP address on a single network.
-;;;729         * @todo How should we handle redundant (fail-over) interfaces? */
-;;;730        dhcp_arp_reply(netif, &sipaddr);
-;;;731    #endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
-;;;732        break;
-;;;733      default:
-;;;734        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));
-;;;735        ETHARP_STATS_INC(etharp.err);
-;;;736        break;
-;;;737      }
-;;;738      /* free ARP packet */
-;;;739      pbuf_free(p);
-;;;740    }
+;;;657          (hdr->protolen != sizeof(ip4_addr_t)) ||
+;;;658          (hdr->proto != PP_HTONS(ETHTYPE_IP)))  {
+;;;659        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING,
+;;;660                    ("etharp_input: packet dropped, wrong hw type, hwlen, proto, protolen or ethernet type (%"U16_F"/%"U16_F"/%"U16_F"/%"U16_F")\n",
+;;;661                     hdr->hwtype, (u16_t)hdr->hwlen, hdr->proto, (u16_t)hdr->protolen));
+;;;662        ETHARP_STATS_INC(etharp.proterr);
+;;;663        ETHARP_STATS_INC(etharp.drop);
+;;;664        pbuf_free(p);
+;;;665        return;
+;;;666      }
+;;;667      ETHARP_STATS_INC(etharp.recv);
+;;;668    
+;;;669    #if LWIP_AUTOIP
+;;;670      /* We have to check if a host already has configured our random
+;;;671       * created link local address and continuously check if there is
+;;;672       * a host with this IP-address so we can detect collisions */
+;;;673      autoip_arp_reply(netif, hdr);
+;;;674    #endif /* LWIP_AUTOIP */
+;;;675    
+;;;676      /* Copy struct ip4_addr_wordaligned to aligned ip4_addr, to support compilers without
+;;;677       * structure packing (not using structure copy which breaks strict-aliasing rules). */
+;;;678      IPADDR_WORDALIGNED_COPY_TO_IP4_ADDR_T(&sipaddr, &hdr->sipaddr);
+;;;679      IPADDR_WORDALIGNED_COPY_TO_IP4_ADDR_T(&dipaddr, &hdr->dipaddr);
+;;;680    
+;;;681      /* this interface is not configured? */
+;;;682      if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+;;;683        for_us = 0;
+;;;684      } else {
+;;;685        /* ARP packet directed to us? */
+;;;686        for_us = (u8_t)ip4_addr_cmp(&dipaddr, netif_ip4_addr(netif));
+;;;687      }
+;;;688    
+;;;689      /* ARP message directed to us?
+;;;690          -> add IP address in ARP cache; assume requester wants to talk to us,
+;;;691             can result in directly sending the queued packets for this host.
+;;;692         ARP message not directed to us?
+;;;693          ->  update the source IP address in the cache, if present */
+;;;694      etharp_update_arp_entry(netif, &sipaddr, &(hdr->shwaddr),
+;;;695                              for_us ? ETHARP_FLAG_TRY_HARD : ETHARP_FLAG_FIND_ONLY);
+;;;696    
+;;;697      /* now act on the message itself */
+;;;698      switch (hdr->opcode) {
+;;;699        /* ARP request? */
+;;;700        case PP_HTONS(ARP_REQUEST):
+;;;701          /* ARP request. If it asked for our address, we send out a
+;;;702           * reply. In any case, we time-stamp any existing ARP entry,
+;;;703           * and possibly send out an IP packet that was queued on it. */
+;;;704    
+;;;705          LWIP_DEBUGF (ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP request\n"));
+;;;706          /* ARP request for our address? */
+;;;707          if (for_us) {
+;;;708            /* send ARP response */
+;;;709            etharp_raw(netif,
+;;;710                       (struct eth_addr *)netif->hwaddr, &hdr->shwaddr,
+;;;711                       (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif),
+;;;712                       &hdr->shwaddr, &sipaddr,
+;;;713                       ARP_REPLY);
+;;;714            /* we are not configured? */
+;;;715          } else if (ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+;;;716            /* { for_us == 0 and netif->ip_addr.addr == 0 } */
+;;;717            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: we are unconfigured, ARP request ignored.\n"));
+;;;718            /* request was not directed to us */
+;;;719          } else {
+;;;720            /* { for_us == 0 and netif->ip_addr.addr != 0 } */
+;;;721            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
+;;;722          }
+;;;723          break;
+;;;724        case PP_HTONS(ARP_REPLY):
+;;;725          /* ARP reply. We already updated the ARP cache earlier. */
+;;;726          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: incoming ARP reply\n"));
+;;;727    #if (LWIP_DHCP && DHCP_DOES_ARP_CHECK)
+;;;728          /* DHCP wants to know about ARP replies from any host with an
+;;;729           * IP address also offered to us by the DHCP server. We do not
+;;;730           * want to take a duplicate IP address on a single network.
+;;;731           * @todo How should we handle redundant (fail-over) interfaces? */
+;;;732          dhcp_arp_reply(netif, &sipaddr);
+;;;733    #endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
+;;;734          break;
+;;;735        default:
+;;;736          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));
+;;;737          ETHARP_STATS_INC(etharp.err);
+;;;738          break;
+;;;739      }
+;;;740      /* free ARP packet */
+;;;741      pbuf_free(p);
+;;;742    }
 000030  b007              ADD      sp,sp,#0x1c
 000032  e8bd83f0          POP      {r4-r9,pc}
                   |L6.54|
-000036  7960              LDRB     r0,[r4,#5]            ;655
-000038  2804              CMP      r0,#4                 ;655
+000036  7960              LDRB     r0,[r4,#5]            ;657
+000038  2804              CMP      r0,#4                 ;657
 00003a  d102              BNE      |L6.66|
-00003c  8860              LDRH     r0,[r4,#2]            ;656
-00003e  2808              CMP      r0,#8                 ;656
+00003c  8860              LDRH     r0,[r4,#2]            ;658
+00003e  2808              CMP      r0,#8                 ;658
 000040  d003              BEQ      |L6.74|
                   |L6.66|
-000042  4638              MOV      r0,r7                 ;662
+000042  4638              MOV      r0,r7                 ;664
 000044  f7fffffe          BL       pbuf_free
 000048  e7f2              B        |L6.48|
                   |L6.74|
-00004a  f8d4000e          LDR      r0,[r4,#0xe]          ;676
-00004e  9006              STR      r0,[sp,#0x18]         ;676
-000050  69a0              LDR      r0,[r4,#0x18]         ;677
-000052  9005              STR      r0,[sp,#0x14]         ;677
-000054  6869              LDR      r1,[r5,#4]            ;680
+00004a  f8d4000e          LDR      r0,[r4,#0xe]          ;678
+00004e  9006              STR      r0,[sp,#0x18]         ;678
+000050  69a0              LDR      r0,[r4,#0x18]         ;679
+000052  9005              STR      r0,[sp,#0x14]         ;679
+000054  6869              LDR      r1,[r5,#4]            ;682
 000056  b119              CBZ      r1,|L6.96|
-000058  4288              CMP      r0,r1                 ;684
+000058  4288              CMP      r0,r1                 ;686
 00005a  d103              BNE      |L6.100|
-00005c  2601              MOVS     r6,#1                 ;684
+00005c  2601              MOVS     r6,#1                 ;686
 00005e  e002              B        |L6.102|
                   |L6.96|
-000060  2600              MOVS     r6,#0                 ;681
+000060  2600              MOVS     r6,#0                 ;683
 000062  e000              B        |L6.102|
                   |L6.100|
-000064  2600              MOVS     r6,#0                 ;684
+000064  2600              MOVS     r6,#0                 ;686
                   |L6.102|
 000066  b10e              CBZ      r6,|L6.108|
-000068  2301              MOVS     r3,#1                 ;693
+000068  2301              MOVS     r3,#1                 ;695
 00006a  e000              B        |L6.110|
                   |L6.108|
-00006c  2302              MOVS     r3,#2                 ;693
+00006c  2302              MOVS     r3,#2                 ;695
                   |L6.110|
-00006e  f1040208          ADD      r2,r4,#8              ;693
-000072  4691              MOV      r9,r2                 ;693
-000074  a906              ADD      r1,sp,#0x18           ;693
-000076  4628              MOV      r0,r5                 ;693
+00006e  f1040208          ADD      r2,r4,#8              ;695
+000072  4691              MOV      r9,r2                 ;695
+000074  a906              ADD      r1,sp,#0x18           ;695
+000076  4628              MOV      r0,r5                 ;695
 000078  f7fffffe          BL       etharp_update_arp_entry
-00007c  88e0              LDRH     r0,[r4,#6]            ;696
-00007e  4540              CMP      r0,r8                 ;696
+00007c  88e0              LDRH     r0,[r4,#6]            ;698
+00007e  4540              CMP      r0,r8                 ;698
 000080  d003              BEQ      |L6.138|
-000082  f5b07f00          CMP      r0,#0x200             ;696
+000082  f5b07f00          CMP      r0,#0x200             ;698
 000086  d114              BNE      |L6.178|
 000088  e00f              B        |L6.170|
                   |L6.138|
 00008a  b196              CBZ      r6,|L6.178|
-00008c  aa06              ADD      r2,sp,#0x18           ;707
-00008e  e9cd9201          STRD     r9,r2,[sp,#4]         ;707
-000092  2102              MOVS     r1,#2                 ;707
-000094  1d28              ADDS     r0,r5,#4              ;707
-000096  f1050331          ADD      r3,r5,#0x31           ;707
-00009a  9103              STR      r1,[sp,#0xc]          ;707
-00009c  9000              STR      r0,[sp,#0]            ;707
-00009e  4619              MOV      r1,r3                 ;707
-0000a0  464a              MOV      r2,r9                 ;707
-0000a2  4628              MOV      r0,r5                 ;707
+00008c  aa06              ADD      r2,sp,#0x18           ;709
+00008e  e9cd9201          STRD     r9,r2,[sp,#4]         ;709
+000092  2102              MOVS     r1,#2                 ;709
+000094  1d28              ADDS     r0,r5,#4              ;709
+000096  f105032e          ADD      r3,r5,#0x2e           ;709
+00009a  9103              STR      r1,[sp,#0xc]          ;709
+00009c  9000              STR      r0,[sp,#0]            ;709
+00009e  4619              MOV      r1,r3                 ;709
+0000a0  464a              MOV      r2,r9                 ;709
+0000a2  4628              MOV      r0,r5                 ;709
 0000a4  f7fffffe          BL       etharp_raw
 0000a8  e003              B        |L6.178|
                   |L6.170|
-0000aa  a906              ADD      r1,sp,#0x18           ;730
-0000ac  4628              MOV      r0,r5                 ;730
+0000aa  a906              ADD      r1,sp,#0x18           ;732
+0000ac  4628              MOV      r0,r5                 ;732
 0000ae  f7fffffe          BL       dhcp_arp_reply
                   |L6.178|
-0000b2  4638              MOV      r0,r7                 ;739
+0000b2  4638              MOV      r0,r7                 ;741
 0000b4  f7fffffe          BL       pbuf_free
 0000b8  e7ba              B        |L6.48|
-;;;741    
+;;;743    
                           ENDP
 
 0000ba  0000              DCW      0x0000
@@ -986,293 +990,298 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   etharp_output PROC
-;;;788    err_t
-;;;789    etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
+;;;790    err_t
+;;;791    etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr)
 000000  b5fe              PUSH     {r1-r7,lr}
-;;;790    {
-000002  4605              MOV      r5,r0
+;;;792    {
+000002  4604              MOV      r4,r0
 000004  460e              MOV      r6,r1
-000006  4614              MOV      r4,r2
-;;;791      const struct eth_addr *dest;
-;;;792      struct eth_addr mcastaddr;
-;;;793      const ip4_addr_t *dst_addr = ipaddr;
-;;;794    
-;;;795      LWIP_ASSERT("netif != NULL", netif != NULL);
-000008  2d00              CMP      r5,#0
+000006  4615              MOV      r5,r2
+;;;793      const struct eth_addr *dest;
+;;;794      struct eth_addr mcastaddr;
+;;;795      const ip4_addr_t *dst_addr = ipaddr;
+;;;796    
+;;;797      LWIP_ASSERT_CORE_LOCKED();
+;;;798      LWIP_ASSERT("netif != NULL", netif != NULL);
+000008  2c00              CMP      r4,#0
 00000a  d106              BNE      |L7.26|
-00000c  a343              ADR      r3,|L7.284|
-00000e  f240321b          MOV      r2,#0x31b
-000012  a150              ADR      r1,|L7.340|
-000014  a053              ADR      r0,|L7.356|
+00000c  a345              ADR      r3,|L7.292|
+00000e  f240321e          MOV      r2,#0x31e
+000012  a152              ADR      r1,|L7.348|
+000014  a055              ADR      r0,|L7.364|
 000016  f7fffffe          BL       __2printf
                   |L7.26|
-;;;796      LWIP_ASSERT("q != NULL", q != NULL);
+;;;799      LWIP_ASSERT("q != NULL", q != NULL);
 00001a  b936              CBNZ     r6,|L7.42|
-00001c  a33f              ADR      r3,|L7.284|
-00001e  f44f7247          MOV      r2,#0x31c
-000022  a15a              ADR      r1,|L7.396|
-000024  a04f              ADR      r0,|L7.356|
+00001c  a341              ADR      r3,|L7.292|
+00001e  f240321f          MOV      r2,#0x31f
+000022  a15c              ADR      r1,|L7.404|
+000024  a051              ADR      r0,|L7.364|
 000026  f7fffffe          BL       __2printf
                   |L7.42|
-;;;797      LWIP_ASSERT("ipaddr != NULL", ipaddr != NULL);
-00002a  0020              MOVS     r0,r4
+;;;800      LWIP_ASSERT("ipaddr != NULL", ipaddr != NULL);
+00002a  0028              MOVS     r0,r5
 00002c  d106              BNE      |L7.60|
-00002e  a33b              ADR      r3,|L7.284|
-000030  f240321d          MOV      r2,#0x31d
-000034  a158              ADR      r1,|L7.408|
-000036  a04b              ADR      r0,|L7.356|
+00002e  a33d              ADR      r3,|L7.292|
+000030  f44f7248          MOV      r2,#0x320
+000034  a15a              ADR      r1,|L7.416|
+000036  a04d              ADR      r0,|L7.364|
 000038  f7fffffe          BL       __2printf
                   |L7.60|
-;;;798    
-;;;799      /* Determine on destination hardware address. Broadcasts and multicasts
-;;;800       * are special, other IP addresses are looked up in the ARP table. */
 ;;;801    
-;;;802      /* broadcast destination IP address? */
-;;;803      if (ip4_addr_isbroadcast(ipaddr, netif)) {
-00003c  4629              MOV      r1,r5
-00003e  6820              LDR      r0,[r4,#0]
+;;;802      /* Determine on destination hardware address. Broadcasts and multicasts
+;;;803       * are special, other IP addresses are looked up in the ARP table. */
+;;;804    
+;;;805      /* broadcast destination IP address? */
+;;;806      if (ip4_addr_isbroadcast(ipaddr, netif)) {
+00003c  4621              MOV      r1,r4
+00003e  6828              LDR      r0,[r5,#0]
 000040  f7fffffe          BL       ip4_addr_isbroadcast_u32
 000044  b108              CBZ      r0,|L7.74|
-;;;804        /* broadcast on Ethernet also */
-;;;805        dest = (const struct eth_addr *)&ethbroadcast;
-000046  4b58              LDR      r3,|L7.424|
-000048  e03d              B        |L7.198|
+;;;807        /* broadcast on Ethernet also */
+;;;808        dest = (const struct eth_addr *)&ethbroadcast;
+000046  4b5a              LDR      r3,|L7.432|
+000048  e03f              B        |L7.202|
                   |L7.74|
-;;;806      /* multicast destination IP address? */
-;;;807      } else if (ip4_addr_ismulticast(ipaddr)) {
-00004a  6820              LDR      r0,[r4,#0]
+;;;809        /* multicast destination IP address? */
+;;;810      } else if (ip4_addr_ismulticast(ipaddr)) {
+00004a  6828              LDR      r0,[r5,#0]
 00004c  f3c01103          UBFX     r1,r0,#4,#4
 000050  290e              CMP      r1,#0xe
-000052  d023              BEQ      |L7.156|
-;;;808        /* Hash IP multicast address to MAC address.*/
-;;;809        mcastaddr.addr[0] = LL_IP4_MULTICAST_ADDR_0;
-;;;810        mcastaddr.addr[1] = LL_IP4_MULTICAST_ADDR_1;
-;;;811        mcastaddr.addr[2] = LL_IP4_MULTICAST_ADDR_2;
-;;;812        mcastaddr.addr[3] = ip4_addr2(ipaddr) & 0x7f;
-;;;813        mcastaddr.addr[4] = ip4_addr3(ipaddr);
-;;;814        mcastaddr.addr[5] = ip4_addr4(ipaddr);
-;;;815        /* destination Ethernet address is multicast */
-;;;816        dest = &mcastaddr;
-;;;817      /* unicast destination IP address? */
-;;;818      } else {
-;;;819        s8_t i;
-;;;820        /* outside local network? if so, this can neither be a global broadcast nor
-;;;821           a subnet broadcast. */
-;;;822        if (!ip4_addr_netcmp(ipaddr, netif_ip4_addr(netif), netif_ip4_netmask(netif)) &&
-000054  68a9              LDR      r1,[r5,#8]
-000056  686b              LDR      r3,[r5,#4]
+000052  d025              BEQ      |L7.160|
+;;;811        /* Hash IP multicast address to MAC address.*/
+;;;812        mcastaddr.addr[0] = LL_IP4_MULTICAST_ADDR_0;
+;;;813        mcastaddr.addr[1] = LL_IP4_MULTICAST_ADDR_1;
+;;;814        mcastaddr.addr[2] = LL_IP4_MULTICAST_ADDR_2;
+;;;815        mcastaddr.addr[3] = ip4_addr2(ipaddr) & 0x7f;
+;;;816        mcastaddr.addr[4] = ip4_addr3(ipaddr);
+;;;817        mcastaddr.addr[5] = ip4_addr4(ipaddr);
+;;;818        /* destination Ethernet address is multicast */
+;;;819        dest = &mcastaddr;
+;;;820        /* unicast destination IP address? */
+;;;821      } else {
+;;;822        netif_addr_idx_t i;
+;;;823        /* outside local network? if so, this can neither be a global broadcast nor
+;;;824           a subnet broadcast. */
+;;;825        if (!ip4_addr_netcmp(ipaddr, netif_ip4_addr(netif), netif_ip4_netmask(netif)) &&
+000054  68a1              LDR      r1,[r4,#8]
+000056  6863              LDR      r3,[r4,#4]
 000058  ea000201          AND      r2,r0,r1
 00005c  400b              ANDS     r3,r3,r1
 00005e  429a              CMP      r2,r3
 000060  d008              BEQ      |L7.116|
-;;;823            !ip4_addr_islinklocal(ipaddr)) {
+;;;826            !ip4_addr_islinklocal(ipaddr)) {
 000062  b280              UXTH     r0,r0
 000064  f5a0417e          SUB      r1,r0,#0xfe00
 000068  39a9              SUBS     r1,r1,#0xa9
 00006a  d003              BEQ      |L7.116|
-;;;824    #if LWIP_AUTOIP
-;;;825          struct ip_hdr *iphdr = LWIP_ALIGNMENT_CAST(struct ip_hdr*, q->payload);
-;;;826          /* According to RFC 3297, chapter 2.6.2 (Forwarding Rules), a packet with
-;;;827             a link-local source address must always be "directly to its destination
-;;;828             on the same physical link. The host MUST NOT send the packet to any
-;;;829             router for forwarding". */
-;;;830          if (!ip4_addr_islinklocal(&iphdr->src))
-;;;831    #endif /* LWIP_AUTOIP */
-;;;832          {
-;;;833    #ifdef LWIP_HOOK_ETHARP_GET_GW
-;;;834            /* For advanced routing, a single default gateway might not be enough, so get
-;;;835               the IP address of the gateway to handle the current destination address. */
-;;;836            dst_addr = LWIP_HOOK_ETHARP_GET_GW(netif, ipaddr);
-;;;837            if (dst_addr == NULL)
-;;;838    #endif /* LWIP_HOOK_ETHARP_GET_GW */
-;;;839            {
-;;;840              /* interface has default gateway? */
-;;;841              if (!ip4_addr_isany_val(*netif_ip4_gw(netif))) {
-00006c  68e8              LDR      r0,[r5,#0xc]
-00006e  b3a0              CBZ      r0,|L7.218|
-;;;842                /* send to hardware address of default gateway IP address */
-;;;843                dst_addr = netif_ip4_gw(netif);
-000070  f105040c          ADD      r4,r5,#0xc
+;;;827    #if LWIP_AUTOIP
+;;;828          struct ip_hdr *iphdr = LWIP_ALIGNMENT_CAST(struct ip_hdr *, q->payload);
+;;;829          /* According to RFC 3297, chapter 2.6.2 (Forwarding Rules), a packet with
+;;;830             a link-local source address must always be "directly to its destination
+;;;831             on the same physical link. The host MUST NOT send the packet to any
+;;;832             router for forwarding". */
+;;;833          if (!ip4_addr_islinklocal(&iphdr->src))
+;;;834    #endif /* LWIP_AUTOIP */
+;;;835          {
+;;;836    #ifdef LWIP_HOOK_ETHARP_GET_GW
+;;;837            /* For advanced routing, a single default gateway might not be enough, so get
+;;;838               the IP address of the gateway to handle the current destination address. */
+;;;839            dst_addr = LWIP_HOOK_ETHARP_GET_GW(netif, ipaddr);
+;;;840            if (dst_addr == NULL)
+;;;841    #endif /* LWIP_HOOK_ETHARP_GET_GW */
+;;;842            {
+;;;843              /* interface has default gateway? */
+;;;844              if (!ip4_addr_isany_val(*netif_ip4_gw(netif))) {
+00006c  68e0              LDR      r0,[r4,#0xc]
+00006e  b3b0              CBZ      r0,|L7.222|
+;;;845                /* send to hardware address of default gateway IP address */
+;;;846                dst_addr = netif_ip4_gw(netif);
+000070  f104050c          ADD      r5,r4,#0xc
                   |L7.116|
-;;;844              /* no default gateway available */
-;;;845              } else {
-;;;846                /* no route to destination error (default gateway missing) */
-;;;847                return ERR_RTE;
-;;;848              }
-;;;849            }
-;;;850          }
-;;;851        }
-;;;852    #if LWIP_NETIF_HWADDRHINT
-;;;853        if (netif->addr_hint != NULL) {
-;;;854          /* per-pcb cached entry was given */
-;;;855          u8_t etharp_cached_entry = *(netif->addr_hint);
-;;;856          if (etharp_cached_entry < ARP_TABLE_SIZE) {
-;;;857    #endif /* LWIP_NETIF_HWADDRHINT */
-;;;858            if ((arp_table[etharp_cached_entry].state >= ETHARP_STATE_STABLE) &&
-000074  4b4d              LDR      r3,|L7.428|
-000076  4a4e              LDR      r2,|L7.432|
-000078  7818              LDRB     r0,[r3,#0]  ; etharp_cached_entry
-00007a  eb000140          ADD      r1,r0,r0,LSL #1
-00007e  eb0201c1          ADD      r1,r2,r1,LSL #3
-000082  7d0f              LDRB     r7,[r1,#0x14]
+;;;847                /* no default gateway available */
+;;;848              } else {
+;;;849                /* no route to destination error (default gateway missing) */
+;;;850                return ERR_RTE;
+;;;851              }
+;;;852            }
+;;;853          }
+;;;854        }
+;;;855    #if LWIP_NETIF_HWADDRHINT
+;;;856        if (netif->hints != NULL) {
+;;;857          /* per-pcb cached entry was given */
+;;;858          netif_addr_idx_t etharp_cached_entry = netif->hints->addr_hint;
+;;;859          if (etharp_cached_entry < ARP_TABLE_SIZE) {
+;;;860    #endif /* LWIP_NETIF_HWADDRHINT */
+;;;861            if ((arp_table[etharp_cached_entry].state >= ETHARP_STATE_STABLE) &&
+000074  4b4f              LDR      r3,|L7.436|
+000076  4950              LDR      r1,|L7.440|
+000078  781a              LDRB     r2,[r3,#0]  ; etharp_cached_entry
+00007a  eb020042          ADD      r0,r2,r2,LSL #1
+00007e  eb0100c0          ADD      r0,r1,r0,LSL #3
+000082  7d07              LDRB     r7,[r0,#0x14]
 000084  2f02              CMP      r7,#2
-000086  d32c              BCC      |L7.226|
-;;;859    #if ETHARP_TABLE_MATCH_NETIF
-;;;860                (arp_table[etharp_cached_entry].netif == netif) &&
-;;;861    #endif
-;;;862                (ip4_addr_cmp(dst_addr, &arp_table[etharp_cached_entry].ipaddr))) {
-000088  6827              LDR      r7,[r4,#0]
-00008a  6849              LDR      r1,[r1,#4]
-00008c  428f              CMP      r7,r1
-00008e  d128              BNE      |L7.226|
-;;;863              /* the per-pcb-cached entry is stable and the right one! */
-;;;864              ETHARP_STATS_INC(etharp.cachehit);
-;;;865              return etharp_output_to_arp_index(netif, q, etharp_cached_entry);
-000090  4602              MOV      r2,r0
-000092  4631              MOV      r1,r6
-000094  4628              MOV      r0,r5
-000096  f7fffffe          BL       etharp_output_to_arp_index
-;;;866            }
-;;;867    #if LWIP_NETIF_HWADDRHINT
-;;;868          }
-;;;869        }
-;;;870    #endif /* LWIP_NETIF_HWADDRHINT */
-;;;871    
-;;;872        /* find stable entry: do this here since this is a critical path for
-;;;873           throughput and etharp_find_entry() is kind of slow */
-;;;874        for (i = 0; i < ARP_TABLE_SIZE; i++) {
-;;;875          if ((arp_table[i].state >= ETHARP_STATE_STABLE) &&
-;;;876    #if ETHARP_TABLE_MATCH_NETIF
-;;;877              (arp_table[i].netif == netif) &&
-;;;878    #endif
-;;;879              (ip4_addr_cmp(dst_addr, &arp_table[i].ipaddr))) {
-;;;880            /* found an existing, stable entry */
-;;;881            ETHARP_SET_HINT(netif, i);
-;;;882            return etharp_output_to_arp_index(netif, q, i);
-;;;883          }
-;;;884        }
-;;;885        /* no stable entry found, use the (slower) query function:
-;;;886           queue on destination Ethernet address belonging to ipaddr */
-;;;887        return etharp_query(netif, dst_addr, q);
-;;;888      }
-;;;889    
-;;;890      /* continuation for multicast/broadcast destinations */
-;;;891      /* obtain source Ethernet address of the given interface */
-;;;892      /* send packet directly on the link */
-;;;893      return ethernet_output(netif, q, (struct eth_addr*)(netif->hwaddr), dest, ETHTYPE_IP);
-;;;894    }
-00009a  bdfe              POP      {r1-r7,pc}
-                  |L7.156|
-00009c  2001              MOVS     r0,#1                 ;809
-00009e  f88d0004          STRB     r0,[sp,#4]            ;809
-0000a2  2000              MOVS     r0,#0                 ;810
-0000a4  f88d0005          STRB     r0,[sp,#5]            ;810
-0000a8  205e              MOVS     r0,#0x5e              ;811
-0000aa  f88d0006          STRB     r0,[sp,#6]            ;811
-0000ae  7860              LDRB     r0,[r4,#1]            ;812
-0000b0  f000007f          AND      r0,r0,#0x7f           ;812
-0000b4  f88d0007          STRB     r0,[sp,#7]            ;812
-0000b8  78a0              LDRB     r0,[r4,#2]            ;813
-0000ba  f88d0008          STRB     r0,[sp,#8]            ;813
-0000be  78e0              LDRB     r0,[r4,#3]            ;814
-0000c0  f88d0009          STRB     r0,[sp,#9]            ;814
-0000c4  ab01              ADD      r3,sp,#4              ;816
-                  |L7.198|
-0000c6  f44f6000          MOV      r0,#0x800             ;893
-0000ca  9000              STR      r0,[sp,#0]            ;893
-0000cc  f1050231          ADD      r2,r5,#0x31           ;893
-0000d0  4631              MOV      r1,r6                 ;893
-0000d2  4628              MOV      r0,r5                 ;893
-0000d4  f7fffffe          BL       ethernet_output
-                  |L7.216|
-0000d8  bdfe              POP      {r1-r7,pc}
-                  |L7.218|
-0000da  e7ff              B        |L7.220|
+000086  d32e              BCC      |L7.230|
+;;;862    #if ETHARP_TABLE_MATCH_NETIF
+;;;863                (arp_table[etharp_cached_entry].netif == netif) &&
+000088  6887              LDR      r7,[r0,#8]
+00008a  42a7              CMP      r7,r4
+00008c  d12b              BNE      |L7.230|
+;;;864    #endif
+;;;865                (ip4_addr_cmp(dst_addr, &arp_table[etharp_cached_entry].ipaddr))) {
+00008e  682f              LDR      r7,[r5,#0]
+000090  6840              LDR      r0,[r0,#4]
+000092  4287              CMP      r7,r0
+000094  d127              BNE      |L7.230|
+;;;866              /* the per-pcb-cached entry is stable and the right one! */
+;;;867              ETHARP_STATS_INC(etharp.cachehit);
+;;;868              return etharp_output_to_arp_index(netif, q, etharp_cached_entry);
+000096  4631              MOV      r1,r6
+000098  4620              MOV      r0,r4
+00009a  f7fffffe          BL       etharp_output_to_arp_index
+;;;869            }
+;;;870    #if LWIP_NETIF_HWADDRHINT
+;;;871          }
+;;;872        }
+;;;873    #endif /* LWIP_NETIF_HWADDRHINT */
+;;;874    
+;;;875        /* find stable entry: do this here since this is a critical path for
+;;;876           throughput and etharp_find_entry() is kind of slow */
+;;;877        for (i = 0; i < ARP_TABLE_SIZE; i++) {
+;;;878          if ((arp_table[i].state >= ETHARP_STATE_STABLE) &&
+;;;879    #if ETHARP_TABLE_MATCH_NETIF
+;;;880              (arp_table[i].netif == netif) &&
+;;;881    #endif
+;;;882              (ip4_addr_cmp(dst_addr, &arp_table[i].ipaddr))) {
+;;;883            /* found an existing, stable entry */
+;;;884            ETHARP_SET_ADDRHINT(netif, i);
+;;;885            return etharp_output_to_arp_index(netif, q, i);
+;;;886          }
+;;;887        }
+;;;888        /* no stable entry found, use the (slower) query function:
+;;;889           queue on destination Ethernet address belonging to ipaddr */
+;;;890        return etharp_query(netif, dst_addr, q);
+;;;891      }
+;;;892    
+;;;893      /* continuation for multicast/broadcast destinations */
+;;;894      /* obtain source Ethernet address of the given interface */
+;;;895      /* send packet directly on the link */
+;;;896      return ethernet_output(netif, q, (struct eth_addr *)(netif->hwaddr), dest, ETHTYPE_IP);
+;;;897    }
+00009e  bdfe              POP      {r1-r7,pc}
+                  |L7.160|
+0000a0  2001              MOVS     r0,#1                 ;812
+0000a2  f88d0004          STRB     r0,[sp,#4]            ;812
+0000a6  2000              MOVS     r0,#0                 ;813
+0000a8  f88d0005          STRB     r0,[sp,#5]            ;813
+0000ac  205e              MOVS     r0,#0x5e              ;814
+0000ae  f88d0006          STRB     r0,[sp,#6]            ;814
+0000b2  7868              LDRB     r0,[r5,#1]            ;815
+0000b4  f000007f          AND      r0,r0,#0x7f           ;815
+0000b8  f88d0007          STRB     r0,[sp,#7]            ;815
+0000bc  78a8              LDRB     r0,[r5,#2]            ;816
+0000be  f88d0008          STRB     r0,[sp,#8]            ;816
+0000c2  78e8              LDRB     r0,[r5,#3]            ;817
+0000c4  f88d0009          STRB     r0,[sp,#9]            ;817
+0000c8  ab01              ADD      r3,sp,#4              ;819
+                  |L7.202|
+0000ca  f44f6000          MOV      r0,#0x800             ;896
+0000ce  9000              STR      r0,[sp,#0]            ;896
+0000d0  f104022e          ADD      r2,r4,#0x2e           ;896
+0000d4  4631              MOV      r1,r6                 ;896
+0000d6  4620              MOV      r0,r4                 ;896
+0000d8  f7fffffe          BL       ethernet_output
                   |L7.220|
-0000dc  f06f0003          MVN      r0,#3                 ;847
-0000e0  e7fa              B        |L7.216|
-                  |L7.226|
-0000e2  2100              MOVS     r1,#0                 ;874
-                  |L7.228|
-0000e4  eb010041          ADD      r0,r1,r1,LSL #1       ;875
-0000e8  eb0200c0          ADD      r0,r2,r0,LSL #3       ;875
-0000ec  7d07              LDRB     r7,[r0,#0x14]         ;875
-0000ee  2f02              CMP      r7,#2                 ;875
-0000f0  d30a              BCC      |L7.264|
-0000f2  6827              LDR      r7,[r4,#0]            ;879
-0000f4  6840              LDR      r0,[r0,#4]            ;879
-0000f6  4287              CMP      r7,r0                 ;879
-0000f8  d106              BNE      |L7.264|
-0000fa  b2ca              UXTB     r2,r1                 ;881
-0000fc  701a              STRB     r2,[r3,#0]            ;881
-0000fe  4631              MOV      r1,r6                 ;882
-000100  4628              MOV      r0,r5                 ;882
-000102  f7fffffe          BL       etharp_output_to_arp_index
-000106  e7e7              B        |L7.216|
-                  |L7.264|
-000108  1c49              ADDS     r1,r1,#1              ;874
-00010a  b249              SXTB     r1,r1                 ;874
-00010c  290a              CMP      r1,#0xa               ;874
-00010e  dbe9              BLT      |L7.228|
-000110  4632              MOV      r2,r6                 ;887
-000112  4621              MOV      r1,r4                 ;887
-000114  4628              MOV      r0,r5                 ;887
-000116  f7fffffe          BL       etharp_query
-00011a  e7dd              B        |L7.216|
-;;;895    
+0000dc  bdfe              POP      {r1-r7,pc}
+                  |L7.222|
+0000de  e7ff              B        |L7.224|
+                  |L7.224|
+0000e0  f06f0003          MVN      r0,#3                 ;850
+0000e4  e7fa              B        |L7.220|
+                  |L7.230|
+0000e6  2200              MOVS     r2,#0                 ;877
+                  |L7.232|
+0000e8  eb020042          ADD      r0,r2,r2,LSL #1       ;878
+0000ec  eb0100c0          ADD      r0,r1,r0,LSL #3       ;878
+0000f0  7d07              LDRB     r7,[r0,#0x14]         ;878
+0000f2  2f02              CMP      r7,#2                 ;878
+0000f4  d30c              BCC      |L7.272|
+0000f6  6887              LDR      r7,[r0,#8]            ;880
+0000f8  42a7              CMP      r7,r4                 ;880
+0000fa  d109              BNE      |L7.272|
+0000fc  682f              LDR      r7,[r5,#0]            ;882
+0000fe  6840              LDR      r0,[r0,#4]            ;882
+000100  4287              CMP      r7,r0                 ;882
+000102  d105              BNE      |L7.272|
+000104  701a              STRB     r2,[r3,#0]            ;884
+000106  4631              MOV      r1,r6                 ;885
+000108  4620              MOV      r0,r4                 ;885
+00010a  f7fffffe          BL       etharp_output_to_arp_index
+00010e  e7e5              B        |L7.220|
+                  |L7.272|
+000110  1c52              ADDS     r2,r2,#1              ;877
+000112  b2d2              UXTB     r2,r2                 ;877
+000114  2a0a              CMP      r2,#0xa               ;877
+000116  d3e7              BCC      |L7.232|
+000118  4632              MOV      r2,r6                 ;890
+00011a  4629              MOV      r1,r5                 ;890
+00011c  4620              MOV      r0,r4                 ;890
+00011e  f7fffffe          BL       etharp_query
+000122  e7db              B        |L7.220|
+;;;898    
                           ENDP
 
-                  |L7.284|
-00011c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
-000120  6964646c
-000124  65776172
-000128  65735c54
-00012c  68697264
-000130  5f506172
-000134  74795c4c
-000138  7749505c
-00013c  7372635c
-000140  636f7265
-000144  5c697076
-000148  345c6574
-00014c  68617270          DCB      "harp.c",0
-000150  2e6300  
-000153  00                DCB      0
-                  |L7.340|
-000154  6e657469          DCB      "netif != NULL",0
-000158  6620213d
-00015c  204e554c
-000160  4c00    
-000162  00                DCB      0
-000163  00                DCB      0
-                  |L7.356|
-000164  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000168  7274696f
-00016c  6e202225
-000170  73222066
-000174  61696c65
-000178  64206174
-00017c  206c696e
-000180  65202564
-000184  20696e20
-000188  25730a00
-                  |L7.396|
-00018c  7120213d          DCB      "q != NULL",0
-000190  204e554c
-000194  4c00    
-000196  00                DCB      0
-000197  00                DCB      0
-                  |L7.408|
-000198  69706164          DCB      "ipaddr != NULL",0
-00019c  64722021
-0001a0  3d204e55
-0001a4  4c4c00  
-0001a7  00                DCB      0
-                  |L7.424|
-                          DCD      ethbroadcast
-                  |L7.428|
-                          DCD      ||.data||
+                  |L7.292|
+000124  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
+000128  6964646c
+00012c  65776172
+000130  65735c54
+000134  68697264
+000138  5f506172
+00013c  74795c4c
+000140  7749505c
+000144  7372635c
+000148  636f7265
+00014c  5c697076
+000150  345c6574
+000154  68617270          DCB      "harp.c",0
+000158  2e6300  
+00015b  00                DCB      0
+                  |L7.348|
+00015c  6e657469          DCB      "netif != NULL",0
+000160  6620213d
+000164  204e554c
+000168  4c00    
+00016a  00                DCB      0
+00016b  00                DCB      0
+                  |L7.364|
+00016c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000170  7274696f
+000174  6e202225
+000178  73222066
+00017c  61696c65
+000180  64206174
+000184  206c696e
+000188  65202564
+00018c  20696e20
+000190  25730a00
+                  |L7.404|
+000194  7120213d          DCB      "q != NULL",0
+000198  204e554c
+00019c  4c00    
+00019e  00                DCB      0
+00019f  00                DCB      0
+                  |L7.416|
+0001a0  69706164          DCB      "ipaddr != NULL",0
+0001a4  64722021
+0001a8  3d204e55
+0001ac  4c4c00  
+0001af  00                DCB      0
                   |L7.432|
+                          DCD      ethbroadcast
+                  |L7.436|
+                          DCD      ||.data||
+                  |L7.440|
                           DCD      ||.bss||
 
                           AREA ||i.etharp_output_to_arp_index||, CODE, READONLY, ALIGN=2
@@ -1283,14 +1292,14 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   etharp_output_to_arp_index PROC
-;;;745    static err_t
-;;;746    etharp_output_to_arp_index(struct netif *netif, struct pbuf *q, u8_t arp_idx)
+;;;747    static err_t
+;;;748    etharp_output_to_arp_index(struct netif *netif, struct pbuf *q, netif_addr_idx_t arp_idx)
 000000  e92d43f8          PUSH     {r3-r9,lr}
-;;;747    {
+;;;749    {
 000004  4606              MOV      r6,r0
 000006  460f              MOV      r7,r1
 000008  4615              MOV      r5,r2
-;;;748      LWIP_ASSERT("arp_table[arp_idx].state >= ETHARP_STATE_STABLE",
+;;;750      LWIP_ASSERT("arp_table[arp_idx].state >= ETHARP_STATE_STABLE",
 00000a  481e              LDR      r0,|L8.132|
 00000c  eb050145          ADD      r1,r5,r5,LSL #1
 000010  eb0004c1          ADD      r4,r0,r1,LSL #3
@@ -1298,67 +1307,67 @@
 000016  2802              CMP      r0,#2
 000018  d206              BCS      |L8.40|
 00001a  a31b              ADR      r3,|L8.136|
-00001c  f44f723b          MOV      r2,#0x2ec
+00001c  f24022ee          MOV      r2,#0x2ee
 000020  a127              ADR      r1,|L8.192|
 000022  a033              ADR      r0,|L8.240|
 000024  f7fffffe          BL       __2printf
                   |L8.40|
 000028  4a16              LDR      r2,|L8.132|
 00002a  eb050145          ADD      r1,r5,r5,LSL #1
-;;;749                  arp_table[arp_idx].state >= ETHARP_STATE_STABLE);
-;;;750      /* if arp table entry is about to expire: re-request it,
-;;;751         but only if its state is ETHARP_STATE_STABLE to prevent flooding the
-;;;752         network with ARP requests if this address is used frequently. */
-;;;753      if (arp_table[arp_idx].state == ETHARP_STATE_STABLE) {
+;;;751                  arp_table[arp_idx].state >= ETHARP_STATE_STABLE);
+;;;752      /* if arp table entry is about to expire: re-request it,
+;;;753         but only if its state is ETHARP_STATE_STABLE to prevent flooding the
+;;;754         network with ARP requests if this address is used frequently. */
+;;;755      if (arp_table[arp_idx].state == ETHARP_STATE_STABLE) {
 00002e  7d20              LDRB     r0,[r4,#0x14]
-000030  eb0205c1          ADD      r5,r2,r1,LSL #3       ;748
-;;;754        if (arp_table[arp_idx].ctime >= ARP_AGE_REREQUEST_USED_BROADCAST) {
-;;;755          /* issue a standard request using broadcast */
-;;;756          if (etharp_request(netif, &arp_table[arp_idx].ipaddr) == ERR_OK) {
-;;;757            arp_table[arp_idx].state = ETHARP_STATE_STABLE_REREQUESTING_1;
-;;;758          }
-;;;759        } else if (arp_table[arp_idx].ctime >= ARP_AGE_REREQUEST_USED_UNICAST) {
-;;;760          /* issue a unicast request (for 15 seconds) to prevent unnecessary broadcast */
-;;;761          if (etharp_request_dst(netif, &arp_table[arp_idx].ipaddr, &arp_table[arp_idx].ethaddr) == ERR_OK) {
+000030  eb0205c1          ADD      r5,r2,r1,LSL #3       ;750
+;;;756        if (arp_table[arp_idx].ctime >= ARP_AGE_REREQUEST_USED_BROADCAST) {
+;;;757          /* issue a standard request using broadcast */
+;;;758          if (etharp_request(netif, &arp_table[arp_idx].ipaddr) == ERR_OK) {
+;;;759            arp_table[arp_idx].state = ETHARP_STATE_STABLE_REREQUESTING_1;
+;;;760          }
+;;;761        } else if (arp_table[arp_idx].ctime >= ARP_AGE_REREQUEST_USED_UNICAST) {
+;;;762          /* issue a unicast request (for 15 seconds) to prevent unnecessary broadcast */
+;;;763          if (etharp_request_dst(netif, &arp_table[arp_idx].ipaddr, &arp_table[arp_idx].ethaddr) == ERR_OK) {
 000034  350c              ADDS     r5,r5,#0xc
-000036  2802              CMP      r0,#2                 ;753
+000036  2802              CMP      r0,#2                 ;755
 000038  d118              BNE      |L8.108|
-00003a  8a61              LDRH     r1,[r4,#0x12]         ;754
-00003c  f04f0803          MOV      r8,#3                 ;757
-000040  f5b17f8e          CMP      r1,#0x11c             ;754
+00003a  8a61              LDRH     r1,[r4,#0x12]         ;756
+00003c  f04f0803          MOV      r8,#3                 ;759
+000040  f5b17f8e          CMP      r1,#0x11c             ;756
 000044  d907              BLS      |L8.86|
-000046  1d21              ADDS     r1,r4,#4              ;756
-000048  4630              MOV      r0,r6                 ;756
+000046  1d21              ADDS     r1,r4,#4              ;758
+000048  4630              MOV      r0,r6                 ;758
 00004a  f7fffffe          BL       etharp_request
 00004e  b968              CBNZ     r0,|L8.108|
-000050  f8848014          STRB     r8,[r4,#0x14]         ;757
+000050  f8848014          STRB     r8,[r4,#0x14]         ;759
 000054  e00a              B        |L8.108|
                   |L8.86|
-000056  f5b17f87          CMP      r1,#0x10e             ;759
+000056  f5b17f87          CMP      r1,#0x10e             ;761
 00005a  d307              BCC      |L8.108|
 00005c  462a              MOV      r2,r5
 00005e  1d21              ADDS     r1,r4,#4
 000060  4630              MOV      r0,r6
 000062  f7fffffe          BL       etharp_request_dst
 000066  b908              CBNZ     r0,|L8.108|
-;;;762            arp_table[arp_idx].state = ETHARP_STATE_STABLE_REREQUESTING_1;
+;;;764            arp_table[arp_idx].state = ETHARP_STATE_STABLE_REREQUESTING_1;
 000068  f8848014          STRB     r8,[r4,#0x14]
                   |L8.108|
-;;;763          }
-;;;764        }
-;;;765      }
-;;;766    
-;;;767      return ethernet_output(netif, q, (struct eth_addr*)(netif->hwaddr), &arp_table[arp_idx].ethaddr, ETHTYPE_IP);
+;;;765          }
+;;;766        }
+;;;767      }
+;;;768    
+;;;769      return ethernet_output(netif, q, (struct eth_addr *)(netif->hwaddr), &arp_table[arp_idx].ethaddr, ETHTYPE_IP);
 00006c  f44f6000          MOV      r0,#0x800
 000070  9000              STR      r0,[sp,#0]
 000072  462b              MOV      r3,r5
-000074  f1060231          ADD      r2,r6,#0x31
+000074  f106022e          ADD      r2,r6,#0x2e
 000078  4639              MOV      r1,r7
 00007a  4630              MOV      r0,r6
 00007c  f7fffffe          BL       ethernet_output
-;;;768    }
+;;;770    }
 000080  e8bd83f8          POP      {r3-r9,pc}
-;;;769    
+;;;771    
                           ENDP
 
                   |L8.132|
@@ -1412,363 +1421,367 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
                   etharp_query PROC
-;;;929    err_t
-;;;930    etharp_query(struct netif *netif, const ip4_addr_t *ipaddr, struct pbuf *q)
+;;;932    err_t
+;;;933    etharp_query(struct netif *netif, const ip4_addr_t *ipaddr, struct pbuf *q)
 000000  e92d5ffc          PUSH     {r2-r12,lr}
-;;;931    {
+;;;934    {
 000004  4682              MOV      r10,r0
-000006  4689              MOV      r9,r1
-000008  4617              MOV      r7,r2
-;;;932      struct eth_addr * srcaddr = (struct eth_addr *)netif->hwaddr;
-00000a  f10a0031          ADD      r0,r10,#0x31
+000006  460f              MOV      r7,r1
+000008  4616              MOV      r6,r2
+;;;935      struct eth_addr *srcaddr = (struct eth_addr *)netif->hwaddr;
+00000a  f10a002e          ADD      r0,r10,#0x2e
 00000e  9001              STR      r0,[sp,#4]
-;;;933      err_t result = ERR_MEM;
+;;;936      err_t result = ERR_MEM;
 000010  f04f34ff          MOV      r4,#0xffffffff
-;;;934      int is_new_entry = 0;
-000014  f04f0b00          MOV      r11,#0
-;;;935      s8_t i; /* ARP entry index */
-;;;936    
-;;;937      /* non-unicast address? */
-;;;938      if (ip4_addr_isbroadcast(ipaddr, netif) ||
+;;;937      int is_new_entry = 0;
+000014  f04f0800          MOV      r8,#0
+;;;938      s16_t i_err;
+;;;939      netif_addr_idx_t i;
+;;;940    
+;;;941      /* non-unicast address? */
+;;;942      if (ip4_addr_isbroadcast(ipaddr, netif) ||
 000018  4651              MOV      r1,r10
-00001a  f8d90000          LDR      r0,[r9,#0]
-00001e  f7fffffe          BL       ip4_addr_isbroadcast_u32
-000022  b998              CBNZ     r0,|L9.76|
-;;;939          ip4_addr_ismulticast(ipaddr) ||
-000024  f8d90000          LDR      r0,[r9,#0]
-000028  f3c01103          UBFX     r1,r0,#4,#4
-00002c  290e              CMP      r1,#0xe
-00002e  d00d              BEQ      |L9.76|
-;;;940          ip4_addr_isany(ipaddr)) {
-000030  f1b90f00          CMP      r9,#0
-000034  d00a              BEQ      |L9.76|
-000036  b148              CBZ      r0,|L9.76|
-;;;941        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: will not add non-unicast IP address to ARP cache\n"));
-;;;942        return ERR_ARG;
-;;;943      }
-;;;944    
-;;;945      /* find entry in ARP cache, ask to create entry if queueing packet */
-;;;946      i = etharp_find_entry(ipaddr, ETHARP_FLAG_TRY_HARD, netif);
-000038  4652              MOV      r2,r10
-00003a  2101              MOVS     r1,#1
-00003c  4648              MOV      r0,r9
-00003e  f7fffffe          BL       etharp_find_entry
-000042  4606              MOV      r6,r0
-;;;947    
-;;;948      /* could not find or create entry? */
-;;;949      if (i < 0) {
-000044  0030              MOVS     r0,r6
-000046  d504              BPL      |L9.82|
-                  |L9.72|
-;;;950        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not create ARP entry\n"));
-;;;951        if (q) {
-;;;952          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: packet dropped\n"));
-;;;953          ETHARP_STATS_INC(etharp.memerr);
-;;;954        }
-;;;955        return (err_t)i;
-;;;956      }
-;;;957    
-;;;958      /* mark a fresh entry as pending (we just sent a request) */
-;;;959      if (arp_table[i].state == ETHARP_STATE_EMPTY) {
-;;;960        is_new_entry = 1;
-;;;961        arp_table[i].state = ETHARP_STATE_PENDING;
-;;;962        /* record network interface for re-sending arp request in etharp_tmr */
-;;;963        arp_table[i].netif = netif;
-;;;964      }
-;;;965    
-;;;966      /* { i is either a STABLE or (new or existing) PENDING entry } */
-;;;967      LWIP_ASSERT("arp_table[i].state == PENDING or STABLE",
-;;;968      ((arp_table[i].state == ETHARP_STATE_PENDING) ||
-;;;969       (arp_table[i].state >= ETHARP_STATE_STABLE)));
-;;;970    
-;;;971      /* do we have a new entry? or an implicit query request? */
-;;;972      if (is_new_entry || (q == NULL)) {
-;;;973        /* try to resolve it; send out ARP request */
-;;;974        result = etharp_request(netif, ipaddr);
-;;;975        if (result != ERR_OK) {
-;;;976          /* ARP request couldn't be sent */
-;;;977          /* We don't re-send arp request in etharp_tmr, but we still queue packets,
-;;;978             since this failure could be temporary, and the next packet calling
-;;;979             etharp_query again could lead to sending the queued packets. */
-;;;980        }
-;;;981        if (q == NULL) {
-;;;982          return result;
-;;;983        }
-;;;984      }
-;;;985    
-;;;986      /* packet given? */
-;;;987      LWIP_ASSERT("q != NULL", q != NULL);
-;;;988      /* stable entry? */
-;;;989      if (arp_table[i].state >= ETHARP_STATE_STABLE) {
-;;;990        /* we have a valid IP->Ethernet address mapping */
-;;;991        ETHARP_SET_HINT(netif, i);
-;;;992        /* send the packet */
-;;;993        result = ethernet_output(netif, q, srcaddr, &(arp_table[i].ethaddr), ETHTYPE_IP);
-;;;994      /* pending entry? (either just created or already pending */
-;;;995      } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
-;;;996        /* entry is still pending, queue the given packet 'q' */
-;;;997        struct pbuf *p;
-;;;998        int copy_needed = 0;
-;;;999        /* IF q includes a PBUF_REF, PBUF_POOL or PBUF_RAM, we have no choice but
-;;;1000        * to copy the whole queue into a new PBUF_RAM (see bug #11400)
-;;;1001        * PBUF_ROMs can be left as they are, since ROM must not get changed. */
-;;;1002       p = q;
-;;;1003       while (p) {
-;;;1004         LWIP_ASSERT("no packet queues allowed!", (p->len != p->tot_len) || (p->next == 0));
-;;;1005         if (p->type != PBUF_ROM) {
-;;;1006           copy_needed = 1;
-;;;1007           break;
-;;;1008         }
-;;;1009         p = p->next;
-;;;1010       }
-;;;1011       if (copy_needed) {
-;;;1012         /* copy the whole packet into new pbufs */
-;;;1013         p = pbuf_alloc(PBUF_LINK, p->tot_len, PBUF_RAM);
-;;;1014         if (p != NULL) {
-;;;1015           if (pbuf_copy(p, q) != ERR_OK) {
-;;;1016             pbuf_free(p);
-;;;1017             p = NULL;
-;;;1018           }
-;;;1019         }
-;;;1020       } else {
-;;;1021         /* referencing the old pbuf is enough */
-;;;1022         p = q;
-;;;1023         pbuf_ref(p);
-;;;1024       }
-;;;1025       /* packet could be taken over? */
-;;;1026       if (p != NULL) {
-;;;1027         /* queue packet ... */
-;;;1028   #if ARP_QUEUEING
-;;;1029         struct etharp_q_entry *new_entry;
-;;;1030         /* allocate a new arp queue entry */
-;;;1031         new_entry = (struct etharp_q_entry *)memp_malloc(MEMP_ARP_QUEUE);
-;;;1032         if (new_entry != NULL) {
-;;;1033           unsigned int qlen = 0;
-;;;1034           new_entry->next = 0;
-;;;1035           new_entry->p = p;
-;;;1036           if (arp_table[i].q != NULL) {
-;;;1037             /* queue was already existent, append the new entry to the end */
-;;;1038             struct etharp_q_entry *r;
-;;;1039             r = arp_table[i].q;
-;;;1040             qlen++;
-;;;1041             while (r->next != NULL) {
-;;;1042               r = r->next;
-;;;1043               qlen++;
-;;;1044             }
-;;;1045             r->next = new_entry;
-;;;1046           } else {
-;;;1047             /* queue did not exist, first item in queue */
-;;;1048             arp_table[i].q = new_entry;
-;;;1049           }
-;;;1050   #if ARP_QUEUE_LEN
-;;;1051           if (qlen >= ARP_QUEUE_LEN) {
-;;;1052             struct etharp_q_entry *old;
-;;;1053             old = arp_table[i].q;
-;;;1054             arp_table[i].q = arp_table[i].q->next;
-;;;1055             pbuf_free(old->p);
-;;;1056             memp_free(MEMP_ARP_QUEUE, old);
-;;;1057           }
-;;;1058   #endif
-;;;1059           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: queued packet %p on ARP entry %"S16_F"\n", (void *)q, (s16_t)i));
-;;;1060           result = ERR_OK;
-;;;1061         } else {
-;;;1062           /* the pool MEMP_ARP_QUEUE is empty */
-;;;1063           pbuf_free(p);
-;;;1064           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n", (void *)q));
-;;;1065           result = ERR_MEM;
-;;;1066         }
-;;;1067   #else /* ARP_QUEUEING */
-;;;1068         /* always queue one packet per ARP request only, freeing a previously queued packet */
-;;;1069         if (arp_table[i].q != NULL) {
-;;;1070           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: dropped previously queued packet %p for ARP entry %"S16_F"\n", (void *)q, (s16_t)i));
-;;;1071           pbuf_free(arp_table[i].q);
-;;;1072         }
-;;;1073         arp_table[i].q = p;
-;;;1074         result = ERR_OK;
-;;;1075         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: queued packet %p on ARP entry %"S16_F"\n", (void *)q, (s16_t)i));
-;;;1076   #endif /* ARP_QUEUEING */
-;;;1077       } else {
-;;;1078         ETHARP_STATS_INC(etharp.memerr);
-;;;1079         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n", (void *)q));
-;;;1080         result = ERR_MEM;
-;;;1081       }
-;;;1082     }
-;;;1083     return result;
-;;;1084   }
-000048  e8bd9ffc          POP      {r2-r12,pc}
+00001a  6838              LDR      r0,[r7,#0]
+00001c  f7fffffe          BL       ip4_addr_isbroadcast_u32
+000020  b988              CBNZ     r0,|L9.70|
+;;;943          ip4_addr_ismulticast(ipaddr) ||
+000022  6838              LDR      r0,[r7,#0]
+000024  f3c01103          UBFX     r1,r0,#4,#4
+000028  290e              CMP      r1,#0xe
+00002a  d00c              BEQ      |L9.70|
+;;;944          ip4_addr_isany(ipaddr)) {
+00002c  b15f              CBZ      r7,|L9.70|
+00002e  b150              CBZ      r0,|L9.70|
+;;;945        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: will not add non-unicast IP address to ARP cache\n"));
+;;;946        return ERR_ARG;
+;;;947      }
+;;;948    
+;;;949      /* find entry in ARP cache, ask to create entry if queueing packet */
+;;;950      i_err = etharp_find_entry(ipaddr, ETHARP_FLAG_TRY_HARD, netif);
+000030  4652              MOV      r2,r10
+000032  2101              MOVS     r1,#1
+000034  4638              MOV      r0,r7
+000036  f7fffffe          BL       etharp_find_entry
+00003a  4605              MOV      r5,r0
+;;;951    
+;;;952      /* could not find or create entry? */
+;;;953      if (i_err < 0) {
+00003c  2d00              CMP      r5,#0
+00003e  da05              BGE      |L9.76|
+;;;954        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not create ARP entry\n"));
+;;;955        if (q) {
+;;;956          LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: packet dropped\n"));
+;;;957          ETHARP_STATS_INC(etharp.memerr);
+;;;958        }
+;;;959        return (err_t)i_err;
+000040  b268              SXTB     r0,r5
+                  |L9.66|
+;;;960      }
+;;;961      LWIP_ASSERT("type overflow", (size_t)i_err < NETIF_ADDR_IDX_MAX);
+;;;962      i = (netif_addr_idx_t)i_err;
+;;;963    
+;;;964      /* mark a fresh entry as pending (we just sent a request) */
+;;;965      if (arp_table[i].state == ETHARP_STATE_EMPTY) {
+;;;966        is_new_entry = 1;
+;;;967        arp_table[i].state = ETHARP_STATE_PENDING;
+;;;968        /* record network interface for re-sending arp request in etharp_tmr */
+;;;969        arp_table[i].netif = netif;
+;;;970      }
+;;;971    
+;;;972      /* { i is either a STABLE or (new or existing) PENDING entry } */
+;;;973      LWIP_ASSERT("arp_table[i].state == PENDING or STABLE",
+;;;974                  ((arp_table[i].state == ETHARP_STATE_PENDING) ||
+;;;975                   (arp_table[i].state >= ETHARP_STATE_STABLE)));
+;;;976    
+;;;977      /* do we have a new entry? or an implicit query request? */
+;;;978      if (is_new_entry || (q == NULL)) {
+;;;979        /* try to resolve it; send out ARP request */
+;;;980        result = etharp_request(netif, ipaddr);
+;;;981        if (result != ERR_OK) {
+;;;982          /* ARP request couldn't be sent */
+;;;983          /* We don't re-send arp request in etharp_tmr, but we still queue packets,
+;;;984             since this failure could be temporary, and the next packet calling
+;;;985             etharp_query again could lead to sending the queued packets. */
+;;;986        }
+;;;987        if (q == NULL) {
+;;;988          return result;
+;;;989        }
+;;;990      }
+;;;991    
+;;;992      /* packet given? */
+;;;993      LWIP_ASSERT("q != NULL", q != NULL);
+;;;994      /* stable entry? */
+;;;995      if (arp_table[i].state >= ETHARP_STATE_STABLE) {
+;;;996        /* we have a valid IP->Ethernet address mapping */
+;;;997        ETHARP_SET_ADDRHINT(netif, i);
+;;;998        /* send the packet */
+;;;999        result = ethernet_output(netif, q, srcaddr, &(arp_table[i].ethaddr), ETHTYPE_IP);
+;;;1000       /* pending entry? (either just created or already pending */
+;;;1001     } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
+;;;1002       /* entry is still pending, queue the given packet 'q' */
+;;;1003       struct pbuf *p;
+;;;1004       int copy_needed = 0;
+;;;1005       /* IF q includes a pbuf that must be copied, copy the whole chain into a
+;;;1006        * new PBUF_RAM. See the definition of PBUF_NEEDS_COPY for details. */
+;;;1007       p = q;
+;;;1008       while (p) {
+;;;1009         LWIP_ASSERT("no packet queues allowed!", (p->len != p->tot_len) || (p->next == 0));
+;;;1010         if (PBUF_NEEDS_COPY(p)) {
+;;;1011           copy_needed = 1;
+;;;1012           break;
+;;;1013         }
+;;;1014         p = p->next;
+;;;1015       }
+;;;1016       if (copy_needed) {
+;;;1017         /* copy the whole packet into new pbufs */
+;;;1018         p = pbuf_clone(PBUF_LINK, PBUF_RAM, q);
+;;;1019       } else {
+;;;1020         /* referencing the old pbuf is enough */
+;;;1021         p = q;
+;;;1022         pbuf_ref(p);
+;;;1023       }
+;;;1024       /* packet could be taken over? */
+;;;1025       if (p != NULL) {
+;;;1026         /* queue packet ... */
+;;;1027   #if ARP_QUEUEING
+;;;1028         struct etharp_q_entry *new_entry;
+;;;1029         /* allocate a new arp queue entry */
+;;;1030         new_entry = (struct etharp_q_entry *)memp_malloc(MEMP_ARP_QUEUE);
+;;;1031         if (new_entry != NULL) {
+;;;1032           unsigned int qlen = 0;
+;;;1033           new_entry->next = 0;
+;;;1034           new_entry->p = p;
+;;;1035           if (arp_table[i].q != NULL) {
+;;;1036             /* queue was already existent, append the new entry to the end */
+;;;1037             struct etharp_q_entry *r;
+;;;1038             r = arp_table[i].q;
+;;;1039             qlen++;
+;;;1040             while (r->next != NULL) {
+;;;1041               r = r->next;
+;;;1042               qlen++;
+;;;1043             }
+;;;1044             r->next = new_entry;
+;;;1045           } else {
+;;;1046             /* queue did not exist, first item in queue */
+;;;1047             arp_table[i].q = new_entry;
+;;;1048           }
+;;;1049   #if ARP_QUEUE_LEN
+;;;1050           if (qlen >= ARP_QUEUE_LEN) {
+;;;1051             struct etharp_q_entry *old;
+;;;1052             old = arp_table[i].q;
+;;;1053             arp_table[i].q = arp_table[i].q->next;
+;;;1054             pbuf_free(old->p);
+;;;1055             memp_free(MEMP_ARP_QUEUE, old);
+;;;1056           }
+;;;1057   #endif
+;;;1058           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: queued packet %p on ARP entry %"U16_F"\n", (void *)q, i));
+;;;1059           result = ERR_OK;
+;;;1060         } else {
+;;;1061           /* the pool MEMP_ARP_QUEUE is empty */
+;;;1062           pbuf_free(p);
+;;;1063           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n", (void *)q));
+;;;1064           result = ERR_MEM;
+;;;1065         }
+;;;1066   #else /* ARP_QUEUEING */
+;;;1067         /* always queue one packet per ARP request only, freeing a previously queued packet */
+;;;1068         if (arp_table[i].q != NULL) {
+;;;1069           LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: dropped previously queued packet %p for ARP entry %"U16_F"\n", (void *)q, (u16_t)i));
+;;;1070           pbuf_free(arp_table[i].q);
+;;;1071         }
+;;;1072         arp_table[i].q = p;
+;;;1073         result = ERR_OK;
+;;;1074         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: queued packet %p on ARP entry %"U16_F"\n", (void *)q, (u16_t)i));
+;;;1075   #endif /* ARP_QUEUEING */
+;;;1076       } else {
+;;;1077         ETHARP_STATS_INC(etharp.memerr);
+;;;1078         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n", (void *)q));
+;;;1079         result = ERR_MEM;
+;;;1080       }
+;;;1081     }
+;;;1082     return result;
+;;;1083   }
+000042  e8bd9ffc          POP      {r2-r12,pc}
+                  |L9.70|
+000046  f06f000f          MVN      r0,#0xf               ;946
+00004a  e7fa              B        |L9.66|
                   |L9.76|
-00004c  f06f000f          MVN      r0,#0xf               ;942
-000050  e7fa              B        |L9.72|
-                  |L9.82|
-000052  483b              LDR      r0,|L9.320|
-000054  eb060846          ADD      r8,r6,r6,LSL #1       ;959
-000058  eb0005c8          ADD      r5,r0,r8,LSL #3       ;959
-00005c  7d29              LDRB     r1,[r5,#0x14]         ;959
-00005e  b929              CBNZ     r1,|L9.108|
-000060  f04f0b01          MOV      r11,#1                ;960
-000064  2101              MOVS     r1,#1                 ;961
-000066  7529              STRB     r1,[r5,#0x14]         ;961
-000068  f8c5a008          STR      r10,[r5,#8]           ;963
-                  |L9.108|
-00006c  7d28              LDRB     r0,[r5,#0x14]         ;967
-00006e  2801              CMP      r0,#1                 ;967
-000070  d008              BEQ      |L9.132|
-000072  2802              CMP      r0,#2                 ;967
-000074  d206              BCS      |L9.132|
-000076  a333              ADR      r3,|L9.324|
-000078  f24032c7          MOV      r2,#0x3c7             ;967
-00007c  a13f              ADR      r1,|L9.380|
-00007e  a049              ADR      r0,|L9.420|
-000080  f7fffffe          BL       __2printf
-                  |L9.132|
-000084  f1bb0f00          CMP      r11,#0                ;972
-000088  d100              BNE      |L9.140|
-00008a  b92f              CBNZ     r7,|L9.152|
-                  |L9.140|
-00008c  4649              MOV      r1,r9                 ;974
-00008e  4650              MOV      r0,r10                ;974
-000090  f7fffffe          BL       etharp_request
-000094  4604              MOV      r4,r0                 ;974
-000096  b197              CBZ      r7,|L9.190|
-                  |L9.152|
-000098  7d28              LDRB     r0,[r5,#0x14]         ;989
-00009a  f8df90a4          LDR      r9,|L9.320|
-00009e  2802              CMP      r0,#2                 ;989
-0000a0  d30f              BCC      |L9.194|
-0000a2  484a              LDR      r0,|L9.460|
-0000a4  7006              STRB     r6,[r0,#0]            ;991
-0000a6  f44f6000          MOV      r0,#0x800             ;993
-0000aa  9000              STR      r0,[sp,#0]            ;993
-0000ac  f105030c          ADD      r3,r5,#0xc            ;993
-0000b0  4639              MOV      r1,r7                 ;993
-0000b2  4650              MOV      r0,r10                ;993
-0000b4  9a01              LDR      r2,[sp,#4]            ;993
-0000b6  f7fffffe          BL       ethernet_output
-0000ba  4604              MOV      r4,r0                 ;993
-0000bc  e03e              B        |L9.316|
-                  |L9.190|
-0000be  4620              MOV      r0,r4                 ;982
-0000c0  e7c2              B        |L9.72|
-                  |L9.194|
-0000c2  2801              CMP      r0,#1                 ;995
-0000c4  d13a              BNE      |L9.316|
-0000c6  2500              MOVS     r5,#0                 ;998
-0000c8  463c              MOV      r4,r7                 ;1002
-0000ca  f44f767b          MOV      r6,#0x3ec             ;1004
-0000ce  e011              B        |L9.244|
-                  |L9.208|
-0000d0  8960              LDRH     r0,[r4,#0xa]          ;1004
-0000d2  8921              LDRH     r1,[r4,#8]            ;1004
-0000d4  4288              CMP      r0,r1                 ;1004
-0000d6  d107              BNE      |L9.232|
-0000d8  6820              LDR      r0,[r4,#0]            ;1004
-0000da  b128              CBZ      r0,|L9.232|
-0000dc  a319              ADR      r3,|L9.324|
-0000de  4632              MOV      r2,r6                 ;1004
-0000e0  a13b              ADR      r1,|L9.464|
-0000e2  a030              ADR      r0,|L9.420|
-0000e4  f7fffffe          BL       __2printf
-                  |L9.232|
-0000e8  7b20              LDRB     r0,[r4,#0xc]          ;1005
-0000ea  2801              CMP      r0,#1                 ;1005
-0000ec  d001              BEQ      |L9.242|
-0000ee  2501              MOVS     r5,#1                 ;1006
-0000f0  e002              B        |L9.248|
-                  |L9.242|
-0000f2  6824              LDR      r4,[r4,#0]            ;1009
-                  |L9.244|
-0000f4  2c00              CMP      r4,#0                 ;1003
-0000f6  d1eb              BNE      |L9.208|
+00004c  2d7f              CMP      r5,#0x7f              ;961
+00004e  d306              BCC      |L9.94|
+000050  a33a              ADR      r3,|L9.316|
+000052  f24032c1          MOV      r2,#0x3c1             ;961
+000056  a147              ADR      r1,|L9.372|
+000058  a04a              ADR      r0,|L9.388|
+00005a  f7fffffe          BL       __2printf
+                  |L9.94|
+00005e  f0050bff          AND      r11,r5,#0xff          ;962
+000062  4852              LDR      r0,|L9.428|
+000064  eb0b094b          ADD      r9,r11,r11,LSL #1     ;965
+000068  eb0005c9          ADD      r5,r0,r9,LSL #3       ;965
+00006c  7d29              LDRB     r1,[r5,#0x14]         ;965
+00006e  b929              CBNZ     r1,|L9.124|
+000070  f04f0801          MOV      r8,#1                 ;966
+000074  2101              MOVS     r1,#1                 ;967
+000076  7529              STRB     r1,[r5,#0x14]         ;967
+000078  f8c5a008          STR      r10,[r5,#8]           ;969
+                  |L9.124|
+00007c  7d28              LDRB     r0,[r5,#0x14]         ;973
+00007e  2801              CMP      r0,#1                 ;973
+000080  d008              BEQ      |L9.148|
+000082  2802              CMP      r0,#2                 ;973
+000084  d206              BCS      |L9.148|
+000086  a32d              ADR      r3,|L9.316|
+000088  f24032cd          MOV      r2,#0x3cd             ;973
+00008c  a148              ADR      r1,|L9.432|
+00008e  a03d              ADR      r0,|L9.388|
+000090  f7fffffe          BL       __2printf
+                  |L9.148|
+000094  f1b80f00          CMP      r8,#0                 ;978
+000098  d100              BNE      |L9.156|
+00009a  b92e              CBNZ     r6,|L9.168|
+                  |L9.156|
+00009c  4639              MOV      r1,r7                 ;980
+00009e  4650              MOV      r0,r10                ;980
+0000a0  f7fffffe          BL       etharp_request
+0000a4  4604              MOV      r4,r0                 ;980
+0000a6  b196              CBZ      r6,|L9.206|
+                  |L9.168|
+0000a8  7d28              LDRB     r0,[r5,#0x14]         ;995
+0000aa  4f40              LDR      r7,|L9.428|
+0000ac  2802              CMP      r0,#2                 ;995
+0000ae  d310              BCC      |L9.210|
+0000b0  4849              LDR      r0,|L9.472|
+0000b2  f880b000          STRB     r11,[r0,#0]           ;997
+0000b6  f44f6000          MOV      r0,#0x800             ;999
+0000ba  9000              STR      r0,[sp,#0]            ;999
+0000bc  f105030c          ADD      r3,r5,#0xc            ;999
+0000c0  4631              MOV      r1,r6                 ;999
+0000c2  4650              MOV      r0,r10                ;999
+0000c4  9a01              LDR      r2,[sp,#4]            ;999
+0000c6  f7fffffe          BL       ethernet_output
+0000ca  4604              MOV      r4,r0                 ;999
+0000cc  e034              B        |L9.312|
+                  |L9.206|
+0000ce  4620              MOV      r0,r4                 ;988
+0000d0  e7b7              B        |L9.66|
+                  |L9.210|
+0000d2  2801              CMP      r0,#1                 ;1001
+0000d4  d130              BNE      |L9.312|
+0000d6  2500              MOVS     r5,#0                 ;1004
+0000d8  4634              MOV      r4,r6                 ;1007
+0000da  f24038f1          MOV      r8,#0x3f1             ;1009
+0000de  e011              B        |L9.260|
+                  |L9.224|
+0000e0  8960              LDRH     r0,[r4,#0xa]          ;1009
+0000e2  8921              LDRH     r1,[r4,#8]            ;1009
+0000e4  4288              CMP      r0,r1                 ;1009
+0000e6  d107              BNE      |L9.248|
+0000e8  6820              LDR      r0,[r4,#0]            ;1009
+0000ea  b128              CBZ      r0,|L9.248|
+0000ec  a313              ADR      r3,|L9.316|
+0000ee  4642              MOV      r2,r8                 ;1009
+0000f0  a13a              ADR      r1,|L9.476|
+0000f2  a024              ADR      r0,|L9.388|
+0000f4  f7fffffe          BL       __2printf
                   |L9.248|
-0000f8  b185              CBZ      r5,|L9.284|
-0000fa  8921              LDRH     r1,[r4,#8]            ;1013
-0000fc  2200              MOVS     r2,#0                 ;1013
-0000fe  2002              MOVS     r0,#2                 ;1013
-000100  f7fffffe          BL       pbuf_alloc
-000104  4605              MOV      r5,r0                 ;1013
-000106  b16d              CBZ      r5,|L9.292|
-000108  4639              MOV      r1,r7                 ;1015
-00010a  4628              MOV      r0,r5                 ;1015
-00010c  f7fffffe          BL       pbuf_copy
-000110  b140              CBZ      r0,|L9.292|
-000112  4628              MOV      r0,r5                 ;1016
-000114  f7fffffe          BL       pbuf_free
-000118  2500              MOVS     r5,#0                 ;1017
-00011a  e003              B        |L9.292|
-                  |L9.284|
-00011c  463d              MOV      r5,r7                 ;1022
-00011e  4628              MOV      r0,r5                 ;1023
-000120  f7fffffe          BL       pbuf_ref
-                  |L9.292|
-000124  b145              CBZ      r5,|L9.312|
-000126  f8590038          LDR      r0,[r9,r8,LSL #3]     ;1069
-00012a  b108              CBZ      r0,|L9.304|
-00012c  f7fffffe          BL       pbuf_free
-                  |L9.304|
-000130  f8495038          STR      r5,[r9,r8,LSL #3]     ;1073
-000134  2400              MOVS     r4,#0                 ;1074
-000136  e001              B        |L9.316|
+0000f8  7b20              LDRB     r0,[r4,#0xc]          ;1010
+0000fa  0640              LSLS     r0,r0,#25             ;1010
+0000fc  d501              BPL      |L9.258|
+0000fe  2501              MOVS     r5,#1                 ;1011
+000100  e002              B        |L9.264|
+                  |L9.258|
+000102  6824              LDR      r4,[r4,#0]            ;1014
+                  |L9.260|
+000104  2c00              CMP      r4,#0                 ;1008
+000106  d1eb              BNE      |L9.224|
+                  |L9.264|
+000108  b13d              CBZ      r5,|L9.282|
+00010a  4632              MOV      r2,r6                 ;1018
+00010c  f44f7120          MOV      r1,#0x280             ;1018
+000110  200e              MOVS     r0,#0xe               ;1018
+000112  f7fffffe          BL       pbuf_clone
+000116  4606              MOV      r6,r0                 ;1018
+000118  e002              B        |L9.288|
+                  |L9.282|
+00011a  4630              MOV      r0,r6                 ;1022
+00011c  f7fffffe          BL       pbuf_ref
+                  |L9.288|
+000120  b146              CBZ      r6,|L9.308|
+000122  f8570039          LDR      r0,[r7,r9,LSL #3]     ;1068
+000126  b108              CBZ      r0,|L9.300|
+000128  f7fffffe          BL       pbuf_free
+                  |L9.300|
+00012c  f8476039          STR      r6,[r7,r9,LSL #3]     ;1072
+000130  2400              MOVS     r4,#0                 ;1073
+000132  e001              B        |L9.312|
+                  |L9.308|
+000134  f04f34ff          MOV      r4,#0xffffffff        ;1079
                   |L9.312|
-000138  f04f34ff          MOV      r4,#0xffffffff        ;1080
-                  |L9.316|
-00013c  4620              MOV      r0,r4                 ;1083
-00013e  e783              B        |L9.72|
-;;;1085   
+000138  4620              MOV      r0,r4                 ;1082
+00013a  e782              B        |L9.66|
+;;;1084   
                           ENDP
 
-                  |L9.320|
+                  |L9.316|
+00013c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
+000140  6964646c
+000144  65776172
+000148  65735c54
+00014c  68697264
+000150  5f506172
+000154  74795c4c
+000158  7749505c
+00015c  7372635c
+000160  636f7265
+000164  5c697076
+000168  345c6574
+00016c  68617270          DCB      "harp.c",0
+000170  2e6300  
+000173  00                DCB      0
+                  |L9.372|
+000174  74797065          DCB      "type overflow",0
+000178  206f7665
+00017c  72666c6f
+000180  7700    
+000182  00                DCB      0
+000183  00                DCB      0
+                  |L9.388|
+000184  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000188  7274696f
+00018c  6e202225
+000190  73222066
+000194  61696c65
+000198  64206174
+00019c  206c696e
+0001a0  65202564
+0001a4  20696e20
+0001a8  25730a00
+                  |L9.428|
                           DCD      ||.bss||
-                  |L9.324|
-000144  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
-000148  6964646c
-00014c  65776172
-000150  65735c54
-000154  68697264
-000158  5f506172
-00015c  74795c4c
-000160  7749505c
-000164  7372635c
-000168  636f7265
-00016c  5c697076
-000170  345c6574
-000174  68617270          DCB      "harp.c",0
-000178  2e6300  
-00017b  00                DCB      0
-                  |L9.380|
-00017c  6172705f          DCB      "arp_table[i].state == PENDING or STABLE",0
-000180  7461626c
-000184  655b695d
-000188  2e737461
-00018c  7465203d
-000190  3d205045
-000194  4e44494e
-000198  47206f72
-00019c  20535441
-0001a0  424c4500
-                  |L9.420|
-0001a4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0001a8  7274696f
-0001ac  6e202225
-0001b0  73222066
-0001b4  61696c65
-0001b8  64206174
-0001bc  206c696e
-0001c0  65202564
-0001c4  20696e20
-0001c8  25730a00
-                  |L9.460|
+                  |L9.432|
+0001b0  6172705f          DCB      "arp_table[i].state == PENDING or STABLE",0
+0001b4  7461626c
+0001b8  655b695d
+0001bc  2e737461
+0001c0  7465203d
+0001c4  3d205045
+0001c8  4e44494e
+0001cc  47206f72
+0001d0  20535441
+0001d4  424c4500
+                  |L9.472|
                           DCD      ||.data||
-                  |L9.464|
-0001d0  6e6f2070          DCB      "no packet queues allowed!",0
-0001d4  61636b65
-0001d8  74207175
-0001dc  65756573
-0001e0  20616c6c
-0001e4  6f776564
-0001e8  2100    
-0001ea  00                DCB      0
-0001eb  00                DCB      0
+                  |L9.476|
+0001dc  6e6f2070          DCB      "no packet queues allowed!",0
+0001e0  61636b65
+0001e4  74207175
+0001e8  65756573
+0001ec  20616c6c
+0001f0  6f776564
+0001f4  2100    
+0001f6  00                DCB      0
+0001f7  00                DCB      0
 
                           AREA ||i.etharp_raw||, CODE, READONLY, ALIGN=2
 
@@ -1780,221 +1793,222 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   etharp_raw PROC
-;;;1101   static err_t
-;;;1102   etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
+;;;1100   static err_t
+;;;1101   etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
 000000  e92d4fff          PUSH     {r0-r11,lr}
-;;;1103              const struct eth_addr *ethdst_addr,
-;;;1104              const struct eth_addr *hwsrc_addr, const ip4_addr_t *ipsrc_addr,
-;;;1105              const struct eth_addr *hwdst_addr, const ip4_addr_t *ipdst_addr,
-;;;1106              const u16_t opcode)
-;;;1107   {
+;;;1102              const struct eth_addr *ethdst_addr,
+;;;1103              const struct eth_addr *hwsrc_addr, const ip4_addr_t *ipsrc_addr,
+;;;1104              const struct eth_addr *hwdst_addr, const ip4_addr_t *ipdst_addr,
+;;;1105              const u16_t opcode)
+;;;1106   {
 000004  b081              SUB      sp,sp,#4
 000006  4606              MOV      r6,r0
 000008  e9ddab0f          LDRD     r10,r11,[sp,#0x3c]
 00000c  f8dd9038          LDR      r9,[sp,#0x38]
 000010  461f              MOV      r7,r3
-;;;1108     struct pbuf *p;
-;;;1109     err_t result = ERR_OK;
+;;;1107     struct pbuf *p;
+;;;1108     err_t result = ERR_OK;
 000012  f04f0800          MOV      r8,#0
-;;;1110     struct etharp_hdr *hdr;
-;;;1111   
-;;;1112     LWIP_ASSERT("netif != NULL", netif != NULL);
+;;;1109     struct etharp_hdr *hdr;
+;;;1110   
+;;;1111     LWIP_ASSERT("netif != NULL", netif != NULL);
 000016  2e00              CMP      r6,#0
 000018  d106              BNE      |L10.40|
-00001a  a32b              ADR      r3,|L10.200|
-00001c  f44f628b          MOV      r2,#0x458
-000020  a137              ADR      r1,|L10.256|
-000022  a03b              ADR      r0,|L10.272|
+00001a  a32c              ADR      r3,|L10.204|
+00001c  f2404257          MOV      r2,#0x457
+000020  a138              ADR      r1,|L10.260|
+000022  a03c              ADR      r0,|L10.276|
 000024  f7fffffe          BL       __2printf
                   |L10.40|
-;;;1113   
-;;;1114     /* allocate a pbuf for the outgoing ARP request packet */
-;;;1115     p = pbuf_alloc(PBUF_LINK, SIZEOF_ETHARP_HDR, PBUF_RAM);
-000028  2200              MOVS     r2,#0
-00002a  211c              MOVS     r1,#0x1c
-00002c  2002              MOVS     r0,#2
-00002e  f7fffffe          BL       pbuf_alloc
-000032  4605              MOV      r5,r0
-;;;1116     /* could allocate a pbuf for an ARP request? */
-;;;1117     if (p == NULL) {
-000034  0028              MOVS     r0,r5
-000036  d044              BEQ      |L10.194|
-;;;1118       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
-;;;1119         ("etharp_raw: could not allocate pbuf for ARP request.\n"));
-;;;1120       ETHARP_STATS_INC(etharp.memerr);
-;;;1121       return ERR_MEM;
-;;;1122     }
-;;;1123     LWIP_ASSERT("check that first pbuf can hold struct etharp_hdr",
-000038  8968              LDRH     r0,[r5,#0xa]
-00003a  281c              CMP      r0,#0x1c
-00003c  d206              BCS      |L10.76|
-00003e  a322              ADR      r3,|L10.200|
-000040  f2404263          MOV      r2,#0x463
-000044  a13c              ADR      r1,|L10.312|
-000046  a032              ADR      r0,|L10.272|
-000048  f7fffffe          BL       __2printf
-                  |L10.76|
-;;;1124                 (p->len >= SIZEOF_ETHARP_HDR));
-;;;1125   
-;;;1126     hdr = (struct etharp_hdr *)p->payload;
-00004c  686c              LDR      r4,[r5,#4]
-;;;1127     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_raw: sending raw ARP packet.\n"));
-;;;1128     hdr->opcode = lwip_htons(opcode);
-00004e  9811              LDR      r0,[sp,#0x44]
-000050  f7fffffe          BL       lwip_htons
-000054  80e0              STRH     r0,[r4,#6]
-;;;1129   
-;;;1130     LWIP_ASSERT("netif->hwaddr_len must be the same as ETH_HWADDR_LEN for etharp!",
-000056  f8960030          LDRB     r0,[r6,#0x30]
-00005a  2806              CMP      r0,#6
-00005c  d006              BEQ      |L10.108|
-00005e  a31a              ADR      r3,|L10.200|
-000060  f240426a          MOV      r2,#0x46a
-000064  4941              LDR      r1,|L10.364|
-000066  a02a              ADR      r0,|L10.272|
-000068  f7fffffe          BL       __2printf
-                  |L10.108|
-;;;1131                 (netif->hwaddr_len == ETH_HWADDR_LEN));
-;;;1132   
-;;;1133     /* Write the ARP MAC-Addresses */
-;;;1134     ETHADDR16_COPY(&hdr->shwaddr, hwsrc_addr);
-00006c  6838              LDR      r0,[r7,#0]
-00006e  60a0              STR      r0,[r4,#8]
-000070  88b8              LDRH     r0,[r7,#4]
-000072  81a0              STRH     r0,[r4,#0xc]
-;;;1135     ETHADDR16_COPY(&hdr->dhwaddr, hwdst_addr);
-000074  f8da0000          LDR      r0,[r10,#0]
-000078  f8c40012          STR      r0,[r4,#0x12]
-00007c  f8ba0004          LDRH     r0,[r10,#4]
-000080  82e0              STRH     r0,[r4,#0x16]
-;;;1136     /* Copy struct ip4_addr2 to aligned ip4_addr, to support compilers without
-;;;1137      * structure packing. */
-;;;1138     IPADDR2_COPY(&hdr->sipaddr, ipsrc_addr);
-000082  f8d90000          LDR      r0,[r9,#0]
-000086  f8c4000e          STR      r0,[r4,#0xe]
-;;;1139     IPADDR2_COPY(&hdr->dipaddr, ipdst_addr);
-00008a  f8db0000          LDR      r0,[r11,#0]
-00008e  61a0              STR      r0,[r4,#0x18]
-;;;1140   
-;;;1141     hdr->hwtype = PP_HTONS(HWTYPE_ETHERNET);
-000090  f44f7080          MOV      r0,#0x100
-000094  8020              STRH     r0,[r4,#0]
-;;;1142     hdr->proto = PP_HTONS(ETHTYPE_IP);
-000096  2008              MOVS     r0,#8
-000098  8060              STRH     r0,[r4,#2]
-;;;1143     /* set hwlen and protolen */
-;;;1144     hdr->hwlen = ETH_HWADDR_LEN;
-00009a  2006              MOVS     r0,#6
-00009c  7120              STRB     r0,[r4,#4]
-;;;1145     hdr->protolen = sizeof(ip4_addr_t);
-00009e  2004              MOVS     r0,#4
-0000a0  7160              STRB     r0,[r4,#5]
-;;;1146   
-;;;1147     /* send ARP query */
-;;;1148   #if LWIP_AUTOIP
-;;;1149     /* If we are using Link-Local, all ARP packets that contain a Link-Local
-;;;1150      * 'sender IP address' MUST be sent using link-layer broadcast instead of
-;;;1151      * link-layer unicast. (See RFC3927 Section 2.5, last paragraph) */
-;;;1152     if(ip4_addr_islinklocal(ipsrc_addr)) {
-;;;1153       ethernet_output(netif, p, ethsrc_addr, &ethbroadcast, ETHTYPE_ARP);
-;;;1154     } else
-;;;1155   #endif /* LWIP_AUTOIP */
-;;;1156     {
-;;;1157       ethernet_output(netif, p, ethsrc_addr, ethdst_addr, ETHTYPE_ARP);
-0000a2  f6400006          MOV      r0,#0x806
-0000a6  e9dd2302          LDRD     r2,r3,[sp,#8]
-0000aa  9000              STR      r0,[sp,#0]
-0000ac  4629              MOV      r1,r5
-0000ae  4630              MOV      r0,r6
-0000b0  f7fffffe          BL       ethernet_output
-;;;1158     }
-;;;1159   
-;;;1160     ETHARP_STATS_INC(etharp.xmit);
-;;;1161     /* free ARP query packet */
-;;;1162     pbuf_free(p);
-0000b4  4628              MOV      r0,r5
-0000b6  f7fffffe          BL       pbuf_free
-;;;1163     p = NULL;
-;;;1164     /* could not allocate pbuf for ARP request */
-;;;1165   
-;;;1166     return result;
-0000ba  4640              MOV      r0,r8
-                  |L10.188|
-;;;1167   }
-0000bc  b005              ADD      sp,sp,#0x14
-0000be  e8bd8ff0          POP      {r4-r11,pc}
-                  |L10.194|
-0000c2  f04f30ff          MOV      r0,#0xffffffff        ;1121
-0000c6  e7f9              B        |L10.188|
-;;;1168   
+;;;1112   
+;;;1113     /* allocate a pbuf for the outgoing ARP request packet */
+;;;1114     p = pbuf_alloc(PBUF_LINK, SIZEOF_ETHARP_HDR, PBUF_RAM);
+000028  f44f7220          MOV      r2,#0x280
+00002c  211c              MOVS     r1,#0x1c
+00002e  200e              MOVS     r0,#0xe
+000030  f7fffffe          BL       pbuf_alloc
+000034  4605              MOV      r5,r0
+;;;1115     /* could allocate a pbuf for an ARP request? */
+;;;1116     if (p == NULL) {
+000036  0028              MOVS     r0,r5
+000038  d044              BEQ      |L10.196|
+;;;1117       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
+;;;1118                   ("etharp_raw: could not allocate pbuf for ARP request.\n"));
+;;;1119       ETHARP_STATS_INC(etharp.memerr);
+;;;1120       return ERR_MEM;
+;;;1121     }
+;;;1122     LWIP_ASSERT("check that first pbuf can hold struct etharp_hdr",
+00003a  8968              LDRH     r0,[r5,#0xa]
+00003c  281c              CMP      r0,#0x1c
+00003e  d206              BCS      |L10.78|
+000040  a322              ADR      r3,|L10.204|
+000042  f2404262          MOV      r2,#0x462
+000046  a13d              ADR      r1,|L10.316|
+000048  a032              ADR      r0,|L10.276|
+00004a  f7fffffe          BL       __2printf
+                  |L10.78|
+;;;1123                 (p->len >= SIZEOF_ETHARP_HDR));
+;;;1124   
+;;;1125     hdr = (struct etharp_hdr *)p->payload;
+00004e  686c              LDR      r4,[r5,#4]
+;;;1126     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_raw: sending raw ARP packet.\n"));
+;;;1127     hdr->opcode = lwip_htons(opcode);
+000050  9811              LDR      r0,[sp,#0x44]
+000052  f7fffffe          BL       lwip_htons
+000056  80e0              STRH     r0,[r4,#6]
+;;;1128   
+;;;1129     LWIP_ASSERT("netif->hwaddr_len must be the same as ETH_HWADDR_LEN for etharp!",
+000058  f8960034          LDRB     r0,[r6,#0x34]
+00005c  2806              CMP      r0,#6
+00005e  d006              BEQ      |L10.110|
+000060  a31a              ADR      r3,|L10.204|
+000062  f2404269          MOV      r2,#0x469
+000066  4942              LDR      r1,|L10.368|
+000068  a02a              ADR      r0,|L10.276|
+00006a  f7fffffe          BL       __2printf
+                  |L10.110|
+;;;1130                 (netif->hwaddr_len == ETH_HWADDR_LEN));
+;;;1131   
+;;;1132     /* Write the ARP MAC-Addresses */
+;;;1133     SMEMCPY(&hdr->shwaddr, hwsrc_addr, ETH_HWADDR_LEN);
+00006e  6838              LDR      r0,[r7,#0]
+000070  60a0              STR      r0,[r4,#8]
+000072  88b8              LDRH     r0,[r7,#4]
+000074  81a0              STRH     r0,[r4,#0xc]
+;;;1134     SMEMCPY(&hdr->dhwaddr, hwdst_addr, ETH_HWADDR_LEN);
+000076  f8da0000          LDR      r0,[r10,#0]
+00007a  f8c40012          STR      r0,[r4,#0x12]
+00007e  f8ba0004          LDRH     r0,[r10,#4]
+000082  82e0              STRH     r0,[r4,#0x16]
+;;;1135     /* Copy struct ip4_addr_wordaligned to aligned ip4_addr, to support compilers without
+;;;1136      * structure packing. */
+;;;1137     IPADDR_WORDALIGNED_COPY_FROM_IP4_ADDR_T(&hdr->sipaddr, ipsrc_addr);
+000084  f8d90000          LDR      r0,[r9,#0]
+000088  f8c4000e          STR      r0,[r4,#0xe]
+;;;1138     IPADDR_WORDALIGNED_COPY_FROM_IP4_ADDR_T(&hdr->dipaddr, ipdst_addr);
+00008c  f8db0000          LDR      r0,[r11,#0]
+000090  61a0              STR      r0,[r4,#0x18]
+;;;1139   
+;;;1140     hdr->hwtype = PP_HTONS(LWIP_IANA_HWTYPE_ETHERNET);
+000092  f44f7080          MOV      r0,#0x100
+000096  8020              STRH     r0,[r4,#0]
+;;;1141     hdr->proto = PP_HTONS(ETHTYPE_IP);
+000098  2008              MOVS     r0,#8
+00009a  8060              STRH     r0,[r4,#2]
+;;;1142     /* set hwlen and protolen */
+;;;1143     hdr->hwlen = ETH_HWADDR_LEN;
+00009c  2006              MOVS     r0,#6
+00009e  7120              STRB     r0,[r4,#4]
+;;;1144     hdr->protolen = sizeof(ip4_addr_t);
+0000a0  2004              MOVS     r0,#4
+0000a2  7160              STRB     r0,[r4,#5]
+;;;1145   
+;;;1146     /* send ARP query */
+;;;1147   #if LWIP_AUTOIP
+;;;1148     /* If we are using Link-Local, all ARP packets that contain a Link-Local
+;;;1149      * 'sender IP address' MUST be sent using link-layer broadcast instead of
+;;;1150      * link-layer unicast. (See RFC3927 Section 2.5, last paragraph) */
+;;;1151     if (ip4_addr_islinklocal(ipsrc_addr)) {
+;;;1152       ethernet_output(netif, p, ethsrc_addr, &ethbroadcast, ETHTYPE_ARP);
+;;;1153     } else
+;;;1154   #endif /* LWIP_AUTOIP */
+;;;1155     {
+;;;1156       ethernet_output(netif, p, ethsrc_addr, ethdst_addr, ETHTYPE_ARP);
+0000a4  f6400006          MOV      r0,#0x806
+0000a8  e9dd2302          LDRD     r2,r3,[sp,#8]
+0000ac  9000              STR      r0,[sp,#0]
+0000ae  4629              MOV      r1,r5
+0000b0  4630              MOV      r0,r6
+0000b2  f7fffffe          BL       ethernet_output
+;;;1157     }
+;;;1158   
+;;;1159     ETHARP_STATS_INC(etharp.xmit);
+;;;1160     /* free ARP query packet */
+;;;1161     pbuf_free(p);
+0000b6  4628              MOV      r0,r5
+0000b8  f7fffffe          BL       pbuf_free
+;;;1162     p = NULL;
+;;;1163     /* could not allocate pbuf for ARP request */
+;;;1164   
+;;;1165     return result;
+0000bc  4640              MOV      r0,r8
+                  |L10.190|
+;;;1166   }
+0000be  b005              ADD      sp,sp,#0x14
+0000c0  e8bd8ff0          POP      {r4-r11,pc}
+                  |L10.196|
+0000c4  f04f30ff          MOV      r0,#0xffffffff        ;1120
+0000c8  e7f9              B        |L10.190|
+;;;1167   
                           ENDP
 
-                  |L10.200|
-0000c8  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
-0000cc  6964646c
-0000d0  65776172
-0000d4  65735c54
-0000d8  68697264
-0000dc  5f506172
-0000e0  74795c4c
-0000e4  7749505c
-0000e8  7372635c
-0000ec  636f7265
-0000f0  5c697076
-0000f4  345c6574
-0000f8  68617270          DCB      "harp.c",0
-0000fc  2e6300  
-0000ff  00                DCB      0
-                  |L10.256|
-000100  6e657469          DCB      "netif != NULL",0
-000104  6620213d
-000108  204e554c
-00010c  4c00    
-00010e  00                DCB      0
-00010f  00                DCB      0
-                  |L10.272|
-000110  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000114  7274696f
-000118  6e202225
-00011c  73222066
-000120  61696c65
-000124  64206174
-000128  206c696e
-00012c  65202564
-000130  20696e20
-000134  25730a00
-                  |L10.312|
-000138  63686563          DCB      "check that first pbuf can hold struct etharp_hdr",0
-00013c  6b207468
-000140  61742066
-000144  69727374
-000148  20706275
-00014c  66206361
-000150  6e20686f
-000154  6c642073
-000158  74727563
-00015c  74206574
-000160  68617270
-000164  5f686472
-000168  00      
-000169  00                DCB      0
-00016a  00                DCB      0
-00016b  00                DCB      0
-                  |L10.364|
+0000ca  0000              DCW      0x0000
+                  |L10.204|
+0000cc  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
+0000d0  6964646c
+0000d4  65776172
+0000d8  65735c54
+0000dc  68697264
+0000e0  5f506172
+0000e4  74795c4c
+0000e8  7749505c
+0000ec  7372635c
+0000f0  636f7265
+0000f4  5c697076
+0000f8  345c6574
+0000fc  68617270          DCB      "harp.c",0
+000100  2e6300  
+000103  00                DCB      0
+                  |L10.260|
+000104  6e657469          DCB      "netif != NULL",0
+000108  6620213d
+00010c  204e554c
+000110  4c00    
+000112  00                DCB      0
+000113  00                DCB      0
+                  |L10.276|
+000114  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000118  7274696f
+00011c  6e202225
+000120  73222066
+000124  61696c65
+000128  64206174
+00012c  206c696e
+000130  65202564
+000134  20696e20
+000138  25730a00
+                  |L10.316|
+00013c  63686563          DCB      "check that first pbuf can hold struct etharp_hdr",0
+000140  6b207468
+000144  61742066
+000148  69727374
+00014c  20706275
+000150  66206361
+000154  6e20686f
+000158  6c642073
+00015c  74727563
+000160  74206574
+000164  68617270
+000168  5f686472
+00016c  00      
+00016d  00                DCB      0
+00016e  00                DCB      0
+00016f  00                DCB      0
+                  |L10.368|
                           DCD      ||.conststring||
 
                           AREA ||i.etharp_request||, CODE, READONLY, ALIGN=2
 
                   etharp_request PROC
-;;;1198   err_t
-;;;1199   etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
+;;;1197   err_t
+;;;1198   etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
 000000  4a01              LDR      r2,|L11.8|
-;;;1200   {
-;;;1201     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
-;;;1202     return etharp_request_dst(netif, ipaddr, &ethbroadcast);
+;;;1199   {
+;;;1200     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
+;;;1201     return etharp_request_dst(netif, ipaddr, &ethbroadcast);
 000002  f7ffbffe          B.W      etharp_request_dst
-;;;1203   }
-;;;1204   #endif /* LWIP_IPV4 && LWIP_ARP */
+;;;1202   }
+;;;1203   
                           ENDP
 
 000006  0000              DCW      0x0000
@@ -2004,25 +2018,25 @@
                           AREA ||i.etharp_request_dst||, CODE, READONLY, ALIGN=2
 
                   etharp_request_dst PROC
-;;;1181   static err_t
-;;;1182   etharp_request_dst(struct netif *netif, const ip4_addr_t *ipaddr, const struct eth_addr* hw_dst_addr)
+;;;1180   static err_t
+;;;1181   etharp_request_dst(struct netif *netif, const ip4_addr_t *ipaddr, const struct eth_addr *hw_dst_addr)
 000000  b57f              PUSH     {r0-r6,lr}
-;;;1183   {
-;;;1184     return etharp_raw(netif, (struct eth_addr *)netif->hwaddr, hw_dst_addr,
+;;;1182   {
+;;;1183     return etharp_raw(netif, (struct eth_addr *)netif->hwaddr, hw_dst_addr,
 000002  4d06              LDR      r5,|L12.28|
 000004  1d03              ADDS     r3,r0,#4
 000006  2401              MOVS     r4,#1
 000008  e9cd3500          STRD     r3,r5,[sp,#0]
 00000c  e9cd1402          STRD     r1,r4,[sp,#8]
-000010  332d              ADDS     r3,r3,#0x2d
+000010  332a              ADDS     r3,r3,#0x2a
 000012  4619              MOV      r1,r3
 000014  f7fffffe          BL       etharp_raw
-;;;1185                       (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif), &ethzero,
-;;;1186                       ipaddr, ARP_REQUEST);
-;;;1187   }
+;;;1184                       (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif), &ethzero,
+;;;1185                       ipaddr, ARP_REQUEST);
+;;;1186   }
 000018  b004              ADD      sp,sp,#0x10
 00001a  bd70              POP      {r4-r6,pc}
-;;;1188   
+;;;1187   
                           ENDP
 
                   |L12.28|
@@ -2031,94 +2045,94 @@
                           AREA ||i.etharp_tmr||, CODE, READONLY, ALIGN=2
 
                   etharp_tmr PROC
-;;;198    void
-;;;199    etharp_tmr(void)
+;;;196    void
+;;;197    etharp_tmr(void)
 000000  b570              PUSH     {r4-r6,lr}
-;;;200    {
-;;;201      u8_t i;
-;;;202    
-;;;203      LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
-;;;204      /* remove expired entries from the ARP table */
-;;;205      for (i = 0; i < ARP_TABLE_SIZE; ++i) {
+;;;198    {
+;;;199      int i;
+;;;200    
+;;;201      LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer\n"));
+;;;202      /* remove expired entries from the ARP table */
+;;;203      for (i = 0; i < ARP_TABLE_SIZE; ++i) {
 000002  2400              MOVS     r4,#0
-;;;206        u8_t state = arp_table[i].state;
+;;;204        u8_t state = arp_table[i].state;
 000004  4d15              LDR      r5,|L13.92|
                   |L13.6|
 000006  eb040044          ADD      r0,r4,r4,LSL #1
 00000a  eb0502c0          ADD      r2,r5,r0,LSL #3
 00000e  7d11              LDRB     r1,[r2,#0x14]
-;;;207        if (state != ETHARP_STATE_EMPTY
+;;;205        if (state != ETHARP_STATE_EMPTY
 000010  b1f9              CBZ      r1,|L13.82|
-;;;208    #if ETHARP_SUPPORT_STATIC_ENTRIES
-;;;209          && (state != ETHARP_STATE_STATIC)
-;;;210    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-;;;211          ) {
-;;;212          arp_table[i].ctime++;
+;;;206    #if ETHARP_SUPPORT_STATIC_ENTRIES
+;;;207            && (state != ETHARP_STATE_STATIC)
+;;;208    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
+;;;209           ) {
+;;;210          arp_table[i].ctime++;
 000012  8a50              LDRH     r0,[r2,#0x12]
 000014  1c40              ADDS     r0,r0,#1
 000016  b280              UXTH     r0,r0
 000018  8250              STRH     r0,[r2,#0x12]
-;;;213          if ((arp_table[i].ctime >= ARP_MAXAGE) ||
+;;;211          if ((arp_table[i].ctime >= ARP_MAXAGE) ||
 00001a  f5b07f96          CMP      r0,#0x12c
 00001e  d203              BCS      |L13.40|
-;;;214              ((arp_table[i].state == ETHARP_STATE_PENDING)  &&
+;;;212              ((arp_table[i].state == ETHARP_STATE_PENDING)  &&
 000020  2901              CMP      r1,#1
 000022  d105              BNE      |L13.48|
-;;;215               (arp_table[i].ctime >= ARP_MAXPENDING))) {
+;;;213               (arp_table[i].ctime >= ARP_MAXPENDING))) {
 000024  2805              CMP      r0,#5
 000026  d303              BCC      |L13.48|
                   |L13.40|
-;;;216            /* pending or stable entry has become old! */
-;;;217            LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer: expired %s entry %"U16_F".\n",
-;;;218                 arp_table[i].state >= ETHARP_STATE_STABLE ? "stable" : "pending", (u16_t)i));
-;;;219            /* clean up entries that have just been expired */
-;;;220            etharp_free_entry(i);
+;;;214            /* pending or stable entry has become old! */
+;;;215            LWIP_DEBUGF(ETHARP_DEBUG, ("etharp_timer: expired %s entry %d.\n",
+;;;216                                       arp_table[i].state >= ETHARP_STATE_STABLE ? "stable" : "pending", i));
+;;;217            /* clean up entries that have just been expired */
+;;;218            etharp_free_entry(i);
 000028  4620              MOV      r0,r4
 00002a  f7fffffe          BL       etharp_free_entry
 00002e  e010              B        |L13.82|
                   |L13.48|
-;;;221          } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_1) {
+;;;219          } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_1) {
 000030  2903              CMP      r1,#3
 000032  d004              BEQ      |L13.62|
-;;;222            /* Don't send more than one request every 2 seconds. */
-;;;223            arp_table[i].state = ETHARP_STATE_STABLE_REREQUESTING_2;
-;;;224          } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_2) {
+;;;220            /* Don't send more than one request every 2 seconds. */
+;;;221            arp_table[i].state = ETHARP_STATE_STABLE_REREQUESTING_2;
+;;;222          } else if (arp_table[i].state == ETHARP_STATE_STABLE_REREQUESTING_2) {
 000034  2904              CMP      r1,#4
 000036  d005              BEQ      |L13.68|
-;;;225            /* Reset state to stable, so that the next transmitted packet will
-;;;226               re-send an ARP request. */
-;;;227            arp_table[i].state = ETHARP_STATE_STABLE;
-;;;228          } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
+;;;223            /* Reset state to stable, so that the next transmitted packet will
+;;;224               re-send an ARP request. */
+;;;225            arp_table[i].state = ETHARP_STATE_STABLE;
+;;;226          } else if (arp_table[i].state == ETHARP_STATE_PENDING) {
 000038  2901              CMP      r1,#1
 00003a  d006              BEQ      |L13.74|
 00003c  e009              B        |L13.82|
                   |L13.62|
-00003e  2004              MOVS     r0,#4                 ;223
-000040  7510              STRB     r0,[r2,#0x14]         ;223
+00003e  2004              MOVS     r0,#4                 ;221
+000040  7510              STRB     r0,[r2,#0x14]         ;221
 000042  e006              B        |L13.82|
                   |L13.68|
-000044  2002              MOVS     r0,#2                 ;227
-000046  7510              STRB     r0,[r2,#0x14]         ;227
+000044  2002              MOVS     r0,#2                 ;225
+000046  7510              STRB     r0,[r2,#0x14]         ;225
 000048  e003              B        |L13.82|
                   |L13.74|
-;;;229            /* still pending, resend an ARP query */
-;;;230            etharp_request(arp_table[i].netif, &arp_table[i].ipaddr);
+;;;227            /* still pending, resend an ARP query */
+;;;228            etharp_request(arp_table[i].netif, &arp_table[i].ipaddr);
 00004a  1d11              ADDS     r1,r2,#4
 00004c  6890              LDR      r0,[r2,#8]
 00004e  f7fffffe          BL       etharp_request
                   |L13.82|
-000052  1c64              ADDS     r4,r4,#1              ;205
-000054  b2e4              UXTB     r4,r4                 ;205
-000056  2c0a              CMP      r4,#0xa               ;205
-000058  d3d5              BCC      |L13.6|
-;;;231          }
-;;;232        }
-;;;233      }
-;;;234    }
-00005a  bd70              POP      {r4-r6,pc}
-;;;235    
+000052  1c64              ADDS     r4,r4,#1              ;203
+000054  2c0a              CMP      r4,#0xa               ;203
+000056  dbd6              BLT      |L13.6|
+;;;229          }
+;;;230        }
+;;;231      }
+;;;232    }
+000058  bd70              POP      {r4-r6,pc}
+;;;233    
                           ENDP
 
+00005a  0000              DCW      0x0000
                   |L13.92|
                           DCD      ||.bss||
 
@@ -2130,144 +2144,143 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   etharp_update_arp_entry PROC
-;;;423    static err_t
-;;;424    etharp_update_arp_entry(struct netif *netif, const ip4_addr_t *ipaddr, struct eth_addr *ethaddr, u8_t flags)
+;;;421    static err_t
+;;;422    etharp_update_arp_entry(struct netif *netif, const ip4_addr_t *ipaddr, struct eth_addr *ethaddr, u8_t flags)
 000000  b5f8              PUSH     {r3-r7,lr}
-;;;425    {
+;;;423    {
 000002  4604              MOV      r4,r0
 000004  460d              MOV      r5,r1
 000006  4616              MOV      r6,r2
 000008  461f              MOV      r7,r3
-;;;426      s8_t i;
-;;;427      LWIP_ASSERT("netif->hwaddr_len == ETH_HWADDR_LEN", netif->hwaddr_len == ETH_HWADDR_LEN);
-00000a  f8940030          LDRB     r0,[r4,#0x30]
+;;;424      s16_t i;
+;;;425      LWIP_ASSERT("netif->hwaddr_len == ETH_HWADDR_LEN", netif->hwaddr_len == ETH_HWADDR_LEN);
+00000a  f8940034          LDRB     r0,[r4,#0x34]
 00000e  2806              CMP      r0,#6
 000010  d006              BEQ      |L14.32|
 000012  a320              ADR      r3,|L14.148|
-000014  f24012ab          MOV      r2,#0x1ab
+000014  f24012a9          MOV      r2,#0x1a9
 000018  a12c              ADR      r1,|L14.204|
 00001a  a035              ADR      r0,|L14.240|
 00001c  f7fffffe          BL       __2printf
                   |L14.32|
-;;;428      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: %"U16_F".%"U16_F".%"U16_F".%"U16_F" - %02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F"\n",
-;;;429        ip4_addr1_16(ipaddr), ip4_addr2_16(ipaddr), ip4_addr3_16(ipaddr), ip4_addr4_16(ipaddr),
-;;;430        (u16_t)ethaddr->addr[0], (u16_t)ethaddr->addr[1], (u16_t)ethaddr->addr[2],
-;;;431        (u16_t)ethaddr->addr[3], (u16_t)ethaddr->addr[4], (u16_t)ethaddr->addr[5]));
-;;;432      /* non-unicast address? */
-;;;433      if (ip4_addr_isany(ipaddr) ||
-000020  b39d              CBZ      r5,|L14.138|
+;;;426      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: %"U16_F".%"U16_F".%"U16_F".%"U16_F" - %02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F":%02"X16_F"\n",
+;;;427                  ip4_addr1_16(ipaddr), ip4_addr2_16(ipaddr), ip4_addr3_16(ipaddr), ip4_addr4_16(ipaddr),
+;;;428                  (u16_t)ethaddr->addr[0], (u16_t)ethaddr->addr[1], (u16_t)ethaddr->addr[2],
+;;;429                  (u16_t)ethaddr->addr[3], (u16_t)ethaddr->addr[4], (u16_t)ethaddr->addr[5]));
+;;;430      /* non-unicast address? */
+;;;431      if (ip4_addr_isany(ipaddr) ||
+000020  b19d              CBZ      r5,|L14.74|
 000022  6828              LDR      r0,[r5,#0]
-000024  b388              CBZ      r0,|L14.138|
-;;;434          ip4_addr_isbroadcast(ipaddr, netif) ||
+000024  b188              CBZ      r0,|L14.74|
+;;;432          ip4_addr_isbroadcast(ipaddr, netif) ||
 000026  4621              MOV      r1,r4
 000028  f7fffffe          BL       ip4_addr_isbroadcast_u32
-00002c  bb68              CBNZ     r0,|L14.138|
-;;;435          ip4_addr_ismulticast(ipaddr)) {
+00002c  b968              CBNZ     r0,|L14.74|
+;;;433          ip4_addr_ismulticast(ipaddr)) {
 00002e  7828              LDRB     r0,[r5,#0]
 000030  f3c01003          UBFX     r0,r0,#4,#4
 000034  280e              CMP      r0,#0xe
-000036  d029              BEQ      |L14.140|
-;;;436        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: will not add non-unicast IP address to ARP cache\n"));
-;;;437        return ERR_ARG;
-;;;438      }
-;;;439      /* find or create ARP entry */
-;;;440      i = etharp_find_entry(ipaddr, flags, netif);
+000036  d008              BEQ      |L14.74|
+;;;434        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: will not add non-unicast IP address to ARP cache\n"));
+;;;435        return ERR_ARG;
+;;;436      }
+;;;437      /* find or create ARP entry */
+;;;438      i = etharp_find_entry(ipaddr, flags, netif);
 000038  4622              MOV      r2,r4
 00003a  4639              MOV      r1,r7
 00003c  4628              MOV      r0,r5
 00003e  f7fffffe          BL       etharp_find_entry
-;;;441      /* bail out if no entry could be found */
-;;;442      if (i < 0) {
+;;;439      /* bail out if no entry could be found */
+;;;440      if (i < 0) {
 000042  2800              CMP      r0,#0
-000044  db20              BLT      |L14.136|
-;;;443        return (err_t)i;
-;;;444      }
-;;;445    
-;;;446    #if ETHARP_SUPPORT_STATIC_ENTRIES
-;;;447      if (flags & ETHARP_FLAG_STATIC_ENTRY) {
-;;;448        /* record static type */
-;;;449        arp_table[i].state = ETHARP_STATE_STATIC;
-;;;450      } else if (arp_table[i].state == ETHARP_STATE_STATIC) {
-;;;451        /* found entry is a static type, don't overwrite it */
-;;;452        return ERR_VAL;
-;;;453      } else
-;;;454    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-;;;455      {
-;;;456        /* mark it stable */
-;;;457        arp_table[i].state = ETHARP_STATE_STABLE;
-000046  4a34              LDR      r2,|L14.280|
-000048  eb000140          ADD      r1,r0,r0,LSL #1
-00004c  eb0200c1          ADD      r0,r2,r1,LSL #3
-000050  2302              MOVS     r3,#2
-000052  7503              STRB     r3,[r0,#0x14]
-;;;458      }
-;;;459    
-;;;460      /* record network interface */
-;;;461      arp_table[i].netif = netif;
-000054  6084              STR      r4,[r0,#8]
-;;;462      /* insert in SNMP ARP index tree */
-;;;463      mib2_add_arp_entry(netif, &arp_table[i].ipaddr);
-;;;464    
-;;;465      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: updating stable entry %"S16_F"\n", (s16_t)i));
-;;;466      /* update address */
-;;;467      ETHADDR32_COPY(&arp_table[i].ethaddr, ethaddr);
-000056  6833              LDR      r3,[r6,#0]
-000058  60c3              STR      r3,[r0,#0xc]
-00005a  88b3              LDRH     r3,[r6,#4]
-00005c  8203              STRH     r3,[r0,#0x10]
-;;;468      /* reset time stamp */
-;;;469      arp_table[i].ctime = 0;
-00005e  2300              MOVS     r3,#0
-000060  8243              STRH     r3,[r0,#0x12]
-;;;470      /* this is where we will send out queued packets! */
-;;;471    #if ARP_QUEUEING
-;;;472      while (arp_table[i].q != NULL) {
-;;;473        struct pbuf *p;
-;;;474        /* remember remainder of queue */
-;;;475        struct etharp_q_entry *q = arp_table[i].q;
-;;;476        /* pop first item off the queue */
-;;;477        arp_table[i].q = q->next;
-;;;478        /* get the packet pointer */
-;;;479        p = q->p;
-;;;480        /* now queue entry can be freed */
-;;;481        memp_free(MEMP_ARP_QUEUE, q);
-;;;482    #else /* ARP_QUEUEING */
-;;;483      if (arp_table[i].q != NULL) {
-000062  f8525031          LDR      r5,[r2,r1,LSL #3]
-000066  b175              CBZ      r5,|L14.134|
-;;;484        struct pbuf *p = arp_table[i].q;
-;;;485        arp_table[i].q = NULL;
-000068  f8423031          STR      r3,[r2,r1,LSL #3]
-;;;486    #endif /* ARP_QUEUEING */
-;;;487        /* send the queued IP packet */
-;;;488        ethernet_output(netif, p, (struct eth_addr*)(netif->hwaddr), ethaddr, ETHTYPE_IP);
-00006c  f44f6000          MOV      r0,#0x800
-000070  9000              STR      r0,[sp,#0]
-000072  4633              MOV      r3,r6
-000074  f1040231          ADD      r2,r4,#0x31
-000078  4629              MOV      r1,r5
-00007a  4620              MOV      r0,r4
-00007c  f7fffffe          BL       ethernet_output
-;;;489        /* free the queued IP packet */
-;;;490        pbuf_free(p);
-000080  4628              MOV      r0,r5
-000082  f7fffffe          BL       pbuf_free
-                  |L14.134|
-;;;491      }
-;;;492      return ERR_OK;
-000086  2000              MOVS     r0,#0
-                  |L14.136|
-;;;493    }
-000088  bdf8              POP      {r3-r7,pc}
-                  |L14.138|
-00008a  e7ff              B        |L14.140|
-                  |L14.140|
-00008c  f06f000f          MVN      r0,#0xf               ;437
-000090  e7fa              B        |L14.136|
-;;;494    
+000044  da04              BGE      |L14.80|
+;;;441        return (err_t)i;
+000046  b240              SXTB     r0,r0
+;;;442      }
+;;;443    
+;;;444    #if ETHARP_SUPPORT_STATIC_ENTRIES
+;;;445      if (flags & ETHARP_FLAG_STATIC_ENTRY) {
+;;;446        /* record static type */
+;;;447        arp_table[i].state = ETHARP_STATE_STATIC;
+;;;448      } else if (arp_table[i].state == ETHARP_STATE_STATIC) {
+;;;449        /* found entry is a static type, don't overwrite it */
+;;;450        return ERR_VAL;
+;;;451      } else
+;;;452    #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
+;;;453      {
+;;;454        /* mark it stable */
+;;;455        arp_table[i].state = ETHARP_STATE_STABLE;
+;;;456      }
+;;;457    
+;;;458      /* record network interface */
+;;;459      arp_table[i].netif = netif;
+;;;460      /* insert in SNMP ARP index tree */
+;;;461      mib2_add_arp_entry(netif, &arp_table[i].ipaddr);
+;;;462    
+;;;463      LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_update_arp_entry: updating stable entry %"S16_F"\n", i));
+;;;464      /* update address */
+;;;465      SMEMCPY(&arp_table[i].ethaddr, ethaddr, ETH_HWADDR_LEN);
+;;;466      /* reset time stamp */
+;;;467      arp_table[i].ctime = 0;
+;;;468      /* this is where we will send out queued packets! */
+;;;469    #if ARP_QUEUEING
+;;;470      while (arp_table[i].q != NULL) {
+;;;471        struct pbuf *p;
+;;;472        /* remember remainder of queue */
+;;;473        struct etharp_q_entry *q = arp_table[i].q;
+;;;474        /* pop first item off the queue */
+;;;475        arp_table[i].q = q->next;
+;;;476        /* get the packet pointer */
+;;;477        p = q->p;
+;;;478        /* now queue entry can be freed */
+;;;479        memp_free(MEMP_ARP_QUEUE, q);
+;;;480    #else /* ARP_QUEUEING */
+;;;481      if (arp_table[i].q != NULL) {
+;;;482        struct pbuf *p = arp_table[i].q;
+;;;483        arp_table[i].q = NULL;
+;;;484    #endif /* ARP_QUEUEING */
+;;;485        /* send the queued IP packet */
+;;;486        ethernet_output(netif, p, (struct eth_addr *)(netif->hwaddr), ethaddr, ETHTYPE_IP);
+;;;487        /* free the queued IP packet */
+;;;488        pbuf_free(p);
+;;;489      }
+;;;490      return ERR_OK;
+;;;491    }
+000048  bdf8              POP      {r3-r7,pc}
+                  |L14.74|
+00004a  f06f000f          MVN      r0,#0xf               ;435
+00004e  bdf8              POP      {r3-r7,pc}
+                  |L14.80|
+000050  4a31              LDR      r2,|L14.280|
+000052  eb000140          ADD      r1,r0,r0,LSL #1       ;455
+000056  eb0200c1          ADD      r0,r2,r1,LSL #3       ;455
+00005a  2302              MOVS     r3,#2                 ;455
+00005c  7503              STRB     r3,[r0,#0x14]         ;455
+00005e  6084              STR      r4,[r0,#8]            ;459
+000060  6833              LDR      r3,[r6,#0]            ;465
+000062  60c3              STR      r3,[r0,#0xc]          ;465
+000064  88b3              LDRH     r3,[r6,#4]            ;465
+000066  8203              STRH     r3,[r0,#0x10]         ;465
+000068  2300              MOVS     r3,#0                 ;467
+00006a  8243              STRH     r3,[r0,#0x12]         ;467
+00006c  f8525031          LDR      r5,[r2,r1,LSL #3]     ;481
+000070  b175              CBZ      r5,|L14.144|
+000072  f8423031          STR      r3,[r2,r1,LSL #3]     ;483
+000076  f44f6000          MOV      r0,#0x800             ;486
+00007a  9000              STR      r0,[sp,#0]            ;486
+00007c  4633              MOV      r3,r6                 ;486
+00007e  f104022e          ADD      r2,r4,#0x2e           ;486
+000082  4629              MOV      r1,r5                 ;486
+000084  4620              MOV      r0,r4                 ;486
+000086  f7fffffe          BL       ethernet_output
+00008a  4628              MOV      r0,r5                 ;488
+00008c  f7fffffe          BL       pbuf_free
+                  |L14.144|
+000090  2000              MOVS     r0,#0                 ;490
+000092  bdf8              POP      {r3-r7,pc}
+;;;492    
                           ENDP
 
-000092  0000              DCW      0x0000
                   |L14.148|
 000094  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\et"
 000098  6964646c

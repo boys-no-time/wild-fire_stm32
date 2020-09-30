@@ -24,6 +24,7 @@
 #include "gpio.h"
 #include "helloworld.h"
 #include "app.h"
+#include "init.h"
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 
@@ -50,7 +51,7 @@ int main(void)
 	
   MX_LWIP_Init();
 	
-	printf("lwip init sucess ! \r\n");
+	printf("lwip %s init sucess ! \r\n",LWIP_VERSION_STRING);
   /* USER CODE BEGIN 2 */
 	App_init();
   /* USER CODE END 2 */

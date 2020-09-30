@@ -10,62 +10,61 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   do_memp_free_pool PROC
-;;;406    static void
-;;;407    do_memp_free_pool(const struct memp_desc* desc, void *mem)
+;;;358    static void
+;;;359    do_memp_free_pool(const struct memp_desc *desc, void *mem)
 000000  b570              PUSH     {r4-r6,lr}
-;;;408    {
+;;;360    {
 000002  4605              MOV      r5,r0
 000004  460c              MOV      r4,r1
-;;;409      struct memp *memp;
-;;;410      SYS_ARCH_DECL_PROTECT(old_level);
-;;;411    
-;;;412      LWIP_ASSERT("memp_free: mem properly aligned",
+;;;361      struct memp *memp;
+;;;362      SYS_ARCH_DECL_PROTECT(old_level);
+;;;363    
+;;;364      LWIP_ASSERT("memp_free: mem properly aligned",
 000006  07a0              LSLS     r0,r4,#30
 000008  d006              BEQ      |L1.24|
 00000a  a306              ADR      r3,|L1.36|
-00000c  f44f72ce          MOV      r2,#0x19c
+00000c  f44f72b6          MOV      r2,#0x16c
 000010  a110              ADR      r1,|L1.84|
 000012  a018              ADR      r0,|L1.116|
 000014  f7fffffe          BL       __2printf
                   |L1.24|
-;;;413                    ((mem_ptr_t)mem % MEM_ALIGNMENT) == 0);
-;;;414    
-;;;415      /* cast through void* to get rid of alignment warnings */
-;;;416      memp = (struct memp *)(void *)((u8_t*)mem - MEMP_SIZE);
-;;;417    
-;;;418      SYS_ARCH_PROTECT(old_level);
-;;;419    
-;;;420    #if MEMP_OVERFLOW_CHECK == 1
-;;;421      memp_overflow_check_element_overflow(memp, desc);
-;;;422      memp_overflow_check_element_underflow(memp, desc);
-;;;423    #endif /* MEMP_OVERFLOW_CHECK */
-;;;424    
-;;;425    #if MEMP_STATS
-;;;426      desc->stats->used--;
-;;;427    #endif
-;;;428    
-;;;429    #if MEMP_MEM_MALLOC
-;;;430      LWIP_UNUSED_ARG(desc);
-;;;431      SYS_ARCH_UNPROTECT(old_level);
-;;;432      mem_free(memp);
-;;;433    #else /* MEMP_MEM_MALLOC */
-;;;434      memp->next = *desc->tab;
+;;;365                  ((mem_ptr_t)mem % MEM_ALIGNMENT) == 0);
+;;;366    
+;;;367      /* cast through void* to get rid of alignment warnings */
+;;;368      memp = (struct memp *)(void *)((u8_t *)mem - MEMP_SIZE);
+;;;369    
+;;;370      SYS_ARCH_PROTECT(old_level);
+;;;371    
+;;;372    #if MEMP_OVERFLOW_CHECK == 1
+;;;373      memp_overflow_check_element(memp, desc);
+;;;374    #endif /* MEMP_OVERFLOW_CHECK */
+;;;375    
+;;;376    #if MEMP_STATS
+;;;377      desc->stats->used--;
+;;;378    #endif
+;;;379    
+;;;380    #if MEMP_MEM_MALLOC
+;;;381      LWIP_UNUSED_ARG(desc);
+;;;382      SYS_ARCH_UNPROTECT(old_level);
+;;;383      mem_free(memp);
+;;;384    #else /* MEMP_MEM_MALLOC */
+;;;385      memp->next = *desc->tab;
 000018  68a8              LDR      r0,[r5,#8]
 00001a  6800              LDR      r0,[r0,#0]
 00001c  6020              STR      r0,[r4,#0]
-;;;435      *desc->tab = memp;
+;;;386      *desc->tab = memp;
 00001e  68a8              LDR      r0,[r5,#8]
 000020  6004              STR      r4,[r0,#0]
-;;;436    
-;;;437    #if MEMP_SANITY_CHECK
-;;;438      LWIP_ASSERT("memp sanity", memp_sanity(desc));
-;;;439    #endif /* MEMP_SANITY_CHECK */
-;;;440    
-;;;441      SYS_ARCH_UNPROTECT(old_level);
-;;;442    #endif /* !MEMP_MEM_MALLOC */
-;;;443    }
+;;;387    
+;;;388    #if MEMP_SANITY_CHECK
+;;;389      LWIP_ASSERT("memp sanity", memp_sanity(desc));
+;;;390    #endif /* MEMP_SANITY_CHECK */
+;;;391    
+;;;392      SYS_ARCH_UNPROTECT(old_level);
+;;;393    #endif /* !MEMP_MEM_MALLOC */
+;;;394    }
 000022  bd70              POP      {r4-r6,pc}
-;;;444    
+;;;395    
                           ENDP
 
                   |L1.36|
@@ -110,85 +109,84 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   do_memp_malloc_pool PROC
-;;;291    #if !MEMP_OVERFLOW_CHECK
-;;;292    do_memp_malloc_pool(const struct memp_desc *desc)
+;;;244    #if !MEMP_OVERFLOW_CHECK
+;;;245    do_memp_malloc_pool(const struct memp_desc *desc)
 000000  b510              PUSH     {r4,lr}
-;;;293    #else
-;;;294    do_memp_malloc_pool_fn(const struct memp_desc *desc, const char* file, const int line)
-;;;295    #endif
-;;;296    {
-;;;297      struct memp *memp;
-;;;298      SYS_ARCH_DECL_PROTECT(old_level);
-;;;299    
-;;;300    #if MEMP_MEM_MALLOC
-;;;301      memp = (struct memp *)mem_malloc(MEMP_SIZE + MEMP_ALIGN_SIZE(desc->size));
-;;;302      SYS_ARCH_PROTECT(old_level);
-;;;303    #else /* MEMP_MEM_MALLOC */
-;;;304      SYS_ARCH_PROTECT(old_level);
-;;;305    
-;;;306      memp = *desc->tab;
+;;;246    #else
+;;;247    do_memp_malloc_pool_fn(const struct memp_desc *desc, const char *file, const int line)
+;;;248    #endif
+;;;249    {
+;;;250      struct memp *memp;
+;;;251      SYS_ARCH_DECL_PROTECT(old_level);
+;;;252    
+;;;253    #if MEMP_MEM_MALLOC
+;;;254      memp = (struct memp *)mem_malloc(MEMP_SIZE + MEMP_ALIGN_SIZE(desc->size));
+;;;255      SYS_ARCH_PROTECT(old_level);
+;;;256    #else /* MEMP_MEM_MALLOC */
+;;;257      SYS_ARCH_PROTECT(old_level);
+;;;258    
+;;;259      memp = *desc->tab;
 000002  6880              LDR      r0,[r0,#8]
 000004  6804              LDR      r4,[r0,#0]
-;;;307    #endif /* MEMP_MEM_MALLOC */
-;;;308    
-;;;309      if (memp != NULL) {
+;;;260    #endif /* MEMP_MEM_MALLOC */
+;;;261    
+;;;262      if (memp != NULL) {
 000006  2c00              CMP      r4,#0
 000008  d00c              BEQ      |L2.36|
-;;;310    #if !MEMP_MEM_MALLOC
-;;;311    #if MEMP_OVERFLOW_CHECK == 1
-;;;312        memp_overflow_check_element_overflow(memp, desc);
-;;;313        memp_overflow_check_element_underflow(memp, desc);
-;;;314    #endif /* MEMP_OVERFLOW_CHECK */
-;;;315    
-;;;316        *desc->tab = memp->next;
+;;;263    #if !MEMP_MEM_MALLOC
+;;;264    #if MEMP_OVERFLOW_CHECK == 1
+;;;265        memp_overflow_check_element(memp, desc);
+;;;266    #endif /* MEMP_OVERFLOW_CHECK */
+;;;267    
+;;;268        *desc->tab = memp->next;
 00000a  6821              LDR      r1,[r4,#0]
 00000c  6001              STR      r1,[r0,#0]
-;;;317    #if MEMP_OVERFLOW_CHECK
-;;;318        memp->next = NULL;
-;;;319    #endif /* MEMP_OVERFLOW_CHECK */
-;;;320    #endif /* !MEMP_MEM_MALLOC */
-;;;321    #if MEMP_OVERFLOW_CHECK
-;;;322        memp->file = file;
-;;;323        memp->line = line;
-;;;324    #if MEMP_MEM_MALLOC
-;;;325        memp_overflow_init_element(memp, desc);
-;;;326    #endif /* MEMP_MEM_MALLOC */
-;;;327    #endif /* MEMP_OVERFLOW_CHECK */
-;;;328        LWIP_ASSERT("memp_malloc: memp properly aligned",
+;;;269    #if MEMP_OVERFLOW_CHECK
+;;;270        memp->next = NULL;
+;;;271    #endif /* MEMP_OVERFLOW_CHECK */
+;;;272    #endif /* !MEMP_MEM_MALLOC */
+;;;273    #if MEMP_OVERFLOW_CHECK
+;;;274        memp->file = file;
+;;;275        memp->line = line;
+;;;276    #if MEMP_MEM_MALLOC
+;;;277        memp_overflow_init_element(memp, desc);
+;;;278    #endif /* MEMP_MEM_MALLOC */
+;;;279    #endif /* MEMP_OVERFLOW_CHECK */
+;;;280        LWIP_ASSERT("memp_malloc: memp properly aligned",
 00000e  07a0              LSLS     r0,r4,#30
 000010  d006              BEQ      |L2.32|
 000012  a305              ADR      r3,|L2.40|
-000014  f44f72a4          MOV      r2,#0x148
+000014  f44f728c          MOV      r2,#0x118
 000018  a10f              ADR      r1,|L2.88|
 00001a  a018              ADR      r0,|L2.124|
 00001c  f7fffffe          BL       __2printf
                   |L2.32|
-;;;329                    ((mem_ptr_t)memp % MEM_ALIGNMENT) == 0);
-;;;330    #if MEMP_STATS
-;;;331        desc->stats->used++;
-;;;332        if (desc->stats->used > desc->stats->max) {
-;;;333          desc->stats->max = desc->stats->used;
-;;;334        }
-;;;335    #endif
-;;;336        SYS_ARCH_UNPROTECT(old_level);
-;;;337        /* cast through u8_t* to get rid of alignment warnings */
-;;;338        return ((u8_t*)memp + MEMP_SIZE);
+;;;281                    ((mem_ptr_t)memp % MEM_ALIGNMENT) == 0);
+;;;282    #if MEMP_STATS
+;;;283        desc->stats->used++;
+;;;284        if (desc->stats->used > desc->stats->max) {
+;;;285          desc->stats->max = desc->stats->used;
+;;;286        }
+;;;287    #endif
+;;;288        SYS_ARCH_UNPROTECT(old_level);
+;;;289        /* cast through u8_t* to get rid of alignment warnings */
+;;;290        return ((u8_t *)memp + MEMP_SIZE);
 000020  4620              MOV      r0,r4
-;;;339      } else {
-;;;340        LWIP_DEBUGF(MEMP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("memp_malloc: out of memory in pool %s\n", desc->desc));
-;;;341    #if MEMP_STATS
-;;;342        desc->stats->err++;
-;;;343    #endif
-;;;344      }
-;;;345    
-;;;346      SYS_ARCH_UNPROTECT(old_level);
-;;;347      return NULL;
-;;;348    }
+;;;291      } else {
+;;;292    #if MEMP_STATS
+;;;293        desc->stats->err++;
+;;;294    #endif
+;;;295        SYS_ARCH_UNPROTECT(old_level);
+;;;296        LWIP_DEBUGF(MEMP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("memp_malloc: out of memory in pool %s\n", desc->desc));
+;;;297      }
+;;;298    
+;;;299      return NULL;
+;;;300    }
 000022  bd10              POP      {r4,pc}
                   |L2.36|
-000024  2000              MOVS     r0,#0                 ;347
+000024  2000              MOVS     r0,#0                 ;299
 000026  bd10              POP      {r4,pc}
-;;;349    
+;;;301    
                           ENDP
 
                   |L2.40|
@@ -235,49 +233,49 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   memp_free PROC
-;;;468    void
-;;;469    memp_free(memp_t type, void *mem)
+;;;419    void
+;;;420    memp_free(memp_t type, void *mem)
 000000  2809              CMP      r0,#9
-;;;470    {
+;;;421    {
 000002  d306              BCC      |L3.18|
-;;;471    #ifdef LWIP_HOOK_MEMP_AVAILABLE
-;;;472      struct memp *old_first;
-;;;473    #endif
-;;;474    
-;;;475      LWIP_ERROR("memp_free: type < MEMP_MAX", (type < MEMP_MAX), return;);
+;;;422    #ifdef LWIP_HOOK_MEMP_AVAILABLE
+;;;423      struct memp *old_first;
+;;;424    #endif
+;;;425    
+;;;426      LWIP_ERROR("memp_free: type < MEMP_MAX", (type < MEMP_MAX), return;);
 000004  a307              ADR      r3,|L3.36|
-000006  f24012db          MOV      r2,#0x1db
+000006  f44f72d5          MOV      r2,#0x1aa
 00000a  a112              ADR      r1,|L3.84|
 00000c  a018              ADR      r0,|L3.112|
 00000e  f7ffbffe          B.W      __2printf
                   |L3.18|
-;;;476    
-;;;477      if (mem == NULL) {
+;;;427    
+;;;428      if (mem == NULL) {
 000012  2900              CMP      r1,#0
 000014  d004              BEQ      |L3.32|
-;;;478        return;
-;;;479      }
-;;;480    
-;;;481    #if MEMP_OVERFLOW_CHECK >= 2
-;;;482      memp_overflow_check_all();
-;;;483    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
-;;;484    
-;;;485    #ifdef LWIP_HOOK_MEMP_AVAILABLE
-;;;486      old_first = *memp_pools[type]->tab;
-;;;487    #endif
-;;;488    
-;;;489      do_memp_free_pool(memp_pools[type], mem);
+;;;429        return;
+;;;430      }
+;;;431    
+;;;432    #if MEMP_OVERFLOW_CHECK >= 2
+;;;433      memp_overflow_check_all();
+;;;434    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
+;;;435    
+;;;436    #ifdef LWIP_HOOK_MEMP_AVAILABLE
+;;;437      old_first = *memp_pools[type]->tab;
+;;;438    #endif
+;;;439    
+;;;440      do_memp_free_pool(memp_pools[type], mem);
 000016  4a20              LDR      r2,|L3.152|
 000018  f8520020          LDR      r0,[r2,r0,LSL #2]
 00001c  f7ffbffe          B.W      do_memp_free_pool
                   |L3.32|
-;;;490    
-;;;491    #ifdef LWIP_HOOK_MEMP_AVAILABLE
-;;;492      if (old_first == NULL) {
-;;;493        LWIP_HOOK_MEMP_AVAILABLE(type);
-;;;494      }
-;;;495    #endif
-;;;496    }
+;;;441    
+;;;442    #ifdef LWIP_HOOK_MEMP_AVAILABLE
+;;;443      if (old_first == NULL) {
+;;;444        LWIP_HOOK_MEMP_AVAILABLE(type);
+;;;445      }
+;;;446    #endif
+;;;447    }
 000020  4770              BX       lr
                           ENDP
 
@@ -326,38 +324,38 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   memp_free_pool PROC
-;;;451    void
-;;;452    memp_free_pool(const struct memp_desc* desc, void *mem)
+;;;402    void
+;;;403    memp_free_pool(const struct memp_desc *desc, void *mem)
 000000  b570              PUSH     {r4-r6,lr}
-;;;453    {
+;;;404    {
 000002  4604              MOV      r4,r0
 000004  460d              MOV      r5,r1
-;;;454      LWIP_ASSERT("invalid pool desc", desc != NULL);
+;;;405      LWIP_ASSERT("invalid pool desc", desc != NULL);
 000006  2c00              CMP      r4,#0
 000008  d106              BNE      |L4.24|
 00000a  a309              ADR      r3,|L4.48|
-00000c  f44f72e3          MOV      r2,#0x1c6
+00000c  f2401295          MOV      r2,#0x195
 000010  a113              ADR      r1,|L4.96|
 000012  a018              ADR      r0,|L4.116|
 000014  f7fffffe          BL       __2printf
                   |L4.24|
-;;;455      if ((desc == NULL) || (mem == NULL)) {
+;;;406      if ((desc == NULL) || (mem == NULL)) {
 000018  2c00              CMP      r4,#0
 00001a  d007              BEQ      |L4.44|
 00001c  2d00              CMP      r5,#0
 00001e  d005              BEQ      |L4.44|
-;;;456        return;
-;;;457      }
-;;;458    
-;;;459      do_memp_free_pool(desc, mem);
+;;;407        return;
+;;;408      }
+;;;409    
+;;;410      do_memp_free_pool(desc, mem);
 000020  4629              MOV      r1,r5
 000022  4620              MOV      r0,r4
 000024  e8bd4070          POP      {r4-r6,lr}
 000028  f7ffbffe          B.W      do_memp_free_pool
                   |L4.44|
-;;;460    }
+;;;411    }
 00002c  bd70              POP      {r4-r6,pc}
-;;;461    
+;;;412    
                           ENDP
 
 00002e  0000              DCW      0x0000
@@ -397,37 +395,37 @@
                           AREA ||i.memp_init||, CODE, READONLY, ALIGN=2
 
                   memp_init PROC
-;;;270    void
-;;;271    memp_init(void)
+;;;223    void
+;;;224    memp_init(void)
 000000  b530              PUSH     {r4,r5,lr}
-;;;272    {
-;;;273      u16_t i;
-;;;274    
-;;;275      /* for every pool: */
-;;;276      for (i = 0; i < LWIP_ARRAYSIZE(memp_pools); i++) {
+;;;225    {
+;;;226      u16_t i;
+;;;227    
+;;;228      /* for every pool: */
+;;;229      for (i = 0; i < LWIP_ARRAYSIZE(memp_pools); i++) {
 000002  2400              MOVS     r4,#0
-;;;277        memp_init_pool(memp_pools[i]);
+;;;230        memp_init_pool(memp_pools[i]);
 000004  4d04              LDR      r5,|L5.24|
                   |L5.6|
 000006  f8550024          LDR      r0,[r5,r4,LSL #2]
 00000a  f7fffffe          BL       memp_init_pool
-00000e  1c64              ADDS     r4,r4,#1              ;276
-000010  b2a4              UXTH     r4,r4                 ;276
-000012  2c09              CMP      r4,#9                 ;276
+00000e  1c64              ADDS     r4,r4,#1              ;229
+000010  b2a4              UXTH     r4,r4                 ;229
+000012  2c09              CMP      r4,#9                 ;229
 000014  d3f7              BCC      |L5.6|
-;;;278    
-;;;279    #if LWIP_STATS && MEMP_STATS
-;;;280        lwip_stats.memp[i] = memp_pools[i]->stats;
-;;;281    #endif
-;;;282      }
-;;;283    
-;;;284    #if MEMP_OVERFLOW_CHECK >= 2
-;;;285      /* check everything a first time to see if it worked */
-;;;286      memp_overflow_check_all();
-;;;287    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
-;;;288    }
+;;;231    
+;;;232    #if LWIP_STATS && MEMP_STATS
+;;;233        lwip_stats.memp[i] = memp_pools[i]->stats;
+;;;234    #endif
+;;;235      }
+;;;236    
+;;;237    #if MEMP_OVERFLOW_CHECK >= 2
+;;;238      /* check everything a first time to see if it worked */
+;;;239      memp_overflow_check_all();
+;;;240    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
+;;;241    }
 000016  bd30              POP      {r4,r5,pc}
-;;;289    
+;;;242    
                           ENDP
 
                   |L5.24|
@@ -436,63 +434,71 @@
                           AREA ||i.memp_init_pool||, CODE, READONLY, ALIGN=1
 
                   memp_init_pool PROC
-;;;229    void
-;;;230    memp_init_pool(const struct memp_desc *desc)
+;;;174    void
+;;;175    memp_init_pool(const struct memp_desc *desc)
 000000  6882              LDR      r2,[r0,#8]
-;;;231    {
-;;;232    #if MEMP_MEM_MALLOC
-;;;233      LWIP_UNUSED_ARG(desc);
-;;;234    #else
-;;;235      int i;
-;;;236      struct memp *memp;
-;;;237    
-;;;238      *desc->tab = NULL;
+;;;176    {
+;;;177    #if MEMP_MEM_MALLOC
+;;;178      LWIP_UNUSED_ARG(desc);
+;;;179    #else
+;;;180      int i;
+;;;181      struct memp *memp;
+;;;182    
+;;;183      *desc->tab = NULL;
 000002  2100              MOVS     r1,#0
 000004  6011              STR      r1,[r2,#0]
-;;;239      memp = (struct memp*)LWIP_MEM_ALIGN(desc->base);
+;;;184      memp = (struct memp *)LWIP_MEM_ALIGN(desc->base);
 000006  6841              LDR      r1,[r0,#4]
 000008  1cc9              ADDS     r1,r1,#3
 00000a  f0210103          BIC      r1,r1,#3
-;;;240      /* create a linked list of memp elements */
-;;;241      for (i = 0; i < desc->num; ++i) {
+;;;185    #if MEMP_MEM_INIT
+;;;186      /* force memset on pool memory */
+;;;187      memset(memp, 0, (size_t)desc->num * (MEMP_SIZE + desc->size
+;;;188    #if MEMP_OVERFLOW_CHECK
+;;;189                                           + MEM_SANITY_REGION_AFTER_ALIGNED
+;;;190    #endif
+;;;191                                          ));
+;;;192    #endif
+;;;193      /* create a linked list of memp elements */
+;;;194      for (i = 0; i < desc->num; ++i) {
 00000e  2200              MOVS     r2,#0
 000010  e007              B        |L6.34|
                   |L6.18|
-;;;242        memp->next = *desc->tab;
+;;;195        memp->next = *desc->tab;
 000012  6883              LDR      r3,[r0,#8]
 000014  681b              LDR      r3,[r3,#0]
 000016  600b              STR      r3,[r1,#0]
-;;;243        *desc->tab = memp;
+;;;196        *desc->tab = memp;
 000018  6883              LDR      r3,[r0,#8]
 00001a  6019              STR      r1,[r3,#0]
-;;;244    #if MEMP_OVERFLOW_CHECK
-;;;245        memp_overflow_init_element(memp, desc);
-;;;246    #endif /* MEMP_OVERFLOW_CHECK */
-;;;247       /* cast through void* to get rid of alignment warnings */
-;;;248       memp = (struct memp *)(void *)((u8_t *)memp + MEMP_SIZE + desc->size
+;;;197    #if MEMP_OVERFLOW_CHECK
+;;;198        memp_overflow_init_element(memp, desc);
+;;;199    #endif /* MEMP_OVERFLOW_CHECK */
+;;;200        /* cast through void* to get rid of alignment warnings */
+;;;201        memp = (struct memp *)(void *)((u8_t *)memp + MEMP_SIZE + desc->size
 00001c  8803              LDRH     r3,[r0,#0]
 00001e  4419              ADD      r1,r1,r3
-000020  1c52              ADDS     r2,r2,#1              ;241
+000020  1c52              ADDS     r2,r2,#1              ;194
                   |L6.34|
-000022  8843              LDRH     r3,[r0,#2]            ;241
-000024  4293              CMP      r3,r2                 ;241
+000022  8843              LDRH     r3,[r0,#2]            ;194
+000024  4293              CMP      r3,r2                 ;194
 000026  dcf4              BGT      |L6.18|
-;;;249    #if MEMP_OVERFLOW_CHECK
-;;;250          + MEMP_SANITY_REGION_AFTER_ALIGNED
-;;;251    #endif
-;;;252        );
-;;;253      }
-;;;254    #if MEMP_STATS
-;;;255      desc->stats->avail = desc->num;
-;;;256    #endif /* MEMP_STATS */
-;;;257    #endif /* !MEMP_MEM_MALLOC */
-;;;258    
-;;;259    #if MEMP_STATS && (defined(LWIP_DEBUG) || LWIP_STATS_DISPLAY)
-;;;260      desc->stats->name  = desc->desc;
-;;;261    #endif /* MEMP_STATS && (defined(LWIP_DEBUG) || LWIP_STATS_DISPLAY) */
-;;;262    }
+;;;202    #if MEMP_OVERFLOW_CHECK
+;;;203                                       + MEM_SANITY_REGION_AFTER_ALIGNED
+;;;204    #endif
+;;;205                                      );
+;;;206      }
+;;;207    #if MEMP_STATS
+;;;208      desc->stats->avail = desc->num;
+;;;209    #endif /* MEMP_STATS */
+;;;210    #endif /* !MEMP_MEM_MALLOC */
+;;;211    
+;;;212    #if MEMP_STATS && (defined(LWIP_DEBUG) || LWIP_STATS_DISPLAY)
+;;;213      desc->stats->name  = desc->desc;
+;;;214    #endif /* MEMP_STATS && (defined(LWIP_DEBUG) || LWIP_STATS_DISPLAY) */
+;;;215    }
 000028  4770              BX       lr
-;;;263    
+;;;216    
                           ENDP
 
 
@@ -504,43 +510,43 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   memp_malloc PROC
-;;;384    #if !MEMP_OVERFLOW_CHECK
-;;;385    memp_malloc(memp_t type)
+;;;336    #if !MEMP_OVERFLOW_CHECK
+;;;337    memp_malloc(memp_t type)
 000000  b510              PUSH     {r4,lr}
-;;;386    #else
-;;;387    memp_malloc_fn(memp_t type, const char* file, const int line)
-;;;388    #endif
-;;;389    {
-;;;390      void *memp;
-;;;391      LWIP_ERROR("memp_malloc: type < MEMP_MAX", (type < MEMP_MAX), return NULL;);
+;;;338    #else
+;;;339    memp_malloc_fn(memp_t type, const char *file, const int line)
+;;;340    #endif
+;;;341    {
+;;;342      void *memp;
+;;;343      LWIP_ERROR("memp_malloc: type < MEMP_MAX", (type < MEMP_MAX), return NULL;);
 000002  2809              CMP      r0,#9
 000004  d308              BCC      |L7.24|
 000006  a308              ADR      r3,|L7.40|
-000008  f2401287          MOV      r2,#0x187
+000008  f2401257          MOV      r2,#0x157
 00000c  a112              ADR      r1,|L7.88|
 00000e  a01a              ADR      r0,|L7.120|
 000010  f7fffffe          BL       __2printf
 000014  2000              MOVS     r0,#0
-;;;392    
-;;;393    #if MEMP_OVERFLOW_CHECK >= 2
-;;;394      memp_overflow_check_all();
-;;;395    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
-;;;396    
-;;;397    #if !MEMP_OVERFLOW_CHECK
-;;;398      memp = do_memp_malloc_pool(memp_pools[type]);
-;;;399    #else
-;;;400      memp = do_memp_malloc_pool_fn(memp_pools[type], file, line);
-;;;401    #endif
-;;;402    
-;;;403      return memp;
-;;;404    }
+;;;344    
+;;;345    #if MEMP_OVERFLOW_CHECK >= 2
+;;;346      memp_overflow_check_all();
+;;;347    #endif /* MEMP_OVERFLOW_CHECK >= 2 */
+;;;348    
+;;;349    #if !MEMP_OVERFLOW_CHECK
+;;;350      memp = do_memp_malloc_pool(memp_pools[type]);
+;;;351    #else
+;;;352      memp = do_memp_malloc_pool_fn(memp_pools[type], file, line);
+;;;353    #endif
+;;;354    
+;;;355      return memp;
+;;;356    }
 000016  bd10              POP      {r4,pc}
                   |L7.24|
 000018  4921              LDR      r1,|L7.160|
-00001a  f8510020          LDR      r0,[r1,r0,LSL #2]     ;398
-00001e  e8bd4010          POP      {r4,lr}               ;398
+00001a  f8510020          LDR      r0,[r1,r0,LSL #2]     ;350
+00001e  e8bd4010          POP      {r4,lr}               ;350
 000022  f7ffbffe          B.W      do_memp_malloc_pool
-;;;405    
+;;;357    
                           ENDP
 
 000026  0000              DCW      0x0000
@@ -591,41 +597,41 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   memp_malloc_pool PROC
-;;;358    #if !MEMP_OVERFLOW_CHECK
-;;;359    memp_malloc_pool(const struct memp_desc *desc)
+;;;310    #if !MEMP_OVERFLOW_CHECK
+;;;311    memp_malloc_pool(const struct memp_desc *desc)
 000000  b510              PUSH     {r4,lr}
-;;;360    #else
-;;;361    memp_malloc_pool_fn(const struct memp_desc *desc, const char* file, const int line)
-;;;362    #endif
-;;;363    {
+;;;312    #else
+;;;313    memp_malloc_pool_fn(const struct memp_desc *desc, const char *file, const int line)
+;;;314    #endif
+;;;315    {
 000002  4604              MOV      r4,r0
-;;;364      LWIP_ASSERT("invalid pool desc", desc != NULL);
+;;;316      LWIP_ASSERT("invalid pool desc", desc != NULL);
 000004  2c00              CMP      r4,#0
 000006  d106              BNE      |L8.22|
 000008  a307              ADR      r3,|L8.40|
-00000a  f44f72b6          MOV      r2,#0x16c
+00000a  f44f729e          MOV      r2,#0x13c
 00000e  a112              ADR      r1,|L8.88|
 000010  a016              ADR      r0,|L8.108|
 000012  f7fffffe          BL       __2printf
                   |L8.22|
-;;;365      if (desc == NULL) {
+;;;317      if (desc == NULL) {
 000016  b124              CBZ      r4,|L8.34|
-;;;366        return NULL;
-;;;367      }
-;;;368    
-;;;369    #if !MEMP_OVERFLOW_CHECK
-;;;370      return do_memp_malloc_pool(desc);
+;;;318        return NULL;
+;;;319      }
+;;;320    
+;;;321    #if !MEMP_OVERFLOW_CHECK
+;;;322      return do_memp_malloc_pool(desc);
 000018  4620              MOV      r0,r4
 00001a  e8bd4010          POP      {r4,lr}
 00001e  f7ffbffe          B.W      do_memp_malloc_pool
                   |L8.34|
-000022  2000              MOVS     r0,#0                 ;366
-;;;371    #else
-;;;372      return do_memp_malloc_pool_fn(desc, file, line);
-;;;373    #endif
-;;;374    }
+000022  2000              MOVS     r0,#0                 ;318
+;;;323    #else
+;;;324      return do_memp_malloc_pool_fn(desc, file, line);
+;;;325    #endif
+;;;326    }
 000024  bd10              POP      {r4,pc}
-;;;375    
+;;;327    
                           ENDP
 
 000026  0000              DCW      0x0000
@@ -671,7 +677,7 @@
 
                           EXPORTAS ||area_number.11||, ||.bss||
                   memp_memory_TCP_PCB_base
-                          %        763
+                          %        783
 
                           AREA ||area_number.12||, DATA, NOINIT, ALIGN=0
 
@@ -726,7 +732,7 @@
 
                           EXPORTAS ||area_number.21||, ||.constdata||
                   memp_TCP_PCB
-000000  00980005          DCW      0x0098,0x0005
+000000  009c0005          DCW      0x009c,0x0005
                           DCD      memp_memory_TCP_PCB_base
                           DCD      memp_tab_TCP_PCB
 

@@ -9,7 +9,7 @@
 ;;;90     lwip_htonl(u32_t n)
 000000  0601              LSLS     r1,r0,#24
 ;;;91     {
-;;;92       return (u32_t)PP_HTONL(n);
+;;;92       return PP_HTONL(n);
 000002  f400427f          AND      r2,r0,#0xff00
 000006  ea412102          ORR      r1,r1,r2,LSL #8
 00000a  f400027f          AND      r2,r0,#0xff0000
@@ -28,7 +28,7 @@
 ;;;76     lwip_htons(u16_t n)
 000000  0601              LSLS     r1,r0,#24
 ;;;77     {
-;;;78       return (u16_t)PP_HTONS(n);
+;;;78       return PP_HTONS(n);
 000002  0c09              LSRS     r1,r1,#16
 000004  ea412010          ORR      r0,r1,r0,LSR #8
 ;;;79     }
@@ -37,78 +37,117 @@
                           ENDP
 
 
-                          AREA ||i.lwip_itoa||, CODE, READONLY, ALIGN=2
+                          AREA ||i.lwip_itoa||, CODE, READONLY, ALIGN=1
 
                   lwip_itoa PROC
-;;;197    void
-;;;198    lwip_itoa(char* result, size_t bufsize, int number)
-000000  b570              PUSH     {r4-r6,lr}
-;;;199    {
-;;;200      const int base = 10;
-;;;201      char* ptr = result, *ptr1 = result, tmp_char;
-000002  4601              MOV      r1,r0
-000004  250a              MOVS     r5,#0xa               ;200
-                  |L3.6|
-;;;202      int tmp_value;
-;;;203      LWIP_UNUSED_ARG(bufsize);
+;;;198    void
+;;;199    lwip_itoa(char *result, size_t bufsize, int number)
+000000  b4f0              PUSH     {r4-r7}
+;;;200    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+;;;201      char *res = result;
+000006  4620              MOV      r0,r4
+;;;202      char *tmp = result + bufsize - 1;
+000008  1967              ADDS     r7,r4,r5
+00000a  1e79              SUBS     r1,r7,#1
+;;;203      int n = (number >= 0) ? number : -number;
+00000c  2a00              CMP      r2,#0
+00000e  db01              BLT      |L3.20|
+000010  4613              MOV      r3,r2
+000012  e000              B        |L3.22|
+                  |L3.20|
+000014  4253              RSBS     r3,r2,#0
+                  |L3.22|
 ;;;204    
-;;;205      do {
-;;;206        tmp_value = number;
-000006  4614              MOV      r4,r2
-;;;207        number /= base;
-000008  fb92f2f5          SDIV     r2,r2,r5
-;;;208        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz"[35 + (tmp_value - number * base)];
-00000c  4253              RSBS     r3,r2,#0
-00000e  eb030383          ADD      r3,r3,r3,LSL #2
-000012  4e0e              LDR      r6,|L3.76|
-000014  eb040343          ADD      r3,r4,r3,LSL #1
-000018  4433              ADD      r3,r3,r6
-00001a  f8933023          LDRB     r3,[r3,#0x23]
-00001e  f8003b01          STRB     r3,[r0],#1
-;;;209      } while(number);
-000022  2a00              CMP      r2,#0
-000024  d1ef              BNE      |L3.6|
-;;;210    
-;;;211       /* Apply negative sign */
-;;;212      if (tmp_value < 0) {
-000026  2c00              CMP      r4,#0
+;;;205      /* handle invalid bufsize */
+;;;206      if (bufsize < 2) {
+000016  2600              MOVS     r6,#0
+000018  2d02              CMP      r5,#2
+00001a  d204              BCS      |L3.38|
+;;;207        if (bufsize == 1) {
+00001c  2d01              CMP      r5,#1
+00001e  d100              BNE      |L3.34|
+;;;208          *result = 0;
+000020  7026              STRB     r6,[r4,#0]
+                  |L3.34|
+;;;209        }
+;;;210        return;
+;;;211      }
+;;;212    
+;;;213      /* First, add sign */
+;;;214      if (number < 0) {
+;;;215        *res++ = '-';
+;;;216      }
+;;;217      /* Then create the string from the end and stop if buffer full,
+;;;218         and ensure output string is zero terminated */
+;;;219      *tmp = 0;
+;;;220      while ((n != 0) && (tmp > res)) {
+;;;221        char val = (char)('0' + (n % 10));
+;;;222        tmp--;
+;;;223        *tmp = val;
+;;;224        n = n / 10;
+;;;225      }
+;;;226      if (n) {
+;;;227        /* buffer is too small */
+;;;228        *result = 0;
+;;;229        return;
+;;;230      }
+;;;231      if (*tmp == 0) {
+;;;232        /* Nothing added? */
+;;;233        *res++ = '0';
+;;;234        *res++ = 0;
+;;;235        return;
+;;;236      }
+;;;237      /* move from temporary buffer to output buffer (sign is not moved) */
+;;;238      memmove(res, tmp, (size_t)((result + bufsize) - tmp));
+;;;239    }
+000022  bcf0              POP      {r4-r7}
+000024  4770              BX       lr
+                  |L3.38|
+000026  2a00              CMP      r2,#0                 ;214
 000028  da02              BGE      |L3.48|
-;;;213         *ptr++ = '-';
-00002a  222d              MOVS     r2,#0x2d
-00002c  f8002b01          STRB     r2,[r0],#1
+00002a  222d              MOVS     r2,#0x2d              ;215
+00002c  f8002b01          STRB     r2,[r0],#1            ;215
                   |L3.48|
-;;;214      }
-;;;215      *ptr-- = '\0';
-000030  2200              MOVS     r2,#0
-000032  f8002901          STRB     r2,[r0],#-1
-;;;216      while(ptr1 < ptr) {
-000036  e005              B        |L3.68|
-                  |L3.56|
-;;;217        tmp_char = *ptr;
-000038  7802              LDRB     r2,[r0,#0]
-;;;218        *ptr--= *ptr1;
-00003a  780b              LDRB     r3,[r1,#0]
-00003c  f8003901          STRB     r3,[r0],#-1
-;;;219        *ptr1++ = tmp_char;
-000040  f8012b01          STRB     r2,[r1],#1
-                  |L3.68|
-000044  4281              CMP      r1,r0                 ;216
-000046  d3f7              BCC      |L3.56|
-;;;220      }
-;;;221    }
-000048  bd70              POP      {r4-r6,pc}
-;;;222    #endif
+000030  700e              STRB     r6,[r1,#0]            ;219
+000032  220a              MOVS     r2,#0xa               ;221
+000034  e008              B        |L3.72|
+                  |L3.54|
+000036  fb93f5f2          SDIV     r5,r3,r2              ;221
+00003a  fb023515          MLS      r5,r2,r5,r3           ;221
+00003e  3530              ADDS     r5,r5,#0x30           ;221
+000040  1e49              SUBS     r1,r1,#1              ;222
+000042  700d              STRB     r5,[r1,#0]            ;223
+000044  fb93f3f2          SDIV     r3,r3,r2              ;224
+                  |L3.72|
+000048  b10b              CBZ      r3,|L3.78|
+00004a  4281              CMP      r1,r0                 ;220
+00004c  d8f3              BHI      |L3.54|
+                  |L3.78|
+00004e  b10b              CBZ      r3,|L3.84|
+000050  7026              STRB     r6,[r4,#0]            ;228
+000052  e7e6              B        |L3.34|
+                  |L3.84|
+000054  780a              LDRB     r2,[r1,#0]            ;231
+000056  b11a              CBZ      r2,|L3.96|
+000058  1a7a              SUBS     r2,r7,r1              ;238
+00005a  bcf0              POP      {r4-r7}               ;238
+00005c  f7ffbffe          B.W      __aeabi_memmove
+                  |L3.96|
+000060  2130              MOVS     r1,#0x30              ;233
+000062  7001              STRB     r1,[r0,#0]            ;233
+000064  7046              STRB     r6,[r0,#1]            ;234
+000066  e7dc              B        |L3.34|
+;;;240    #endif
                           ENDP
 
-00004a  0000              DCW      0x0000
-                  |L3.76|
-                          DCD      ||.conststring||
 
                           AREA ||i.lwip_stricmp||, CODE, READONLY, ALIGN=1
 
                   lwip_stricmp PROC
 ;;;127    int
-;;;128    lwip_stricmp(const char* str1, const char* str2)
+;;;128    lwip_stricmp(const char *str1, const char *str2)
 000000  b530              PUSH     {r4,r5,lr}
                   |L4.2|
 ;;;129    {
@@ -165,7 +204,7 @@
 
                   lwip_strnicmp PROC
 ;;;162    int
-;;;163    lwip_strnicmp(const char* str1, const char* str2, size_t len)
+;;;163    lwip_strnicmp(const char *str1, const char *str2, size_t len)
 000000  b570              PUSH     {r4-r6,lr}
                   |L5.2|
 ;;;164    {
@@ -202,37 +241,37 @@
 ;;;183            return 1;
 ;;;184          }
 ;;;185        }
-;;;186      } while (len-- && c1 != 0);
-;;;187      return 0;
-;;;188    }
+;;;186        len--;
+;;;187      } while ((len != 0) && (c1 != 0));
+;;;188      return 0;
+;;;189    }
 000024  bd70              POP      {r4-r6,pc}
                   |L5.38|
 000026  2001              MOVS     r0,#1                 ;183
 000028  bd70              POP      {r4-r6,pc}
                   |L5.42|
 00002a  1e52              SUBS     r2,r2,#1              ;186
-00002c  1c54              ADDS     r4,r2,#1              ;186
-00002e  d001              BEQ      |L5.52|
-000030  2b00              CMP      r3,#0                 ;186
-000032  d1e6              BNE      |L5.2|
-                  |L5.52|
-000034  2000              MOVS     r0,#0                 ;187
-000036  bd70              POP      {r4-r6,pc}
-;;;189    #endif
+00002c  b10a              CBZ      r2,|L5.50|
+00002e  2b00              CMP      r3,#0                 ;187
+000030  d1e7              BNE      |L5.2|
+                  |L5.50|
+000032  2000              MOVS     r0,#0                 ;188
+000034  bd70              POP      {r4-r6,pc}
+;;;190    #endif
                           ENDP
 
 
                           AREA ||i.lwip_strnstr||, CODE, READONLY, ALIGN=1
 
                   lwip_strnstr PROC
-;;;104    char*
-;;;105    lwip_strnstr(const char* buffer, const char* token, size_t n)
+;;;104    char *
+;;;105    lwip_strnstr(const char *buffer, const char *token, size_t n)
 000000  e92d41f0          PUSH     {r4-r8,lr}
 ;;;106    {
 000004  4604              MOV      r4,r0
 000006  460f              MOV      r7,r1
 000008  4616              MOV      r6,r2
-;;;107      const char* p;
+;;;107      const char *p;
 ;;;108      size_t tokenlen = strlen(token);
 00000a  4638              MOV      r0,r7
 00000c  f7fffffe          BL       strlen
@@ -280,28 +319,6 @@
 ;;;119    #endif
                           ENDP
 
-
-                          AREA ||.conststring||, DATA, READONLY, MERGE=1, STRINGS, ALIGN=2
-
-000000  7a797877          DCB      "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghij"
-000004  76757473
-000008  7271706f
-00000c  6e6d6c6b
-000010  6a696867
-000014  66656463
-000018  62613938
-00001c  37363534
-000020  33323130
-000024  31323334
-000028  35363738
-00002c  39616263
-000030  64656667
-000034  68696a  
-000037  6b6c6d6e          DCB      "klmnopqrstuvwxyz",0
-00003b  6f707172
-00003f  73747576
-000043  7778797a
-000047  00      
 
 ;*** Start embedded assembler ***
 

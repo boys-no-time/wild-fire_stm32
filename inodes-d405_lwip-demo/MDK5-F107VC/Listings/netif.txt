@@ -9,951 +9,2134 @@
                           REQUIRE _printf_s
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   netif_add PROC
-;;;240    struct netif *
-;;;241    netif_add(struct netif *netif,
+;;;275    struct netif *
+;;;276    netif_add(struct netif *netif,
 000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;242    #if LWIP_IPV4
-;;;243              const ip4_addr_t *ipaddr, const ip4_addr_t *netmask, const ip4_addr_t *gw,
-;;;244    #endif /* LWIP_IPV4 */
-;;;245              void *state, netif_init_fn init, netif_input_fn input)
-;;;246    {
-000004  e9dda508          LDRD     r10,r5,[sp,#0x20]
-000008  9e0a              LDR      r6,[sp,#0x28]
-00000a  4604              MOV      r4,r0
-00000c  460f              MOV      r7,r1
-00000e  4690              MOV      r8,r2
-000010  4699              MOV      r9,r3
-;;;247    #if LWIP_IPV6
-;;;248      s8_t i;
-;;;249    #endif
-;;;250    
-;;;251      LWIP_ASSERT("No init function given", init != NULL);
-000012  2d00              CMP      r5,#0
-000014  d105              BNE      |L1.34|
-000016  a318              ADR      r3,|L1.120|
-000018  22fb              MOVS     r2,#0xfb
-00001a  a124              ADR      r1,|L1.172|
-00001c  a029              ADR      r0,|L1.196|
-00001e  f7fffffe          BL       __2printf
-                  |L1.34|
-;;;252    
-;;;253      /* reset new interface configuration state */
-;;;254    #if LWIP_IPV4
-;;;255      ip_addr_set_zero_ip4(&netif->ip_addr);
-000022  2000              MOVS     r0,#0
-000024  6060              STR      r0,[r4,#4]
-;;;256      ip_addr_set_zero_ip4(&netif->netmask);
-000026  60a0              STR      r0,[r4,#8]
-;;;257      ip_addr_set_zero_ip4(&netif->gw);
-000028  60e0              STR      r0,[r4,#0xc]
-;;;258    #endif /* LWIP_IPV4 */
-;;;259    #if LWIP_IPV6
-;;;260      for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
-;;;261        ip_addr_set_zero_ip6(&netif->ip6_addr[i]);
-;;;262        netif->ip6_addr_state[i] = IP6_ADDR_INVALID;
-;;;263      }
-;;;264      netif->output_ip6 = netif_null_output_ip6;
-;;;265    #endif /* LWIP_IPV6 */
-;;;266      NETIF_SET_CHECKSUM_CTRL(netif, NETIF_CHECKSUM_ENABLE_ALL);
-;;;267      netif->flags = 0;
-00002a  f8840037          STRB     r0,[r4,#0x37]
-;;;268    #ifdef netif_get_client_data
-;;;269      memset(netif->client_data, 0, sizeof(netif->client_data));
-00002e  62a0              STR      r0,[r4,#0x28]
-;;;270    #endif /* LWIP_NUM_NETIF_CLIENT_DATA */
-;;;271    #if LWIP_IPV6_AUTOCONFIG
-;;;272      /* IPv6 address autoconfiguration not enabled by default */
-;;;273      netif->ip6_autoconfig_enabled = 0;
-;;;274    #endif /* LWIP_IPV6_AUTOCONFIG */
-;;;275    #if LWIP_IPV6_SEND_ROUTER_SOLICIT
-;;;276      netif->rs_count = LWIP_ND6_MAX_MULTICAST_SOLICIT;
-000030  2103              MOVS     r1,#3
-000032  f884102c          STRB     r1,[r4,#0x2c]
-;;;277    #endif /* LWIP_IPV6_SEND_ROUTER_SOLICIT */
-;;;278    #if LWIP_NETIF_STATUS_CALLBACK
-;;;279      netif->status_callback = NULL;
-000036  61e0              STR      r0,[r4,#0x1c]
-;;;280    #endif /* LWIP_NETIF_STATUS_CALLBACK */
-;;;281    #if LWIP_NETIF_LINK_CALLBACK
-;;;282      netif->link_callback = NULL;
-000038  6220              STR      r0,[r4,#0x20]
-;;;283    #endif /* LWIP_NETIF_LINK_CALLBACK */
-;;;284    #if LWIP_IGMP
-;;;285      netif->igmp_mac_filter = NULL;
-;;;286    #endif /* LWIP_IGMP */
-;;;287    #if LWIP_IPV6 && LWIP_IPV6_MLD
-;;;288      netif->mld_mac_filter = NULL;
-;;;289    #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
-;;;290    #if ENABLE_LOOPBACK
-;;;291      netif->loop_first = NULL;
-;;;292      netif->loop_last = NULL;
-;;;293    #endif /* ENABLE_LOOPBACK */
+;;;277    #if LWIP_IPV4
+;;;278              const ip4_addr_t *ipaddr, const ip4_addr_t *netmask, const ip4_addr_t *gw,
+;;;279    #endif /* LWIP_IPV4 */
+;;;280              void *state, netif_init_fn init, netif_input_fn input)
+;;;281    {
+000004  4604              MOV      r4,r0
+000006  e9dd6508          LDRD     r6,r5,[sp,#0x20]
+00000a  980a              LDR      r0,[sp,#0x28]
+;;;282    #if LWIP_IPV6
+;;;283      s8_t i;
+;;;284    #endif
+;;;285    
+;;;286      LWIP_ASSERT_CORE_LOCKED();
+;;;287    
+;;;288    #if LWIP_SINGLE_NETIF
+;;;289      if (netif_default != NULL) {
+;;;290        LWIP_ASSERT("single netif already set", 0);
+;;;291        return NULL;
+;;;292      }
+;;;293    #endif
 ;;;294    
-;;;295      /* remember netif specific state information data */
-;;;296      netif->state = state;
-00003a  f8c4a024          STR      r10,[r4,#0x24]
-;;;297      netif->num = netif_num++;
-00003e  f8dfa0ac          LDR      r10,|L1.236|
-000042  f89a0000          LDRB     r0,[r10,#0]  ; netif_num
-000046  f884003a          STRB     r0,[r4,#0x3a]
-00004a  1c40              ADDS     r0,r0,#1
-00004c  f88a0000          STRB     r0,[r10,#0]
-;;;298      netif->input = input;
-000050  6126              STR      r6,[r4,#0x10]
-;;;299    
-;;;300      NETIF_SET_HWADDRHINT(netif, NULL);
-;;;301    #if ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS
-;;;302      netif->loop_cnt_current = 0;
-;;;303    #endif /* ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS */
-;;;304    
-;;;305    #if LWIP_IPV4
-;;;306      netif_set_addr(netif, ipaddr, netmask, gw);
-000052  464b              MOV      r3,r9
-000054  4642              MOV      r2,r8
-000056  4639              MOV      r1,r7
-000058  4620              MOV      r0,r4
-00005a  f7fffffe          BL       netif_set_addr
-;;;307    #endif /* LWIP_IPV4 */
+;;;295      LWIP_ERROR("netif_add: invalid netif", netif != NULL, return NULL);
+00000c  2c00              CMP      r4,#0
+00000e  d004              BEQ      |L1.26|
+;;;296      LWIP_ERROR("netif_add: No init function given", init != NULL, return NULL);
+000010  2d00              CMP      r5,#0
+000012  d00c              BEQ      |L1.46|
+;;;297    
+;;;298    #if LWIP_IPV4
+;;;299      if (ipaddr == NULL) {
+000014  2900              CMP      r1,#0
+000016  d013              BEQ      |L1.64|
+000018  e013              B        |L1.66|
+                  |L1.26|
+00001a  a33b              ADR      r3,|L1.264|
+00001c  f2401227          MOV      r2,#0x127             ;295
+000020  a146              ADR      r1,|L1.316|
+000022  a04d              ADR      r0,|L1.344|
+000024  f7fffffe          BL       __2printf
+000028  2000              MOVS     r0,#0                 ;295
+                  |L1.42|
+;;;300        ipaddr = ip_2_ip4(IP4_ADDR_ANY);
+;;;301      }
+;;;302      if (netmask == NULL) {
+;;;303        netmask = ip_2_ip4(IP4_ADDR_ANY);
+;;;304      }
+;;;305      if (gw == NULL) {
+;;;306        gw = ip_2_ip4(IP4_ADDR_ANY);
+;;;307      }
 ;;;308    
-;;;309      /* call user specified initialization function for netif */
-;;;310      if (init(netif) != ERR_OK) {
-00005e  4620              MOV      r0,r4
-000060  47a8              BLX      r5
-000062  b110              CBZ      r0,|L1.106|
-;;;311        return NULL;
-000064  2000              MOVS     r0,#0
-                  |L1.102|
-;;;312      }
-;;;313    
-;;;314      /* add this netif to the list */
-;;;315      netif->next = netif_list;
-;;;316      netif_list = netif;
-;;;317      mib2_netif_added(netif);
-;;;318    
-;;;319    #if LWIP_IGMP
-;;;320      /* start IGMP processing */
-;;;321      if (netif->flags & NETIF_FLAG_IGMP) {
-;;;322        igmp_start(netif);
+;;;309      /* reset new interface configuration state */
+;;;310      ip_addr_set_zero_ip4(&netif->ip_addr);
+;;;311      ip_addr_set_zero_ip4(&netif->netmask);
+;;;312      ip_addr_set_zero_ip4(&netif->gw);
+;;;313      netif->output = netif_null_output_ip4;
+;;;314    #endif /* LWIP_IPV4 */
+;;;315    #if LWIP_IPV6
+;;;316      for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+;;;317        ip_addr_set_zero_ip6(&netif->ip6_addr[i]);
+;;;318        netif->ip6_addr_state[i] = IP6_ADDR_INVALID;
+;;;319    #if LWIP_IPV6_ADDRESS_LIFETIMES
+;;;320        netif->ip6_addr_valid_life[i] = IP6_ADDR_LIFE_STATIC;
+;;;321        netif->ip6_addr_pref_life[i] = IP6_ADDR_LIFE_STATIC;
+;;;322    #endif /* LWIP_IPV6_ADDRESS_LIFETIMES */
 ;;;323      }
-;;;324    #endif /* LWIP_IGMP */
-;;;325    
-;;;326      LWIP_DEBUGF(NETIF_DEBUG, ("netif: added interface %c%c IP",
-;;;327        netif->name[0], netif->name[1]));
-;;;328    #if LWIP_IPV4
-;;;329      LWIP_DEBUGF(NETIF_DEBUG, (" addr "));
-;;;330      ip4_addr_debug_print(NETIF_DEBUG, ipaddr);
-;;;331      LWIP_DEBUGF(NETIF_DEBUG, (" netmask "));
-;;;332      ip4_addr_debug_print(NETIF_DEBUG, netmask);
-;;;333      LWIP_DEBUGF(NETIF_DEBUG, (" gw "));
-;;;334      ip4_addr_debug_print(NETIF_DEBUG, gw);
-;;;335    #endif /* LWIP_IPV4 */
-;;;336      LWIP_DEBUGF(NETIF_DEBUG, ("\n"));
-;;;337      return netif;
-;;;338    }
-000066  e8bd87f0          POP      {r4-r10,pc}
-                  |L1.106|
-00006a  f8da0004          LDR      r0,[r10,#4]           ;315  ; netif_list
-00006e  6020              STR      r0,[r4,#0]            ;315
-000070  f8ca4004          STR      r4,[r10,#4]           ;316  ; netif_list
-000074  4620              MOV      r0,r4                 ;337
-000076  e7f6              B        |L1.102|
-;;;339    
+;;;324      netif->output_ip6 = netif_null_output_ip6;
+;;;325    #endif /* LWIP_IPV6 */
+;;;326      NETIF_SET_CHECKSUM_CTRL(netif, NETIF_CHECKSUM_ENABLE_ALL);
+;;;327      netif->mtu = 0;
+;;;328      netif->flags = 0;
+;;;329    #ifdef netif_get_client_data
+;;;330      memset(netif->client_data, 0, sizeof(netif->client_data));
+;;;331    #endif /* LWIP_NUM_NETIF_CLIENT_DATA */
+;;;332    #if LWIP_IPV6
+;;;333    #if LWIP_IPV6_AUTOCONFIG
+;;;334      /* IPv6 address autoconfiguration not enabled by default */
+;;;335      netif->ip6_autoconfig_enabled = 0;
+;;;336    #endif /* LWIP_IPV6_AUTOCONFIG */
+;;;337      nd6_restart_netif(netif);
+;;;338    #endif /* LWIP_IPV6 */
+;;;339    #if LWIP_NETIF_STATUS_CALLBACK
+;;;340      netif->status_callback = NULL;
+;;;341    #endif /* LWIP_NETIF_STATUS_CALLBACK */
+;;;342    #if LWIP_NETIF_LINK_CALLBACK
+;;;343      netif->link_callback = NULL;
+;;;344    #endif /* LWIP_NETIF_LINK_CALLBACK */
+;;;345    #if LWIP_IGMP
+;;;346      netif->igmp_mac_filter = NULL;
+;;;347    #endif /* LWIP_IGMP */
+;;;348    #if LWIP_IPV6 && LWIP_IPV6_MLD
+;;;349      netif->mld_mac_filter = NULL;
+;;;350    #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
+;;;351    #if ENABLE_LOOPBACK
+;;;352      netif->loop_first = NULL;
+;;;353      netif->loop_last = NULL;
+;;;354    #endif /* ENABLE_LOOPBACK */
+;;;355    
+;;;356      /* remember netif specific state information data */
+;;;357      netif->state = state;
+;;;358      netif->num = netif_num;
+;;;359      netif->input = input;
+;;;360    
+;;;361      NETIF_RESET_HINTS(netif);
+;;;362    #if ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS
+;;;363      netif->loop_cnt_current = 0;
+;;;364    #endif /* ENABLE_LOOPBACK && LWIP_LOOPBACK_MAX_PBUFS */
+;;;365    
+;;;366    #if LWIP_IPV4
+;;;367      netif_set_addr(netif, ipaddr, netmask, gw);
+;;;368    #endif /* LWIP_IPV4 */
+;;;369    
+;;;370      /* call user specified initialization function for netif */
+;;;371      if (init(netif) != ERR_OK) {
+;;;372        return NULL;
+;;;373      }
+;;;374    #if LWIP_IPV6 && LWIP_ND6_ALLOW_RA_UPDATES
+;;;375      /* Initialize the MTU for IPv6 to the one set by the netif driver.
+;;;376         This can be updated later by RA. */
+;;;377      netif->mtu6 = netif->mtu;
+;;;378    #endif /* LWIP_IPV6 && LWIP_ND6_ALLOW_RA_UPDATES */
+;;;379    
+;;;380    #if !LWIP_SINGLE_NETIF
+;;;381      /* Assign a unique netif number in the range [0..254], so that (num+1) can
+;;;382         serve as an interface index that fits in a u8_t.
+;;;383         We assume that the new netif has not yet been added to the list here.
+;;;384         This algorithm is O(n^2), but that should be OK for lwIP.
+;;;385         */
+;;;386      {
+;;;387        struct netif *netif2;
+;;;388        int num_netifs;
+;;;389        do {
+;;;390          if (netif->num == 255) {
+;;;391            netif->num = 0;
+;;;392          }
+;;;393          num_netifs = 0;
+;;;394          for (netif2 = netif_list; netif2 != NULL; netif2 = netif2->next) {
+;;;395            LWIP_ASSERT("netif already added", netif2 != netif);
+;;;396            num_netifs++;
+;;;397            LWIP_ASSERT("too many netifs, max. supported number is 255", num_netifs <= 255);
+;;;398            if (netif2->num == netif->num) {
+;;;399              netif->num++;
+;;;400              break;
+;;;401            }
+;;;402          }
+;;;403        } while (netif2 != NULL);
+;;;404      }
+;;;405      if (netif->num == 254) {
+;;;406        netif_num = 0;
+;;;407      } else {
+;;;408        netif_num = (u8_t)(netif->num + 1);
+;;;409      }
+;;;410    
+;;;411      /* add this netif to the list */
+;;;412      netif->next = netif_list;
+;;;413      netif_list = netif;
+;;;414    #endif /* "LWIP_SINGLE_NETIF */
+;;;415      mib2_netif_added(netif);
+;;;416    
+;;;417    #if LWIP_IGMP
+;;;418      /* start IGMP processing */
+;;;419      if (netif->flags & NETIF_FLAG_IGMP) {
+;;;420        igmp_start(netif);
+;;;421      }
+;;;422    #endif /* LWIP_IGMP */
+;;;423    
+;;;424      LWIP_DEBUGF(NETIF_DEBUG, ("netif: added interface %c%c IP",
+;;;425                                netif->name[0], netif->name[1]));
+;;;426    #if LWIP_IPV4
+;;;427      LWIP_DEBUGF(NETIF_DEBUG, (" addr "));
+;;;428      ip4_addr_debug_print(NETIF_DEBUG, ipaddr);
+;;;429      LWIP_DEBUGF(NETIF_DEBUG, (" netmask "));
+;;;430      ip4_addr_debug_print(NETIF_DEBUG, netmask);
+;;;431      LWIP_DEBUGF(NETIF_DEBUG, (" gw "));
+;;;432      ip4_addr_debug_print(NETIF_DEBUG, gw);
+;;;433    #endif /* LWIP_IPV4 */
+;;;434      LWIP_DEBUGF(NETIF_DEBUG, ("\n"));
+;;;435    
+;;;436      netif_invoke_ext_callback(netif, LWIP_NSC_NETIF_ADDED, NULL);
+;;;437    
+;;;438      return netif;
+;;;439    }
+00002a  e8bd87f0          POP      {r4-r10,pc}
+                  |L1.46|
+00002e  a336              ADR      r3,|L1.264|
+000030  f44f7294          MOV      r2,#0x128             ;296
+000034  a152              ADR      r1,|L1.384|
+000036  a048              ADR      r0,|L1.344|
+000038  f7fffffe          BL       __2printf
+00003c  2000              MOVS     r0,#0                 ;296
+00003e  e7f4              B        |L1.42|
+                  |L1.64|
+000040  4958              LDR      r1,|L1.420|
+                  |L1.66|
+000042  b902              CBNZ     r2,|L1.70|
+000044  4a57              LDR      r2,|L1.420|
+                  |L1.70|
+000046  b903              CBNZ     r3,|L1.74|
+000048  4b56              LDR      r3,|L1.420|
+                  |L1.74|
+00004a  f04f0800          MOV      r8,#0                 ;310
+00004e  f8c48004          STR      r8,[r4,#4]            ;310
+000052  f8c48008          STR      r8,[r4,#8]            ;311
+000056  f8c4800c          STR      r8,[r4,#0xc]          ;312
+00005a  4f53              LDR      r7,|L1.424|
+00005c  6167              STR      r7,[r4,#0x14]         ;313
+00005e  f8a4802c          STRH     r8,[r4,#0x2c]         ;327
+000062  f8848035          STRB     r8,[r4,#0x35]         ;328
+000066  f8c48028          STR      r8,[r4,#0x28]         ;330
+00006a  f8c4801c          STR      r8,[r4,#0x1c]         ;340
+00006e  f8c48020          STR      r8,[r4,#0x20]         ;343
+000072  6266              STR      r6,[r4,#0x24]         ;357
+000074  4f4d              LDR      r7,|L1.428|
+000076  783e              LDRB     r6,[r7,#0]            ;358  ; netif_num
+000078  f8846038          STRB     r6,[r4,#0x38]         ;358
+00007c  6120              STR      r0,[r4,#0x10]         ;359
+00007e  4620              MOV      r0,r4                 ;367
+000080  f7fffffe          BL       netif_set_addr
+000084  4620              MOV      r0,r4                 ;371
+000086  47a8              BLX      r5                    ;371
+000088  b108              CBZ      r0,|L1.142|
+00008a  2000              MOVS     r0,#0                 ;372
+00008c  e7cd              B        |L1.42|
+                  |L1.142|
+00008e  f8940038          LDRB     r0,[r4,#0x38]         ;390
+000092  28ff              CMP      r0,#0xff              ;390
+000094  d101              BNE      |L1.154|
+000096  f8848038          STRB     r8,[r4,#0x38]         ;391
+                  |L1.154|
+00009a  2600              MOVS     r6,#0                 ;393
+00009c  687d              LDR      r5,[r7,#4]            ;394  ; netif_list
+00009e  f240198b          MOV      r9,#0x18b             ;395
+0000a2  f2401a8d          MOV      r10,#0x18d            ;397
+0000a6  e01d              B        |L1.228|
+                  |L1.168|
+0000a8  42a5              CMP      r5,r4                 ;395
+0000aa  d105              BNE      |L1.184|
+0000ac  a316              ADR      r3,|L1.264|
+0000ae  464a              MOV      r2,r9                 ;395
+0000b0  a13f              ADR      r1,|L1.432|
+0000b2  a029              ADR      r0,|L1.344|
+0000b4  f7fffffe          BL       __2printf
+                  |L1.184|
+0000b8  1c76              ADDS     r6,r6,#1              ;396
+0000ba  2eff              CMP      r6,#0xff              ;397
+0000bc  dd05              BLE      |L1.202|
+0000be  a312              ADR      r3,|L1.264|
+0000c0  4652              MOV      r2,r10                ;397
+0000c2  a140              ADR      r1,|L1.452|
+0000c4  a024              ADR      r0,|L1.344|
+0000c6  f7fffffe          BL       __2printf
+                  |L1.202|
+0000ca  f8950038          LDRB     r0,[r5,#0x38]         ;398
+0000ce  f8941038          LDRB     r1,[r4,#0x38]         ;398
+0000d2  4288              CMP      r0,r1                 ;398
+0000d4  d105              BNE      |L1.226|
+0000d6  f8940038          LDRB     r0,[r4,#0x38]         ;399
+0000da  1c40              ADDS     r0,r0,#1              ;399
+0000dc  f8840038          STRB     r0,[r4,#0x38]         ;399
+0000e0  e002              B        |L1.232|
+                  |L1.226|
+0000e2  682d              LDR      r5,[r5,#0]            ;394
+                  |L1.228|
+0000e4  2d00              CMP      r5,#0                 ;394
+0000e6  d1df              BNE      |L1.168|
+                  |L1.232|
+0000e8  2d00              CMP      r5,#0                 ;403
+0000ea  d1d0              BNE      |L1.142|
+0000ec  f8940038          LDRB     r0,[r4,#0x38]         ;405
+0000f0  28fe              CMP      r0,#0xfe              ;405
+0000f2  d006              BEQ      |L1.258|
+0000f4  1c40              ADDS     r0,r0,#1              ;408
+0000f6  7038              STRB     r0,[r7,#0]            ;408
+                  |L1.248|
+0000f8  6878              LDR      r0,[r7,#4]            ;412  ; netif_list
+0000fa  6020              STR      r0,[r4,#0]            ;412
+0000fc  607c              STR      r4,[r7,#4]            ;413  ; netif_list
+0000fe  4620              MOV      r0,r4                 ;438
+000100  e793              B        |L1.42|
+                  |L1.258|
+000102  f8878000          STRB     r8,[r7,#0]            ;406
+000106  e7f7              B        |L1.248|
+;;;440    
                           ENDP
 
-                  |L1.120|
-000078  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
-00007c  6964646c
-000080  65776172
-000084  65735c54
-000088  68697264
-00008c  5f506172
-000090  74795c4c
-000094  7749505c
-000098  7372635c
-00009c  636f7265
-0000a0  5c6e6574
-0000a4  69662e63
-0000a8  00      
-0000a9  00                DCB      0
-0000aa  00                DCB      0
-0000ab  00                DCB      0
-                  |L1.172|
-0000ac  4e6f2069          DCB      "No init function given",0
-0000b0  6e697420
-0000b4  66756e63
-0000b8  74696f6e
-0000bc  20676976
-0000c0  656e00  
-0000c3  00                DCB      0
-                  |L1.196|
-0000c4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0000c8  7274696f
-0000cc  6e202225
-0000d0  73222066
-0000d4  61696c65
-0000d8  64206174
-0000dc  206c696e
-0000e0  65202564
-0000e4  20696e20
-0000e8  25730a00
-                  |L1.236|
+                  |L1.264|
+000108  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+00010c  6964646c
+000110  65776172
+000114  65735c54
+000118  68697264
+00011c  5f506172
+000120  74795c4c
+000124  7749505c
+000128  7372635c
+00012c  636f7265
+000130  5c6e6574
+000134  69662e63
+000138  00      
+000139  00                DCB      0
+00013a  00                DCB      0
+00013b  00                DCB      0
+                  |L1.316|
+00013c  6e657469          DCB      "netif_add: invalid netif",0
+000140  665f6164
+000144  643a2069
+000148  6e76616c
+00014c  6964206e
+000150  65746966
+000154  00      
+000155  00                DCB      0
+000156  00                DCB      0
+000157  00                DCB      0
+                  |L1.344|
+000158  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00015c  7274696f
+000160  6e202225
+000164  73222066
+000168  61696c65
+00016c  64206174
+000170  206c696e
+000174  65202564
+000178  20696e20
+00017c  25730a00
+                  |L1.384|
+000180  6e657469          DCB      "netif_add: No init function given",0
+000184  665f6164
+000188  643a204e
+00018c  6f20696e
+000190  69742066
+000194  756e6374
+000198  696f6e20
+00019c  67697665
+0001a0  6e00    
+0001a2  00                DCB      0
+0001a3  00                DCB      0
+                  |L1.420|
+                          DCD      ip_addr_any
+                  |L1.424|
+                          DCD      netif_null_output_ip4
+                  |L1.428|
                           DCD      ||.data||
+                  |L1.432|
+0001b0  6e657469          DCB      "netif already added",0
+0001b4  6620616c
+0001b8  72656164
+0001bc  79206164
+0001c0  64656400
+                  |L1.452|
+0001c4  746f6f20          DCB      "too many netifs, max. supported number is 255",0
+0001c8  6d616e79
+0001cc  206e6574
+0001d0  6966732c
+0001d4  206d6178
+0001d8  2e207375
+0001dc  70706f72
+0001e0  74656420
+0001e4  6e756d62
+0001e8  65722069
+0001ec  73203235
+0001f0  3500    
+0001f2  00                DCB      0
+0001f3  00                DCB      0
+
+                          AREA ||i.netif_add_noaddr||, CODE, READONLY, ALIGN=1
+
+                  netif_add_noaddr PROC
+;;;238    struct netif *
+;;;239    netif_add_noaddr(struct netif *netif, void *state, netif_init_fn init, netif_input_fn input)
+000000  b50e              PUSH     {r1-r3,lr}
+;;;240    {
+;;;241      return netif_add(netif,
+000002  e88d000e          STM      sp,{r1-r3}
+000006  2300              MOVS     r3,#0
+000008  461a              MOV      r2,r3
+00000a  4619              MOV      r1,r3
+00000c  f7fffffe          BL       netif_add
+;;;242    #if LWIP_IPV4
+;;;243                       NULL, NULL, NULL,
+;;;244    #endif /* LWIP_IPV4*/
+;;;245                       state, init, input);
+;;;246    }
+000010  bd0e              POP      {r1-r3,pc}
+;;;247    
+                          ENDP
+
+
+                          AREA ||i.netif_do_ip_addr_changed||, CODE, READONLY, ALIGN=1
+
+                  netif_do_ip_addr_changed PROC
+;;;441    static void
+;;;442    netif_do_ip_addr_changed(const ip_addr_t *old_addr, const ip_addr_t *new_addr)
+000000  b570              PUSH     {r4-r6,lr}
+;;;443    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+;;;444    #if LWIP_TCP
+;;;445      tcp_netif_ip_addr_changed(old_addr, new_addr);
+000006  4629              MOV      r1,r5
+000008  4620              MOV      r0,r4
+00000a  f7fffffe          BL       tcp_netif_ip_addr_changed
+;;;446    #endif /* LWIP_TCP */
+;;;447    #if LWIP_UDP
+;;;448      udp_netif_ip_addr_changed(old_addr, new_addr);
+00000e  4629              MOV      r1,r5
+000010  4620              MOV      r0,r4
+000012  e8bd4070          POP      {r4-r6,lr}
+000016  f7ffbffe          B.W      udp_netif_ip_addr_changed
+;;;449    #endif /* LWIP_UDP */
+;;;450    #if LWIP_RAW
+;;;451      raw_netif_ip_addr_changed(old_addr, new_addr);
+;;;452    #endif /* LWIP_RAW */
+;;;453    }
+;;;454    
+                          ENDP
+
+
+                          AREA ||i.netif_do_set_gw||, CODE, READONLY, ALIGN=1
+
+                  netif_do_set_gw PROC
+;;;586    static int
+;;;587    netif_do_set_gw(struct netif *netif, const ip4_addr_t *gw, ip_addr_t *old_gw)
+000000  680a              LDR      r2,[r1,#0]
+;;;588    {
+;;;589      /* address is actually being changed? */
+;;;590      if (ip4_addr_cmp(gw, netif_ip4_gw(netif)) == 0) {
+000002  68c3              LDR      r3,[r0,#0xc]
+000004  429a              CMP      r2,r3
+000006  d004              BEQ      |L4.18|
+;;;591    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;592        LWIP_ASSERT("invalid pointer", old_gw != NULL);
+;;;593        ip_addr_copy(*old_gw, *netif_ip_gw4(netif));
+;;;594    #else
+;;;595        LWIP_UNUSED_ARG(old_gw);
+;;;596    #endif
+;;;597    
+;;;598        ip4_addr_set(ip_2_ip4(&netif->gw), gw);
+000008  b901              CBNZ     r1,|L4.12|
+00000a  2200              MOVS     r2,#0
+                  |L4.12|
+00000c  60c2              STR      r2,[r0,#0xc]
+;;;599        IP_SET_TYPE_VAL(netif->gw, IPADDR_TYPE_V4);
+;;;600        LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: GW address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+;;;601                    netif->name[0], netif->name[1],
+;;;602                    ip4_addr1_16(netif_ip4_gw(netif)),
+;;;603                    ip4_addr2_16(netif_ip4_gw(netif)),
+;;;604                    ip4_addr3_16(netif_ip4_gw(netif)),
+;;;605                    ip4_addr4_16(netif_ip4_gw(netif))));
+;;;606        return 1; /* gateway changed */
+00000e  2001              MOVS     r0,#1
+;;;607      }
+;;;608      return 0; /* gateway unchanged */
+;;;609    }
+000010  4770              BX       lr
+                  |L4.18|
+000012  2000              MOVS     r0,#0                 ;608
+000014  4770              BX       lr
+;;;610    
+                          ENDP
+
+
+                          AREA ||i.netif_do_set_ipaddr||, CODE, READONLY, ALIGN=2
+
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
+                  netif_do_set_ipaddr PROC
+;;;456    static int
+;;;457    netif_do_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr, ip_addr_t *old_addr)
+000000  b5f8              PUSH     {r3-r7,lr}
+;;;458    {
+000002  4605              MOV      r5,r0
+000004  460c              MOV      r4,r1
+000006  4616              MOV      r6,r2
+;;;459      LWIP_ASSERT("invalid pointer", ipaddr != NULL);
+000008  2c00              CMP      r4,#0
+00000a  d106              BNE      |L5.26|
+00000c  a314              ADR      r3,|L5.96|
+00000e  f24012cb          MOV      r2,#0x1cb
+000012  a120              ADR      r1,|L5.148|
+000014  a023              ADR      r0,|L5.164|
+000016  f7fffffe          BL       __2printf
+                  |L5.26|
+;;;460      LWIP_ASSERT("invalid pointer", old_addr != NULL);
+00001a  b936              CBNZ     r6,|L5.42|
+00001c  a310              ADR      r3,|L5.96|
+00001e  f44f72e6          MOV      r2,#0x1cc
+000022  a11c              ADR      r1,|L5.148|
+000024  a01f              ADR      r0,|L5.164|
+000026  f7fffffe          BL       __2printf
+                  |L5.42|
+;;;461    
+;;;462      /* address is actually being changed? */
+;;;463      if (ip4_addr_cmp(ipaddr, netif_ip4_addr(netif)) == 0) {
+00002a  6820              LDR      r0,[r4,#0]
+00002c  6869              LDR      r1,[r5,#4]
+00002e  4288              CMP      r0,r1
+000030  d014              BEQ      |L5.92|
+;;;464        ip_addr_t new_addr;
+;;;465        *ip_2_ip4(&new_addr) = *ipaddr;
+000032  9000              STR      r0,[sp,#0]
+;;;466        IP_SET_TYPE_VAL(new_addr, IPADDR_TYPE_V4);
+;;;467    
+;;;468        ip_addr_copy(*old_addr, *netif_ip_addr4(netif));
+000034  6031              STR      r1,[r6,#0]
+;;;469    
+;;;470        LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_STATE, ("netif_set_ipaddr: netif address being changed\n"));
+;;;471        netif_do_ip_addr_changed(old_addr, &new_addr);
+000036  4669              MOV      r1,sp
+000038  4630              MOV      r0,r6
+00003a  f7fffffe          BL       netif_do_ip_addr_changed
+;;;472    
+;;;473        mib2_remove_ip4(netif);
+;;;474        mib2_remove_route_ip4(0, netif);
+;;;475        /* set new IP address to netif */
+;;;476        ip4_addr_set(ip_2_ip4(&netif->ip_addr), ipaddr);
+00003e  b15c              CBZ      r4,|L5.88|
+000040  6820              LDR      r0,[r4,#0]
+                  |L5.66|
+000042  6068              STR      r0,[r5,#4]
+;;;477        IP_SET_TYPE_VAL(netif->ip_addr, IPADDR_TYPE_V4);
+;;;478        mib2_add_ip4(netif);
+;;;479        mib2_add_route_ip4(0, netif);
+;;;480    
+;;;481        netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4);
+000044  2101              MOVS     r1,#1
+000046  4628              MOV      r0,r5
+000048  f7fffffe          BL       netif_issue_reports
+;;;482    
+;;;483        NETIF_STATUS_CALLBACK(netif);
+00004c  69e9              LDR      r1,[r5,#0x1c]
+00004e  b109              CBZ      r1,|L5.84|
+000050  4628              MOV      r0,r5
+000052  4788              BLX      r1
+                  |L5.84|
+;;;484        return 1; /* address changed */
+000054  2001              MOVS     r0,#1
+;;;485      }
+;;;486      return 0; /* address unchanged */
+;;;487    }
+000056  bdf8              POP      {r3-r7,pc}
+                  |L5.88|
+000058  2000              MOVS     r0,#0                 ;476
+00005a  e7f2              B        |L5.66|
+                  |L5.92|
+00005c  2000              MOVS     r0,#0                 ;486
+00005e  bdf8              POP      {r3-r7,pc}
+;;;488    
+                          ENDP
+
+                  |L5.96|
+000060  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000064  6964646c
+000068  65776172
+00006c  65735c54
+000070  68697264
+000074  5f506172
+000078  74795c4c
+00007c  7749505c
+000080  7372635c
+000084  636f7265
+000088  5c6e6574
+00008c  69662e63
+000090  00      
+000091  00                DCB      0
+000092  00                DCB      0
+000093  00                DCB      0
+                  |L5.148|
+000094  696e7661          DCB      "invalid pointer",0
+000098  6c696420
+00009c  706f696e
+0000a0  74657200
+                  |L5.164|
+0000a4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000a8  7274696f
+0000ac  6e202225
+0000b0  73222066
+0000b4  61696c65
+0000b8  64206174
+0000bc  206c696e
+0000c0  65202564
+0000c4  20696e20
+0000c8  25730a00
+
+                          AREA ||i.netif_do_set_netmask||, CODE, READONLY, ALIGN=1
+
+                  netif_do_set_netmask PROC
+;;;522    static int
+;;;523    netif_do_set_netmask(struct netif *netif, const ip4_addr_t *netmask, ip_addr_t *old_nm)
+000000  680a              LDR      r2,[r1,#0]
+;;;524    {
+;;;525      /* address is actually being changed? */
+;;;526      if (ip4_addr_cmp(netmask, netif_ip4_netmask(netif)) == 0) {
+000002  6883              LDR      r3,[r0,#8]
+000004  429a              CMP      r2,r3
+000006  d004              BEQ      |L6.18|
+;;;527    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;528        LWIP_ASSERT("invalid pointer", old_nm != NULL);
+;;;529        ip_addr_copy(*old_nm, *netif_ip_netmask4(netif));
+;;;530    #else
+;;;531        LWIP_UNUSED_ARG(old_nm);
+;;;532    #endif
+;;;533        mib2_remove_route_ip4(0, netif);
+;;;534        /* set new netmask to netif */
+;;;535        ip4_addr_set(ip_2_ip4(&netif->netmask), netmask);
+000008  b901              CBNZ     r1,|L6.12|
+00000a  2200              MOVS     r2,#0
+                  |L6.12|
+00000c  6082              STR      r2,[r0,#8]
+;;;536        IP_SET_TYPE_VAL(netif->netmask, IPADDR_TYPE_V4);
+;;;537        mib2_add_route_ip4(0, netif);
+;;;538        LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: netmask of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+;;;539                    netif->name[0], netif->name[1],
+;;;540                    ip4_addr1_16(netif_ip4_netmask(netif)),
+;;;541                    ip4_addr2_16(netif_ip4_netmask(netif)),
+;;;542                    ip4_addr3_16(netif_ip4_netmask(netif)),
+;;;543                    ip4_addr4_16(netif_ip4_netmask(netif))));
+;;;544        return 1; /* netmask changed */
+00000e  2001              MOVS     r0,#1
+;;;545      }
+;;;546      return 0; /* netmask unchanged */
+;;;547    }
+000010  4770              BX       lr
+                  |L6.18|
+000012  2000              MOVS     r0,#0                 ;546
+000014  4770              BX       lr
+;;;548    
+                          ENDP
+
 
                           AREA ||i.netif_find||, CODE, READONLY, ALIGN=2
 
                   netif_find PROC
-;;;471    struct netif *
-;;;472    netif_find(const char *name)
+;;;1700   struct netif *
+;;;1701   netif_find(const char *name)
 000000  b510              PUSH     {r4,lr}
-;;;473    {
-000002  4601              MOV      r1,r0
-;;;474      struct netif *netif;
-;;;475      u8_t num;
-;;;476    
-;;;477      if (name == NULL) {
-000004  2900              CMP      r1,#0
-000006  d005              BEQ      |L2.20|
-;;;478        return NULL;
-;;;479      }
-;;;480    
-;;;481      num = (u8_t)(name[2] - '0');
-000008  7888              LDRB     r0,[r1,#2]
-00000a  3830              SUBS     r0,r0,#0x30
-00000c  b2c2              UXTB     r2,r0
-;;;482    
-;;;483      for (netif = netif_list; netif != NULL; netif = netif->next) {
-00000e  480b              LDR      r0,|L2.60|
-000010  6840              LDR      r0,[r0,#4]  ; netif_list
-000012  e010              B        |L2.54|
-                  |L2.20|
-000014  2000              MOVS     r0,#0                 ;478
-                  |L2.22|
-;;;484        if (num == netif->num &&
-;;;485           name[0] == netif->name[0] &&
-;;;486           name[1] == netif->name[1]) {
-;;;487          LWIP_DEBUGF(NETIF_DEBUG, ("netif_find: found %c%c\n", name[0], name[1]));
-;;;488          return netif;
-;;;489        }
-;;;490      }
-;;;491      LWIP_DEBUGF(NETIF_DEBUG, ("netif_find: didn't find %c%c\n", name[0], name[1]));
-;;;492      return NULL;
-;;;493    }
-000016  bd10              POP      {r4,pc}
-                  |L2.24|
-000018  f890303a          LDRB     r3,[r0,#0x3a]         ;484
-00001c  4293              CMP      r3,r2                 ;484
-00001e  d109              BNE      |L2.52|
-000020  780b              LDRB     r3,[r1,#0]            ;485
-000022  f8904038          LDRB     r4,[r0,#0x38]         ;485
-000026  42a3              CMP      r3,r4                 ;485
-000028  d104              BNE      |L2.52|
-00002a  784b              LDRB     r3,[r1,#1]            ;486
-00002c  f8904039          LDRB     r4,[r0,#0x39]         ;486
-000030  42a3              CMP      r3,r4                 ;486
-000032  d0f0              BEQ      |L2.22|
-                  |L2.52|
-000034  6800              LDR      r0,[r0,#0]            ;483
-                  |L2.54|
-000036  2800              CMP      r0,#0                 ;483
-000038  d1ee              BNE      |L2.24|
-00003a  bd10              POP      {r4,pc}
-;;;494    
+;;;1702   {
+000002  4604              MOV      r4,r0
+;;;1703     struct netif *netif;
+;;;1704     u8_t num;
+;;;1705   
+;;;1706     LWIP_ASSERT_CORE_LOCKED();
+;;;1707   
+;;;1708     if (name == NULL) {
+000004  2c00              CMP      r4,#0
+000006  d006              BEQ      |L7.22|
+;;;1709       return NULL;
+;;;1710     }
+;;;1711   
+;;;1712     num = (u8_t)atoi(&name[2]);
+000008  1ca0              ADDS     r0,r4,#2
+00000a  f7fffffe          BL       atoi
+00000e  b2c1              UXTB     r1,r0
+;;;1713   
+;;;1714     NETIF_FOREACH(netif) {
+000010  480b              LDR      r0,|L7.64|
+000012  6840              LDR      r0,[r0,#4]  ; netif_list
+000014  e010              B        |L7.56|
+                  |L7.22|
+000016  2000              MOVS     r0,#0                 ;1709
+                  |L7.24|
+;;;1715       if (num == netif->num &&
+;;;1716           name[0] == netif->name[0] &&
+;;;1717           name[1] == netif->name[1]) {
+;;;1718         LWIP_DEBUGF(NETIF_DEBUG, ("netif_find: found %c%c\n", name[0], name[1]));
+;;;1719         return netif;
+;;;1720       }
+;;;1721     }
+;;;1722     LWIP_DEBUGF(NETIF_DEBUG, ("netif_find: didn't find %c%c\n", name[0], name[1]));
+;;;1723     return NULL;
+;;;1724   }
+000018  bd10              POP      {r4,pc}
+                  |L7.26|
+00001a  f8902038          LDRB     r2,[r0,#0x38]         ;1715
+00001e  428a              CMP      r2,r1                 ;1715
+000020  d109              BNE      |L7.54|
+000022  7822              LDRB     r2,[r4,#0]            ;1716
+000024  f8903036          LDRB     r3,[r0,#0x36]         ;1716
+000028  429a              CMP      r2,r3                 ;1716
+00002a  d104              BNE      |L7.54|
+00002c  7862              LDRB     r2,[r4,#1]            ;1717
+00002e  f8903037          LDRB     r3,[r0,#0x37]         ;1717
+000032  429a              CMP      r2,r3                 ;1717
+000034  d0f0              BEQ      |L7.24|
+                  |L7.54|
+000036  6800              LDR      r0,[r0,#0]            ;1714
+                  |L7.56|
+000038  2800              CMP      r0,#0                 ;1714
+00003a  d1ee              BNE      |L7.26|
+00003c  bd10              POP      {r4,pc}
+;;;1725   
                           ENDP
 
-                  |L2.60|
+00003e  0000              DCW      0x0000
+                  |L7.64|
                           DCD      ||.data||
+
+                          AREA ||i.netif_get_by_index||, CODE, READONLY, ALIGN=2
+
+                  netif_get_by_index PROC
+;;;1675   struct netif *
+;;;1676   netif_get_by_index(u8_t idx)
+000000  4601              MOV      r1,r0
+;;;1677   {
+;;;1678     struct netif *netif;
+;;;1679   
+;;;1680     LWIP_ASSERT_CORE_LOCKED();
+;;;1681   
+;;;1682     if (idx != NETIF_NO_INDEX) {
+000002  2900              CMP      r1,#0
+000004  d00b              BEQ      |L8.30|
+;;;1683       NETIF_FOREACH(netif) {
+000006  4807              LDR      r0,|L8.36|
+000008  6840              LDR      r0,[r0,#4]  ; netif_list
+00000a  e006              B        |L8.26|
+                  |L8.12|
+;;;1684         if (idx == netif_get_index(netif)) {
+00000c  f8902038          LDRB     r2,[r0,#0x38]
+000010  1c52              ADDS     r2,r2,#1
+000012  b2d2              UXTB     r2,r2
+000014  428a              CMP      r2,r1
+000016  d003              BEQ      |L8.32|
+000018  6800              LDR      r0,[r0,#0]            ;1683
+                  |L8.26|
+00001a  2800              CMP      r0,#0                 ;1683
+00001c  d1f6              BNE      |L8.12|
+                  |L8.30|
+;;;1685           return netif; /* found! */
+;;;1686         }
+;;;1687       }
+;;;1688     }
+;;;1689   
+;;;1690     return NULL;
+00001e  2000              MOVS     r0,#0
+                  |L8.32|
+;;;1691   }
+000020  4770              BX       lr
+;;;1692   
+                          ENDP
+
+000022  0000              DCW      0x0000
+                  |L8.36|
+                          DCD      ||.data||
+
+                          AREA ||i.netif_index_to_name||, CODE, READONLY, ALIGN=1
+
+                  netif_index_to_name PROC
+;;;1655   char *
+;;;1656   netif_index_to_name(u8_t idx, char *name)
+000000  b510              PUSH     {r4,lr}
+;;;1657   {
+000002  4603              MOV      r3,r0
+000004  460c              MOV      r4,r1
+;;;1658     struct netif *netif = netif_get_by_index(idx);
+000006  4618              MOV      r0,r3
+000008  f7fffffe          BL       netif_get_by_index
+;;;1659   
+;;;1660     if (netif != NULL) {
+00000c  b158              CBZ      r0,|L9.38|
+;;;1661       name[0] = netif->name[0];
+00000e  f8101f36          LDRB     r1,[r0,#0x36]!
+000012  7021              STRB     r1,[r4,#0]
+;;;1662       name[1] = netif->name[1];
+000014  7840              LDRB     r0,[r0,#1]
+000016  7060              STRB     r0,[r4,#1]
+;;;1663       lwip_itoa(&name[2], NETIF_NAMESIZE - 2, netif_index_to_num(idx));
+000018  1e5a              SUBS     r2,r3,#1
+00001a  2104              MOVS     r1,#4
+00001c  1ca0              ADDS     r0,r4,#2
+00001e  f7fffffe          BL       lwip_itoa
+;;;1664       return name;
+000022  4620              MOV      r0,r4
+;;;1665     }
+;;;1666     return NULL;
+;;;1667   }
+000024  bd10              POP      {r4,pc}
+                  |L9.38|
+000026  2000              MOVS     r0,#0                 ;1666
+000028  bd10              POP      {r4,pc}
+;;;1668   
+                          ENDP
+
 
                           AREA ||i.netif_init||, CODE, READONLY, ALIGN=1
 
                   netif_init PROC
-;;;162    void
-;;;163    netif_init(void)
+;;;176    void
+;;;177    netif_init(void)
 000000  4770              BX       lr
-;;;164    {
-;;;165    #if LWIP_HAVE_LOOPIF
-;;;166    #if LWIP_IPV4
-;;;167    #define LOOPIF_ADDRINIT &loop_ipaddr, &loop_netmask, &loop_gw,
-;;;168      ip4_addr_t loop_ipaddr, loop_netmask, loop_gw;
-;;;169      IP4_ADDR(&loop_gw, 127,0,0,1);
-;;;170      IP4_ADDR(&loop_ipaddr, 127,0,0,1);
-;;;171      IP4_ADDR(&loop_netmask, 255,0,0,0);
-;;;172    #else /* LWIP_IPV4 */
-;;;173    #define LOOPIF_ADDRINIT
-;;;174    #endif /* LWIP_IPV4 */
-;;;175    
-;;;176    #if NO_SYS
-;;;177      netif_add(&loop_netif, LOOPIF_ADDRINIT NULL, netif_loopif_init, ip_input);
-;;;178    #else  /* NO_SYS */
-;;;179      netif_add(&loop_netif, LOOPIF_ADDRINIT NULL, netif_loopif_init, tcpip_input);
-;;;180    #endif /* NO_SYS */
-;;;181    
-;;;182    #if LWIP_IPV6
-;;;183      IP_ADDR6_HOST(loop_netif.ip6_addr, 0, 0, 0, 0x00000001UL);
-;;;184      loop_netif.ip6_addr_state[0] = IP6_ADDR_VALID;
-;;;185    #endif /* LWIP_IPV6 */
-;;;186    
-;;;187      netif_set_link_up(&loop_netif);
-;;;188      netif_set_up(&loop_netif);
+;;;178    {
+;;;179    #if LWIP_HAVE_LOOPIF
+;;;180    #if LWIP_IPV4
+;;;181    #define LOOPIF_ADDRINIT &loop_ipaddr, &loop_netmask, &loop_gw,
+;;;182      ip4_addr_t loop_ipaddr, loop_netmask, loop_gw;
+;;;183      IP4_ADDR(&loop_gw, 127, 0, 0, 1);
+;;;184      IP4_ADDR(&loop_ipaddr, 127, 0, 0, 1);
+;;;185      IP4_ADDR(&loop_netmask, 255, 0, 0, 0);
+;;;186    #else /* LWIP_IPV4 */
+;;;187    #define LOOPIF_ADDRINIT
+;;;188    #endif /* LWIP_IPV4 */
 ;;;189    
-;;;190    #endif /* LWIP_HAVE_LOOPIF */
-;;;191    }
-;;;192    
+;;;190    #if NO_SYS
+;;;191      netif_add(&loop_netif, LOOPIF_ADDRINIT NULL, netif_loopif_init, ip_input);
+;;;192    #else  /* NO_SYS */
+;;;193      netif_add(&loop_netif, LOOPIF_ADDRINIT NULL, netif_loopif_init, tcpip_input);
+;;;194    #endif /* NO_SYS */
+;;;195    
+;;;196    #if LWIP_IPV6
+;;;197      IP_ADDR6_HOST(loop_netif.ip6_addr, 0, 0, 0, 0x00000001UL);
+;;;198      loop_netif.ip6_addr_state[0] = IP6_ADDR_VALID;
+;;;199    #endif /* LWIP_IPV6 */
+;;;200    
+;;;201      netif_set_link_up(&loop_netif);
+;;;202      netif_set_up(&loop_netif);
+;;;203    
+;;;204    #endif /* LWIP_HAVE_LOOPIF */
+;;;205    }
+;;;206    
                           ENDP
 
 
-                          AREA ||i.netif_input||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_input||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   netif_input PROC
-;;;202    err_t
-;;;203    netif_input(struct pbuf *p, struct netif *inp)
-000000  f8912037          LDRB     r2,[r1,#0x37]
-;;;204    {
-;;;205    #if LWIP_ETHERNET
-;;;206      if (inp->flags & (NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET)) {
-000004  f0120f18          TST      r2,#0x18
-000008  d001              BEQ      |L4.14|
-;;;207        return ethernet_input(p, inp);
-00000a  f7ffbffe          B.W      ethernet_input
-                  |L4.14|
-;;;208      } else
-;;;209    #endif /* LWIP_ETHERNET */
-;;;210      return ip_input(p, inp);
-00000e  f7ffbffe          B.W      ip4_input
-;;;211    }
-;;;212    
+;;;216    err_t
+;;;217    netif_input(struct pbuf *p, struct netif *inp)
+000000  b570              PUSH     {r4-r6,lr}
+;;;218    {
+000002  4605              MOV      r5,r0
+000004  460c              MOV      r4,r1
+;;;219      LWIP_ASSERT_CORE_LOCKED();
+;;;220    
+;;;221      LWIP_ASSERT("netif_input: invalid pbuf", p != NULL);
+000006  2d00              CMP      r5,#0
+000008  d105              BNE      |L11.22|
+00000a  a30f              ADR      r3,|L11.72|
+00000c  22dd              MOVS     r2,#0xdd
+00000e  a11b              ADR      r1,|L11.124|
+000010  a021              ADR      r0,|L11.152|
+000012  f7fffffe          BL       __2printf
+                  |L11.22|
+;;;222      LWIP_ASSERT("netif_input: invalid netif", inp != NULL);
+000016  2c00              CMP      r4,#0
+000018  d105              BNE      |L11.38|
+00001a  a30b              ADR      r3,|L11.72|
+00001c  22de              MOVS     r2,#0xde
+00001e  a128              ADR      r1,|L11.192|
+000020  a01d              ADR      r0,|L11.152|
+000022  f7fffffe          BL       __2printf
+                  |L11.38|
+;;;223    
+;;;224    #if LWIP_ETHERNET
+;;;225      if (inp->flags & (NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET)) {
+000026  f8941035          LDRB     r1,[r4,#0x35]
+00002a  f0110f18          TST      r1,#0x18
+00002e  d005              BEQ      |L11.60|
+;;;226        return ethernet_input(p, inp);
+000030  4621              MOV      r1,r4
+000032  4628              MOV      r0,r5
+000034  e8bd4070          POP      {r4-r6,lr}
+000038  f7ffbffe          B.W      ethernet_input
+                  |L11.60|
+;;;227      } else
+;;;228    #endif /* LWIP_ETHERNET */
+;;;229        return ip_input(p, inp);
+00003c  4621              MOV      r1,r4
+00003e  4628              MOV      r0,r5
+000040  e8bd4070          POP      {r4-r6,lr}
+000044  f7ffbffe          B.W      ip4_input
+;;;230    }
+;;;231    
+                          ENDP
+
+                  |L11.72|
+000048  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+00004c  6964646c
+000050  65776172
+000054  65735c54
+000058  68697264
+00005c  5f506172
+000060  74795c4c
+000064  7749505c
+000068  7372635c
+00006c  636f7265
+000070  5c6e6574
+000074  69662e63
+000078  00      
+000079  00                DCB      0
+00007a  00                DCB      0
+00007b  00                DCB      0
+                  |L11.124|
+00007c  6e657469          DCB      "netif_input: invalid pbuf",0
+000080  665f696e
+000084  7075743a
+000088  20696e76
+00008c  616c6964
+000090  20706275
+000094  6600    
+000096  00                DCB      0
+000097  00                DCB      0
+                  |L11.152|
+000098  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00009c  7274696f
+0000a0  6e202225
+0000a4  73222066
+0000a8  61696c65
+0000ac  64206174
+0000b0  206c696e
+0000b4  65202564
+0000b8  20696e20
+0000bc  25730a00
+                  |L11.192|
+0000c0  6e657469          DCB      "netif_input: invalid netif",0
+0000c4  665f696e
+0000c8  7075743a
+0000cc  20696e76
+0000d0  616c6964
+0000d4  206e6574
+0000d8  696600  
+0000db  00                DCB      0
+
+                          AREA ||i.netif_issue_reports||, CODE, READONLY, ALIGN=2
+
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                  netif_issue_reports PROC
+;;;874    static void
+;;;875    netif_issue_reports(struct netif *netif, u8_t report_type)
+000000  b570              PUSH     {r4-r6,lr}
+;;;876    {
+000002  4604              MOV      r4,r0
+000004  460d              MOV      r5,r1
+;;;877      LWIP_ASSERT("netif_issue_reports: invalid netif", netif != NULL);
+000006  2c00              CMP      r4,#0
+000008  d106              BNE      |L12.24|
+00000a  a30d              ADR      r3,|L12.64|
+00000c  f240326d          MOV      r2,#0x36d
+000010  a118              ADR      r1,|L12.116|
+000012  a021              ADR      r0,|L12.152|
+000014  f7fffffe          BL       __2printf
+                  |L12.24|
+;;;878    
+;;;879      /* Only send reports when both link and admin states are up */
+;;;880      if (!(netif->flags & NETIF_FLAG_LINK_UP) ||
+000018  f8940035          LDRB     r0,[r4,#0x35]
+00001c  0742              LSLS     r2,r0,#29
+00001e  d50e              BPL      |L12.62|
+;;;881          !(netif->flags & NETIF_FLAG_UP)) {
+000020  07c1              LSLS     r1,r0,#31
+000022  d00c              BEQ      |L12.62|
+;;;882        return;
+;;;883      }
+;;;884    
+;;;885    #if LWIP_IPV4
+;;;886      if ((report_type & NETIF_REPORT_TYPE_IPV4) &&
+000024  07e9              LSLS     r1,r5,#31
+000026  d00a              BEQ      |L12.62|
+;;;887          !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+000028  6861              LDR      r1,[r4,#4]
+00002a  2900              CMP      r1,#0
+00002c  d007              BEQ      |L12.62|
+;;;888    #if LWIP_ARP
+;;;889        /* For Ethernet network interfaces, we would like to send a "gratuitous ARP" */
+;;;890        if (netif->flags & (NETIF_FLAG_ETHARP)) {
+00002e  0700              LSLS     r0,r0,#28
+000030  d505              BPL      |L12.62|
+;;;891          etharp_gratuitous(netif);
+000032  1d21              ADDS     r1,r4,#4
+000034  4620              MOV      r0,r4
+000036  e8bd4070          POP      {r4-r6,lr}
+00003a  f7ffbffe          B.W      etharp_request
+                  |L12.62|
+;;;892        }
+;;;893    #endif /* LWIP_ARP */
+;;;894    
+;;;895    #if LWIP_IGMP
+;;;896        /* resend IGMP memberships */
+;;;897        if (netif->flags & NETIF_FLAG_IGMP) {
+;;;898          igmp_report_groups(netif);
+;;;899        }
+;;;900    #endif /* LWIP_IGMP */
+;;;901      }
+;;;902    #endif /* LWIP_IPV4 */
+;;;903    
+;;;904    #if LWIP_IPV6
+;;;905      if (report_type & NETIF_REPORT_TYPE_IPV6) {
+;;;906    #if LWIP_IPV6_MLD
+;;;907        /* send mld memberships */
+;;;908        mld6_report_groups(netif);
+;;;909    #endif /* LWIP_IPV6_MLD */
+;;;910      }
+;;;911    #endif /* LWIP_IPV6 */
+;;;912    }
+00003e  bd70              POP      {r4-r6,pc}
+;;;913    
+                          ENDP
+
+                  |L12.64|
+000040  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000044  6964646c
+000048  65776172
+00004c  65735c54
+000050  68697264
+000054  5f506172
+000058  74795c4c
+00005c  7749505c
+000060  7372635c
+000064  636f7265
+000068  5c6e6574
+00006c  69662e63
+000070  00      
+000071  00                DCB      0
+000072  00                DCB      0
+000073  00                DCB      0
+                  |L12.116|
+000074  6e657469          DCB      "netif_issue_reports: invalid netif",0
+000078  665f6973
+00007c  7375655f
+000080  7265706f
+000084  7274733a
+000088  20696e76
+00008c  616c6964
+000090  206e6574
+000094  696600  
+000097  00                DCB      0
+                  |L12.152|
+000098  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00009c  7274696f
+0000a0  6e202225
+0000a4  73222066
+0000a8  61696c65
+0000ac  64206174
+0000b0  206c696e
+0000b4  65202564
+0000b8  20696e20
+0000bc  25730a00
+
+                          AREA ||i.netif_name_to_index||, CODE, READONLY, ALIGN=1
+
+                  netif_name_to_index PROC
+;;;1636   u8_t
+;;;1637   netif_name_to_index(const char *name)
+000000  b510              PUSH     {r4,lr}
+;;;1638   {
+;;;1639     struct netif *netif = netif_find(name);
+000002  f7fffffe          BL       netif_find
+;;;1640     if (netif != NULL) {
+000006  b120              CBZ      r0,|L13.18|
+;;;1641       return netif_get_index(netif);
+000008  f8900038          LDRB     r0,[r0,#0x38]
+00000c  1c40              ADDS     r0,r0,#1
+00000e  b2c0              UXTB     r0,r0
+;;;1642     }
+;;;1643     /* No name found, return invalid index */
+;;;1644     return NETIF_NO_INDEX;
+;;;1645   }
+000010  bd10              POP      {r4,pc}
+                  |L13.18|
+000012  2000              MOVS     r0,#0                 ;1644
+000014  bd10              POP      {r4,pc}
+;;;1646   
                           ENDP
 
 
-                          AREA ||i.netif_issue_reports||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_null_output_ip4||, CODE, READONLY, ALIGN=1
 
-                  netif_issue_reports PROC
-;;;641    static void
-;;;642    netif_issue_reports(struct netif* netif, u8_t report_type)
-000000  07c9              LSLS     r1,r1,#31
-;;;643    {
-000002  d009              BEQ      |L5.24|
-;;;644    #if LWIP_IPV4
-;;;645      if ((report_type & NETIF_REPORT_TYPE_IPV4) &&
-;;;646          !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-000004  6841              LDR      r1,[r0,#4]
-000006  2900              CMP      r1,#0
-000008  d006              BEQ      |L5.24|
-;;;647    #if LWIP_ARP
-;;;648        /* For Ethernet network interfaces, we would like to send a "gratuitous ARP" */
-;;;649        if (netif->flags & (NETIF_FLAG_ETHARP)) {
-00000a  f8901037          LDRB     r1,[r0,#0x37]
-00000e  0709              LSLS     r1,r1,#28
-000010  d502              BPL      |L5.24|
-;;;650          etharp_gratuitous(netif);
-000012  1d01              ADDS     r1,r0,#4
-000014  f7ffbffe          B.W      etharp_request
-                  |L5.24|
-;;;651        }
-;;;652    #endif /* LWIP_ARP */
-;;;653    
-;;;654    #if LWIP_IGMP
-;;;655        /* resend IGMP memberships */
-;;;656        if (netif->flags & NETIF_FLAG_IGMP) {
-;;;657          igmp_report_groups(netif);
-;;;658        }
-;;;659    #endif /* LWIP_IGMP */
-;;;660      }
-;;;661    #endif /* LWIP_IPV4 */
-;;;662    
-;;;663    #if LWIP_IPV6
-;;;664      if (report_type & NETIF_REPORT_TYPE_IPV6) {
-;;;665    #if LWIP_IPV6_MLD
-;;;666        /* send mld memberships */
-;;;667        mld6_report_groups(netif);
-;;;668    #endif /* LWIP_IPV6_MLD */
-;;;669    #if LWIP_IPV6_SEND_ROUTER_SOLICIT
-;;;670        /* Send Router Solicitation messages. */
-;;;671        netif->rs_count = LWIP_ND6_MAX_MULTICAST_SOLICIT;
-;;;672    #endif /* LWIP_IPV6_SEND_ROUTER_SOLICIT */
-;;;673      }
-;;;674    #endif /* LWIP_IPV6 */
-;;;675    }
-000018  4770              BX       lr
-;;;676    
+                  netif_null_output_ip4 PROC
+;;;1618   static err_t
+;;;1619   netif_null_output_ip4(struct netif *netif, struct pbuf *p, const ip4_addr_t *ipaddr)
+000000  f06f000b          MVN      r0,#0xb
+;;;1620   {
+;;;1621     LWIP_UNUSED_ARG(netif);
+;;;1622     LWIP_UNUSED_ARG(p);
+;;;1623     LWIP_UNUSED_ARG(ipaddr);
+;;;1624   
+;;;1625     return ERR_IF;
+;;;1626   }
+000004  4770              BX       lr
+;;;1627   #endif /* LWIP_IPV4 */
                           ENDP
 
 
                           AREA ||i.netif_remove||, CODE, READONLY, ALIGN=2
 
                   netif_remove PROC
-;;;376    void
-;;;377    netif_remove(struct netif *netif)
+;;;736    void
+;;;737    netif_remove(struct netif *netif)
 000000  b510              PUSH     {r4,lr}
-;;;378    {
+;;;738    {
 000002  4604              MOV      r4,r0
-;;;379    #if LWIP_IPV6
-;;;380      int i;
-;;;381    #endif
-;;;382    
-;;;383      if (netif == NULL) {
+;;;739    #if LWIP_IPV6
+;;;740      int i;
+;;;741    #endif
+;;;742    
+;;;743      LWIP_ASSERT_CORE_LOCKED();
+;;;744    
+;;;745      if (netif == NULL) {
 000004  2c00              CMP      r4,#0
-000006  d01c              BEQ      |L6.66|
-;;;384        return;
-;;;385      }
-;;;386    
-;;;387    #if LWIP_IPV4
-;;;388      if (!ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+000006  d018              BEQ      |L15.58|
+;;;746        return;
+;;;747      }
+;;;748    
+;;;749      netif_invoke_ext_callback(netif, LWIP_NSC_NETIF_REMOVED, NULL);
+;;;750    
+;;;751    #if LWIP_IPV4
+;;;752      if (!ip4_addr_isany_val(*netif_ip4_addr(netif))) {
 000008  6860              LDR      r0,[r4,#4]
-00000a  b138              CBZ      r0,|L6.28|
-;;;389    #if LWIP_TCP
-;;;390        tcp_netif_ip_addr_changed(netif_ip_addr4(netif), NULL);
+00000a  b118              CBZ      r0,|L15.20|
+;;;753        netif_do_ip_addr_changed(netif_ip_addr4(netif), NULL);
 00000c  2100              MOVS     r1,#0
 00000e  1d20              ADDS     r0,r4,#4
-000010  f7fffffe          BL       tcp_netif_ip_addr_changed
-;;;391    #endif /* LWIP_TCP */
-;;;392    #if LWIP_UDP
-;;;393        udp_netif_ip_addr_changed(netif_ip_addr4(netif), NULL);
-000014  2100              MOVS     r1,#0
-000016  1d20              ADDS     r0,r4,#4
-000018  f7fffffe          BL       udp_netif_ip_addr_changed
-                  |L6.28|
-;;;394    #endif /* LWIP_UDP */
-;;;395    #if LWIP_RAW
-;;;396        raw_netif_ip_addr_changed(netif_ip_addr4(netif), NULL);
-;;;397    #endif /* LWIP_RAW */
-;;;398      }
-;;;399    
-;;;400    #if LWIP_IGMP
-;;;401      /* stop IGMP processing */
-;;;402      if (netif->flags & NETIF_FLAG_IGMP) {
-;;;403        igmp_stop(netif);
-;;;404      }
-;;;405    #endif /* LWIP_IGMP */
-;;;406    #endif /* LWIP_IPV4*/
-;;;407    
-;;;408    #if LWIP_IPV6
-;;;409      for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
-;;;410        if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i))) {
-;;;411    #if LWIP_TCP
-;;;412          tcp_netif_ip_addr_changed(netif_ip_addr6(netif, i), NULL);
-;;;413    #endif /* LWIP_TCP */
-;;;414    #if LWIP_UDP
-;;;415          udp_netif_ip_addr_changed(netif_ip_addr6(netif, i), NULL);
-;;;416    #endif /* LWIP_UDP */
-;;;417    #if LWIP_RAW
-;;;418          raw_netif_ip_addr_changed(netif_ip_addr6(netif, i), NULL);
-;;;419    #endif /* LWIP_RAW */
-;;;420        }
-;;;421      }
-;;;422    #if LWIP_IPV6_MLD
-;;;423      /* stop MLD processing */
-;;;424      mld6_stop(netif);
-;;;425    #endif /* LWIP_IPV6_MLD */
-;;;426    #endif /* LWIP_IPV6 */
-;;;427      if (netif_is_up(netif)) {
-00001c  f8940037          LDRB     r0,[r4,#0x37]
-000020  07c0              LSLS     r0,r0,#31
-000022  d002              BEQ      |L6.42|
-;;;428        /* set netif down before removing (call callback function) */
-;;;429        netif_set_down(netif);
-000024  4620              MOV      r0,r4
-000026  f7fffffe          BL       netif_set_down
-                  |L6.42|
-;;;430      }
-;;;431    
-;;;432      mib2_remove_ip4(netif);
-;;;433    
-;;;434      /* this netif is default? */
-;;;435      if (netif_default == netif) {
-00002a  4a0b              LDR      r2,|L6.88|
-00002c  6890              LDR      r0,[r2,#8]  ; netif_default
-00002e  42a0              CMP      r0,r4
-000030  d102              BNE      |L6.56|
-;;;436        /* reset default netif */
-;;;437        netif_set_default(NULL);
-000032  2000              MOVS     r0,#0
-000034  f7fffffe          BL       netif_set_default
-                  |L6.56|
-;;;438      }
-;;;439      /*  is it the first netif? */
-;;;440      if (netif_list == netif) {
-000038  6850              LDR      r0,[r2,#4]  ; netif_list
-00003a  42a0              CMP      r0,r4
-00003c  d109              BNE      |L6.82|
-;;;441        netif_list = netif->next;
-00003e  6820              LDR      r0,[r4,#0]
-000040  6050              STR      r0,[r2,#4]  ; netif_list
-                  |L6.66|
-;;;442      } else {
-;;;443        /*  look for netif further down the list */
-;;;444        struct netif * tmp_netif;
-;;;445        for (tmp_netif = netif_list; tmp_netif != NULL; tmp_netif = tmp_netif->next) {
-;;;446          if (tmp_netif->next == netif) {
-;;;447            tmp_netif->next = netif->next;
-;;;448            break;
-;;;449          }
-;;;450        }
-;;;451        if (tmp_netif == NULL) {
-;;;452          return; /* netif is not on the list */
-;;;453        }
-;;;454      }
-;;;455      mib2_netif_removed(netif);
-;;;456    #if LWIP_NETIF_REMOVE_CALLBACK
-;;;457      if (netif->remove_callback) {
-;;;458        netif->remove_callback(netif);
-;;;459      }
-;;;460    #endif /* LWIP_NETIF_REMOVE_CALLBACK */
-;;;461      LWIP_DEBUGF( NETIF_DEBUG, ("netif_remove: removed netif\n") );
-;;;462    }
-000042  bd10              POP      {r4,pc}
-                  |L6.68|
-000044  6801              LDR      r1,[r0,#0]            ;446
-000046  42a1              CMP      r1,r4                 ;446
-000048  d102              BNE      |L6.80|
-00004a  6821              LDR      r1,[r4,#0]            ;447
-00004c  6001              STR      r1,[r0,#0]            ;447
+000010  f7fffffe          BL       netif_do_ip_addr_changed
+                  |L15.20|
+;;;754      }
+;;;755    
+;;;756    #if LWIP_IGMP
+;;;757      /* stop IGMP processing */
+;;;758      if (netif->flags & NETIF_FLAG_IGMP) {
+;;;759        igmp_stop(netif);
+;;;760      }
+;;;761    #endif /* LWIP_IGMP */
+;;;762    #endif /* LWIP_IPV4*/
+;;;763    
+;;;764    #if LWIP_IPV6
+;;;765      for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
+;;;766        if (ip6_addr_isvalid(netif_ip6_addr_state(netif, i))) {
+;;;767          netif_do_ip_addr_changed(netif_ip_addr6(netif, i), NULL);
+;;;768        }
+;;;769      }
+;;;770    #if LWIP_IPV6_MLD
+;;;771      /* stop MLD processing */
+;;;772      mld6_stop(netif);
+;;;773    #endif /* LWIP_IPV6_MLD */
+;;;774    #endif /* LWIP_IPV6 */
+;;;775      if (netif_is_up(netif)) {
+000014  f8940035          LDRB     r0,[r4,#0x35]
+000018  07c0              LSLS     r0,r0,#31
+00001a  d002              BEQ      |L15.34|
+;;;776        /* set netif down before removing (call callback function) */
+;;;777        netif_set_down(netif);
+00001c  4620              MOV      r0,r4
+00001e  f7fffffe          BL       netif_set_down
+                  |L15.34|
+;;;778      }
+;;;779    
+;;;780      mib2_remove_ip4(netif);
+;;;781    
+;;;782      /* this netif is default? */
+;;;783      if (netif_default == netif) {
+000022  4a0b              LDR      r2,|L15.80|
+000024  6890              LDR      r0,[r2,#8]  ; netif_default
+000026  42a0              CMP      r0,r4
+000028  d102              BNE      |L15.48|
+;;;784        /* reset default netif */
+;;;785        netif_set_default(NULL);
+00002a  2000              MOVS     r0,#0
+00002c  f7fffffe          BL       netif_set_default
+                  |L15.48|
+;;;786      }
+;;;787    #if !LWIP_SINGLE_NETIF
+;;;788      /*  is it the first netif? */
+;;;789      if (netif_list == netif) {
+000030  6850              LDR      r0,[r2,#4]  ; netif_list
+000032  42a0              CMP      r0,r4
+000034  d109              BNE      |L15.74|
+;;;790        netif_list = netif->next;
+000036  6820              LDR      r0,[r4,#0]
+000038  6050              STR      r0,[r2,#4]  ; netif_list
+                  |L15.58|
+;;;791      } else {
+;;;792        /*  look for netif further down the list */
+;;;793        struct netif *tmp_netif;
+;;;794        NETIF_FOREACH(tmp_netif) {
+;;;795          if (tmp_netif->next == netif) {
+;;;796            tmp_netif->next = netif->next;
+;;;797            break;
+;;;798          }
+;;;799        }
+;;;800        if (tmp_netif == NULL) {
+;;;801          return; /* netif is not on the list */
+;;;802        }
+;;;803      }
+;;;804    #endif /* !LWIP_SINGLE_NETIF */
+;;;805      mib2_netif_removed(netif);
+;;;806    #if LWIP_NETIF_REMOVE_CALLBACK
+;;;807      if (netif->remove_callback) {
+;;;808        netif->remove_callback(netif);
+;;;809      }
+;;;810    #endif /* LWIP_NETIF_REMOVE_CALLBACK */
+;;;811      LWIP_DEBUGF( NETIF_DEBUG, ("netif_remove: removed netif\n") );
+;;;812    }
+00003a  bd10              POP      {r4,pc}
+                  |L15.60|
+00003c  6801              LDR      r1,[r0,#0]            ;795
+00003e  42a1              CMP      r1,r4                 ;795
+000040  d102              BNE      |L15.72|
+000042  6821              LDR      r1,[r4,#0]            ;796
+000044  6001              STR      r1,[r0,#0]            ;796
+000046  bd10              POP      {r4,pc}
+                  |L15.72|
+000048  4608              MOV      r0,r1                 ;794
+                  |L15.74|
+00004a  2800              CMP      r0,#0                 ;794
+00004c  d1f6              BNE      |L15.60|
 00004e  bd10              POP      {r4,pc}
-                  |L6.80|
-000050  4608              MOV      r0,r1                 ;445
-                  |L6.82|
-000052  2800              CMP      r0,#0                 ;445
-000054  d1f6              BNE      |L6.68|
-000056  bd10              POP      {r4,pc}
-;;;463    
+;;;813    
                           ENDP
 
-                  |L6.88|
+                  |L15.80|
                           DCD      ||.data||
 
-                          AREA ||i.netif_set_addr||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_addr||, CODE, READONLY, ALIGN=2
 
                   netif_set_addr PROC
-;;;351    void
-;;;352    netif_set_addr(struct netif *netif, const ip4_addr_t *ipaddr, const ip4_addr_t *netmask,
-000000  e92d41f0          PUSH     {r4-r8,lr}
-;;;353        const ip4_addr_t *gw)
-;;;354    {
-000004  4607              MOV      r7,r0
+;;;657    void
+;;;658    netif_set_addr(struct netif *netif, const ip4_addr_t *ipaddr, const ip4_addr_t *netmask,
+000000  e92d4ff8          PUSH     {r3-r11,lr}
+;;;659                   const ip4_addr_t *gw)
+;;;660    {
+000004  4682              MOV      r10,r0
 000006  460c              MOV      r4,r1
-000008  4615              MOV      r5,r2
-00000a  461e              MOV      r6,r3
-;;;355      if (ip4_addr_isany(ipaddr)) {
-00000c  2c00              CMP      r4,#0
-00000e  d00f              BEQ      |L7.48|
-000010  6821              LDR      r1,[r4,#0]
-000012  b169              CBZ      r1,|L7.48|
-;;;356        /* when removing an address, we have to remove it *before* changing netmask/gw
-;;;357           to ensure that tcp RST segment can be sent correctly */
-;;;358        netif_set_ipaddr(netif, ipaddr);
-;;;359        netif_set_netmask(netif, netmask);
-;;;360        netif_set_gw(netif, gw);
-;;;361      } else {
-;;;362        netif_set_netmask(netif, netmask);
-000014  4629              MOV      r1,r5
-000016  4638              MOV      r0,r7
-000018  f7fffffe          BL       netif_set_netmask
-;;;363        netif_set_gw(netif, gw);
-00001c  4631              MOV      r1,r6
-00001e  4638              MOV      r0,r7
-000020  f7fffffe          BL       netif_set_gw
-;;;364        /* set ipaddr last to ensure netmask/gw have been set when status callback is called */
-;;;365        netif_set_ipaddr(netif, ipaddr);
-000024  4621              MOV      r1,r4
-000026  4638              MOV      r0,r7
-000028  e8bd41f0          POP      {r4-r8,lr}
-00002c  f7ffbffe          B.W      netif_set_ipaddr
-                  |L7.48|
-000030  4621              MOV      r1,r4                 ;358
-000032  4638              MOV      r0,r7                 ;358
-000034  f7fffffe          BL       netif_set_ipaddr
-000038  4629              MOV      r1,r5                 ;359
-00003a  4638              MOV      r0,r7                 ;359
-00003c  f7fffffe          BL       netif_set_netmask
-000040  4631              MOV      r1,r6                 ;360
-000042  4638              MOV      r0,r7                 ;360
-000044  e8bd41f0          POP      {r4-r8,lr}            ;360
-000048  f7ffbffe          B.W      netif_set_gw
-;;;366      }
-;;;367    }
-;;;368    #endif /* LWIP_IPV4*/
+000008  4616              MOV      r6,r2
+00000a  461f              MOV      r7,r3
+;;;661    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;662      netif_nsc_reason_t change_reason = LWIP_NSC_NONE;
+;;;663      netif_ext_callback_args_t cb_args;
+;;;664      ip_addr_t old_nm_val;
+;;;665      ip_addr_t old_gw_val;
+;;;666      ip_addr_t *old_nm = &old_nm_val;
+;;;667      ip_addr_t *old_gw = &old_gw_val;
+;;;668    #else
+;;;669      ip_addr_t *old_nm = NULL;
+00000c  f04f0800          MOV      r8,#0
+;;;670      ip_addr_t *old_gw = NULL;
+000010  46c1              MOV      r9,r8
+;;;671    #endif
+;;;672      ip_addr_t old_addr;
+;;;673      int remove;
+;;;674    
+;;;675      LWIP_ASSERT_CORE_LOCKED();
+;;;676    
+;;;677      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
+;;;678      if (ipaddr == NULL) {
+000012  2c00              CMP      r4,#0
+000014  d100              BNE      |L16.24|
+;;;679        ipaddr = IP4_ADDR_ANY4;
+000016  4c12              LDR      r4,|L16.96|
+                  |L16.24|
+;;;680      }
+;;;681      if (netmask == NULL) {
+000018  b906              CBNZ     r6,|L16.28|
+;;;682        netmask = IP4_ADDR_ANY4;
+00001a  4e11              LDR      r6,|L16.96|
+                  |L16.28|
+;;;683      }
+;;;684      if (gw == NULL) {
+00001c  b907              CBNZ     r7,|L16.32|
+;;;685        gw = IP4_ADDR_ANY4;
+00001e  4f10              LDR      r7,|L16.96|
+                  |L16.32|
+;;;686      }
+;;;687    
+;;;688      remove = ip4_addr_isany(ipaddr);
+000020  b1dc              CBZ      r4,|L16.90|
+000022  6820              LDR      r0,[r4,#0]
+000024  b1c8              CBZ      r0,|L16.90|
+000026  2500              MOVS     r5,#0
+                  |L16.40|
+;;;689      if (remove) {
+000028  b125              CBZ      r5,|L16.52|
+;;;690        /* when removing an address, we have to remove it *before* changing netmask/gw
+;;;691           to ensure that tcp RST segment can be sent correctly */
+;;;692        if (netif_do_set_ipaddr(netif, ipaddr, &old_addr)) {
+00002a  466a              MOV      r2,sp
+00002c  4621              MOV      r1,r4
+00002e  4650              MOV      r0,r10
+000030  f7fffffe          BL       netif_do_set_ipaddr
+                  |L16.52|
+;;;693    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;694          change_reason |= LWIP_NSC_IPV4_ADDRESS_CHANGED;
+;;;695          cb_args.ipv4_changed.old_address = &old_addr;
+;;;696    #endif
+;;;697        }
+;;;698      }
+;;;699      if (netif_do_set_netmask(netif, netmask, old_nm)) {
+000034  4642              MOV      r2,r8
+000036  4631              MOV      r1,r6
+000038  4650              MOV      r0,r10
+00003a  f7fffffe          BL       netif_do_set_netmask
+;;;700    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;701        change_reason |= LWIP_NSC_IPV4_NETMASK_CHANGED;
+;;;702        cb_args.ipv4_changed.old_netmask = old_nm;
+;;;703    #endif
+;;;704      }
+;;;705      if (netif_do_set_gw(netif, gw, old_gw)) {
+00003e  464a              MOV      r2,r9
+000040  4639              MOV      r1,r7
+000042  4650              MOV      r0,r10
+000044  f7fffffe          BL       netif_do_set_gw
+;;;706    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;707        change_reason |= LWIP_NSC_IPV4_GATEWAY_CHANGED;
+;;;708        cb_args.ipv4_changed.old_gw = old_gw;
+;;;709    #endif
+;;;710      }
+;;;711      if (!remove) {
+000048  2d00              CMP      r5,#0
+00004a  d104              BNE      |L16.86|
+;;;712        /* set ipaddr last to ensure netmask/gw have been set when status callback is called */
+;;;713        if (netif_do_set_ipaddr(netif, ipaddr, &old_addr)) {
+00004c  466a              MOV      r2,sp
+00004e  4621              MOV      r1,r4
+000050  4650              MOV      r0,r10
+000052  f7fffffe          BL       netif_do_set_ipaddr
+                  |L16.86|
+;;;714    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;715          change_reason |= LWIP_NSC_IPV4_ADDRESS_CHANGED;
+;;;716          cb_args.ipv4_changed.old_address = &old_addr;
+;;;717    #endif
+;;;718        }
+;;;719      }
+;;;720    
+;;;721    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;722      if (change_reason != LWIP_NSC_NONE) {
+;;;723        change_reason |= LWIP_NSC_IPV4_SETTINGS_CHANGED;
+;;;724        netif_invoke_ext_callback(netif, change_reason, &cb_args);
+;;;725      }
+;;;726    #endif
+;;;727    }
+000056  e8bd8ff8          POP      {r3-r11,pc}
+                  |L16.90|
+00005a  2501              MOVS     r5,#1                 ;688
+00005c  e7e4              B        |L16.40|
+;;;728    #endif /* LWIP_IPV4*/
                           ENDP
 
+00005e  0000              DCW      0x0000
+                  |L16.96|
+                          DCD      ip_addr_any
 
                           AREA ||i.netif_set_default||, CODE, READONLY, ALIGN=2
 
                   netif_set_default PROC
-;;;603    void
-;;;604    netif_set_default(struct netif *netif)
-000000  4901              LDR      r1,|L8.8|
-;;;605    {
-;;;606      if (netif == NULL) {
-;;;607        /* remove default route */
-;;;608        mib2_remove_route_ip4(1, netif);
-;;;609      } else {
-;;;610        /* install default route */
-;;;611        mib2_add_route_ip4(1, netif);
-;;;612      }
-;;;613      netif_default = netif;
+;;;821    void
+;;;822    netif_set_default(struct netif *netif)
+000000  4901              LDR      r1,|L17.8|
+;;;823    {
+;;;824      LWIP_ASSERT_CORE_LOCKED();
+;;;825    
+;;;826      if (netif == NULL) {
+;;;827        /* remove default route */
+;;;828        mib2_remove_route_ip4(1, netif);
+;;;829      } else {
+;;;830        /* install default route */
+;;;831        mib2_add_route_ip4(1, netif);
+;;;832      }
+;;;833      netif_default = netif;
 000002  6088              STR      r0,[r1,#8]  ; netif_default
-;;;614      LWIP_DEBUGF(NETIF_DEBUG, ("netif: setting default interface %c%c\n",
-;;;615               netif ? netif->name[0] : '\'', netif ? netif->name[1] : '\''));
-;;;616    }
+;;;834      LWIP_DEBUGF(NETIF_DEBUG, ("netif: setting default interface %c%c\n",
+;;;835                                netif ? netif->name[0] : '\'', netif ? netif->name[1] : '\''));
+;;;836    }
 000004  4770              BX       lr
-;;;617    
+;;;837    
                           ENDP
 
 000006  0000              DCW      0x0000
-                  |L8.8|
+                  |L17.8|
                           DCD      ||.data||
 
-                          AREA ||i.netif_set_down||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_down||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_down PROC
-;;;681    void
-;;;682    netif_set_down(struct netif *netif)
+;;;918    void
+;;;919    netif_set_down(struct netif *netif)
 000000  b510              PUSH     {r4,lr}
-;;;683    {
+;;;920    {
 000002  4604              MOV      r4,r0
-;;;684      if (netif->flags & NETIF_FLAG_UP) {
-000004  f8940037          LDRB     r0,[r4,#0x37]
-000008  07c1              LSLS     r1,r0,#31
-00000a  d00f              BEQ      |L9.44|
-;;;685        netif->flags &= ~NETIF_FLAG_UP;
-00000c  f0200001          BIC      r0,r0,#1
-000010  f8840037          STRB     r0,[r4,#0x37]
-;;;686        MIB2_COPY_SYSUPTIME_TO(&netif->ts);
-;;;687    
-;;;688    #if LWIP_IPV4 && LWIP_ARP
-;;;689        if (netif->flags & NETIF_FLAG_ETHARP) {
-000014  0700              LSLS     r0,r0,#28
-000016  d502              BPL      |L9.30|
-;;;690          etharp_cleanup_netif(netif);
-000018  4620              MOV      r0,r4
-00001a  f7fffffe          BL       etharp_cleanup_netif
-                  |L9.30|
-;;;691        }
-;;;692    #endif /* LWIP_IPV4 && LWIP_ARP */
-;;;693    
-;;;694    #if LWIP_IPV6
-;;;695        nd6_cleanup_netif(netif);
-;;;696    #endif /* LWIP_IPV6 */
-;;;697    
-;;;698        NETIF_STATUS_CALLBACK(netif);
-00001e  69e1              LDR      r1,[r4,#0x1c]
-000020  2900              CMP      r1,#0
-000022  d003              BEQ      |L9.44|
-000024  4620              MOV      r0,r4
-000026  e8bd4010          POP      {r4,lr}
-00002a  4708              BX       r1
-                  |L9.44|
-;;;699      }
-;;;700    }
-00002c  bd10              POP      {r4,pc}
-;;;701    
+;;;921      LWIP_ASSERT_CORE_LOCKED();
+;;;922    
+;;;923      LWIP_ERROR("netif_set_down: invalid netif", netif != NULL, return);
+000004  2c00              CMP      r4,#0
+000006  d013              BEQ      |L18.48|
+;;;924    
+;;;925      if (netif->flags & NETIF_FLAG_UP) {
+000008  f8940035          LDRB     r0,[r4,#0x35]
+00000c  07c1              LSLS     r1,r0,#31
+00000e  d018              BEQ      |L18.66|
+;;;926    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;927        {
+;;;928          netif_ext_callback_args_t args;
+;;;929          args.status_changed.state = 0;
+;;;930          netif_invoke_ext_callback(netif, LWIP_NSC_STATUS_CHANGED, &args);
+;;;931        }
+;;;932    #endif
+;;;933    
+;;;934        netif_clear_flags(netif, NETIF_FLAG_UP);
+000010  f00000fe          AND      r0,r0,#0xfe
+000014  f8840035          STRB     r0,[r4,#0x35]
+;;;935        MIB2_COPY_SYSUPTIME_TO(&netif->ts);
+;;;936    
+;;;937    #if LWIP_IPV4 && LWIP_ARP
+;;;938        if (netif->flags & NETIF_FLAG_ETHARP) {
+000018  0700              LSLS     r0,r0,#28
+00001a  d502              BPL      |L18.34|
+;;;939          etharp_cleanup_netif(netif);
+00001c  4620              MOV      r0,r4
+00001e  f7fffffe          BL       etharp_cleanup_netif
+                  |L18.34|
+;;;940        }
+;;;941    #endif /* LWIP_IPV4 && LWIP_ARP */
+;;;942    
+;;;943    #if LWIP_IPV6
+;;;944        nd6_cleanup_netif(netif);
+;;;945    #endif /* LWIP_IPV6 */
+;;;946    
+;;;947        NETIF_STATUS_CALLBACK(netif);
+000022  69e1              LDR      r1,[r4,#0x1c]
+000024  2900              CMP      r1,#0
+000026  d00c              BEQ      |L18.66|
+000028  4620              MOV      r0,r4
+00002a  e8bd4010          POP      {r4,lr}
+00002e  4708              BX       r1
+                  |L18.48|
+000030  e8bd4010          POP      {r4,lr}               ;923
+000034  a303              ADR      r3,|L18.68|
+000036  f240329b          MOV      r2,#0x39b             ;923
+00003a  a10f              ADR      r1,|L18.120|
+00003c  a016              ADR      r0,|L18.152|
+00003e  f7ffbffe          B.W      __2printf
+                  |L18.66|
+;;;948      }
+;;;949    }
+000042  bd10              POP      {r4,pc}
+;;;950    
                           ENDP
 
+                  |L18.68|
+000044  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000048  6964646c
+00004c  65776172
+000050  65735c54
+000054  68697264
+000058  5f506172
+00005c  74795c4c
+000060  7749505c
+000064  7372635c
+000068  636f7265
+00006c  5c6e6574
+000070  69662e63
+000074  00      
+000075  00                DCB      0
+000076  00                DCB      0
+000077  00                DCB      0
+                  |L18.120|
+000078  6e657469          DCB      "netif_set_down: invalid netif",0
+00007c  665f7365
+000080  745f646f
+000084  776e3a20
+000088  696e7661
+00008c  6c696420
+000090  6e657469
+000094  6600    
+000096  00                DCB      0
+000097  00                DCB      0
+                  |L18.152|
+000098  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00009c  7274696f
+0000a0  6e202225
+0000a4  73222066
+0000a8  61696c65
+0000ac  64206174
+0000b0  206c696e
+0000b4  65202564
+0000b8  20696e20
+0000bc  25730a00
 
-                          AREA ||i.netif_set_gw||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_gw||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_gw PROC
-;;;556    void
-;;;557    netif_set_gw(struct netif *netif, const ip4_addr_t *gw)
-000000  2900              CMP      r1,#0
-;;;558    {
-000002  d002              BEQ      |L10.10|
-;;;559      ip4_addr_set(ip_2_ip4(&netif->gw), gw);
-000004  6809              LDR      r1,[r1,#0]
-                  |L10.6|
-000006  60c1              STR      r1,[r0,#0xc]
-;;;560      IP_SET_TYPE_VAL(netif->gw, IPADDR_TYPE_V4);
-;;;561      LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: GW address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-;;;562        netif->name[0], netif->name[1],
-;;;563        ip4_addr1_16(netif_ip4_gw(netif)),
-;;;564        ip4_addr2_16(netif_ip4_gw(netif)),
-;;;565        ip4_addr3_16(netif_ip4_gw(netif)),
-;;;566        ip4_addr4_16(netif_ip4_gw(netif))));
-;;;567    }
-000008  4770              BX       lr
-                  |L10.10|
-00000a  2100              MOVS     r1,#0                 ;559
-00000c  e7fb              B        |L10.6|
-;;;568    
+;;;620    void
+;;;621    netif_set_gw(struct netif *netif, const ip4_addr_t *gw)
+000000  2200              MOVS     r2,#0
+;;;622    {
+;;;623    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;624      ip_addr_t old_gw_val;
+;;;625      ip_addr_t *old_gw = &old_gw_val;
+;;;626    #else
+;;;627      ip_addr_t *old_gw = NULL;
+;;;628    #endif
+;;;629      LWIP_ASSERT_CORE_LOCKED();
+;;;630    
+;;;631      LWIP_ERROR("netif_set_gw: invalid netif", netif != NULL, return);
+000002  2800              CMP      r0,#0
+000004  d002              BEQ      |L19.12|
+;;;632    
+;;;633      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
+;;;634      if (gw == NULL) {
+000006  2900              CMP      r1,#0
+000008  d007              BEQ      |L19.26|
+00000a  e007              B        |L19.28|
+                  |L19.12|
+00000c  a304              ADR      r3,|L19.32|
+00000e  f2402277          MOV      r2,#0x277             ;631
+000012  a110              ADR      r1,|L19.84|
+000014  a016              ADR      r0,|L19.112|
+000016  f7ffbffe          B.W      __2printf
+                  |L19.26|
+;;;635        gw = IP4_ADDR_ANY4;
+00001a  491f              LDR      r1,|L19.152|
+                  |L19.28|
+;;;636      }
+;;;637    
+;;;638      if (netif_do_set_gw(netif, gw, old_gw)) {
+00001c  f7ffbffe          B.W      netif_do_set_gw
+;;;639    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;640        netif_ext_callback_args_t args;
+;;;641        args.ipv4_changed.old_gw = old_gw;
+;;;642        netif_invoke_ext_callback(netif, LWIP_NSC_IPV4_GATEWAY_CHANGED, &args);
+;;;643    #endif
+;;;644      }
+;;;645    }
+;;;646    
                           ENDP
 
+                  |L19.32|
+000020  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000024  6964646c
+000028  65776172
+00002c  65735c54
+000030  68697264
+000034  5f506172
+000038  74795c4c
+00003c  7749505c
+000040  7372635c
+000044  636f7265
+000048  5c6e6574
+00004c  69662e63
+000050  00      
+000051  00                DCB      0
+000052  00                DCB      0
+000053  00                DCB      0
+                  |L19.84|
+000054  6e657469          DCB      "netif_set_gw: invalid netif",0
+000058  665f7365
+00005c  745f6777
+000060  3a20696e
+000064  76616c69
+000068  64206e65
+00006c  74696600
+                  |L19.112|
+000070  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000074  7274696f
+000078  6e202225
+00007c  73222066
+000080  61696c65
+000084  64206174
+000088  206c696e
+00008c  65202564
+000090  20696e20
+000094  25730a00
+                  |L19.152|
+                          DCD      ip_addr_any
 
                           AREA ||i.netif_set_ipaddr||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_ipaddr PROC
-;;;506    void
-;;;507    netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr)
-000000  b538              PUSH     {r3-r5,lr}
-;;;508    {
-000002  4604              MOV      r4,r0
-000004  460d              MOV      r5,r1
-;;;509      ip_addr_t new_addr;
-;;;510      *ip_2_ip4(&new_addr) = (ipaddr ? *ipaddr : *IP4_ADDR_ANY4);
-000006  2d00              CMP      r5,#0
-000008  d002              BEQ      |L11.16|
-00000a  6828              LDR      r0,[r5,#0]
-00000c  9000              STR      r0,[sp,#0]
-00000e  e002              B        |L11.22|
-                  |L11.16|
-000010  480e              LDR      r0,|L11.76|
-000012  6800              LDR      r0,[r0,#0]  ; ip_addr_any
-000014  9000              STR      r0,[sp,#0]
-                  |L11.22|
-;;;511      IP_SET_TYPE_VAL(new_addr, IPADDR_TYPE_V4);
+;;;499    void
+;;;500    netif_set_ipaddr(struct netif *netif, const ip4_addr_t *ipaddr)
+000000  b508              PUSH     {r3,lr}
+;;;501    {
+;;;502      ip_addr_t old_addr;
+;;;503    
+;;;504      LWIP_ERROR("netif_set_ipaddr: invalid netif", netif != NULL, return);
+000002  2800              CMP      r0,#0
+000004  d002              BEQ      |L20.12|
+;;;505    
+;;;506      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
+;;;507      if (ipaddr == NULL) {
+000006  2900              CMP      r1,#0
+000008  d008              BEQ      |L20.28|
+00000a  e008              B        |L20.30|
+                  |L20.12|
+00000c  a306              ADR      r3,|L20.40|
+00000e  f44f72fc          MOV      r2,#0x1f8             ;504
+000012  a112              ADR      r1,|L20.92|
+000014  a019              ADR      r0,|L20.124|
+000016  f7fffffe          BL       __2printf
+;;;508        ipaddr = IP4_ADDR_ANY4;
+;;;509      }
+;;;510    
+;;;511      LWIP_ASSERT_CORE_LOCKED();
 ;;;512    
-;;;513      /* address is actually being changed? */
-;;;514      if (ip4_addr_cmp(ip_2_ip4(&new_addr), netif_ip4_addr(netif)) == 0) {
-000016  9800              LDR      r0,[sp,#0]
-000018  6861              LDR      r1,[r4,#4]
-00001a  4288              CMP      r0,r1
-00001c  d013              BEQ      |L11.70|
-;;;515        LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_STATE, ("netif_set_ipaddr: netif address being changed\n"));
-;;;516    #if LWIP_TCP
-;;;517        tcp_netif_ip_addr_changed(netif_ip_addr4(netif), &new_addr);
-00001e  4669              MOV      r1,sp
-000020  1d20              ADDS     r0,r4,#4
-000022  f7fffffe          BL       tcp_netif_ip_addr_changed
-;;;518    #endif /* LWIP_TCP */
-;;;519    #if LWIP_UDP
-;;;520        udp_netif_ip_addr_changed(netif_ip_addr4(netif), &new_addr);
-000026  4669              MOV      r1,sp
-000028  1d20              ADDS     r0,r4,#4
-00002a  f7fffffe          BL       udp_netif_ip_addr_changed
-;;;521    #endif /* LWIP_UDP */
-;;;522    #if LWIP_RAW
-;;;523        raw_netif_ip_addr_changed(netif_ip_addr4(netif), &new_addr);
-;;;524    #endif /* LWIP_RAW */
-;;;525    
-;;;526        mib2_remove_ip4(netif);
-;;;527        mib2_remove_route_ip4(0, netif);
-;;;528        /* set new IP address to netif */
-;;;529        ip4_addr_set(ip_2_ip4(&netif->ip_addr), ipaddr);
-00002e  b15d              CBZ      r5,|L11.72|
-000030  6828              LDR      r0,[r5,#0]
-                  |L11.50|
-000032  6060              STR      r0,[r4,#4]
-;;;530        IP_SET_TYPE_VAL(netif->ip_addr, IPADDR_TYPE_V4);
-;;;531        mib2_add_ip4(netif);
-;;;532        mib2_add_route_ip4(0, netif);
-;;;533    
-;;;534        netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4);
-000034  2101              MOVS     r1,#1
-000036  4620              MOV      r0,r4
-000038  f7fffffe          BL       netif_issue_reports
-;;;535    
-;;;536        NETIF_STATUS_CALLBACK(netif);
-00003c  69e1              LDR      r1,[r4,#0x1c]
-00003e  2900              CMP      r1,#0
-000040  d001              BEQ      |L11.70|
-000042  4620              MOV      r0,r4
-000044  4788              BLX      r1
-                  |L11.70|
-;;;537      }
-;;;538    
-;;;539      LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: IP address of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-;;;540        netif->name[0], netif->name[1],
-;;;541        ip4_addr1_16(netif_ip4_addr(netif)),
-;;;542        ip4_addr2_16(netif_ip4_addr(netif)),
-;;;543        ip4_addr3_16(netif_ip4_addr(netif)),
-;;;544        ip4_addr4_16(netif_ip4_addr(netif))));
-;;;545    }
-000046  bd38              POP      {r3-r5,pc}
-                  |L11.72|
-000048  2000              MOVS     r0,#0                 ;529
-00004a  e7f2              B        |L11.50|
-;;;546    
+;;;513      if (netif_do_set_ipaddr(netif, ipaddr, &old_addr)) {
+;;;514    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;515        netif_ext_callback_args_t args;
+;;;516        args.ipv4_changed.old_address = &old_addr;
+;;;517        netif_invoke_ext_callback(netif, LWIP_NSC_IPV4_ADDRESS_CHANGED, &args);
+;;;518    #endif
+;;;519      }
+;;;520    }
+00001a  bd08              POP      {r3,pc}
+                  |L20.28|
+00001c  4921              LDR      r1,|L20.164|
+                  |L20.30|
+00001e  466a              MOV      r2,sp                 ;513
+000020  f7fffffe          BL       netif_do_set_ipaddr
+000024  bd08              POP      {r3,pc}
+;;;521    
                           ENDP
 
-                  |L11.76|
+000026  0000              DCW      0x0000
+                  |L20.40|
+000028  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+00002c  6964646c
+000030  65776172
+000034  65735c54
+000038  68697264
+00003c  5f506172
+000040  74795c4c
+000044  7749505c
+000048  7372635c
+00004c  636f7265
+000050  5c6e6574
+000054  69662e63
+000058  00      
+000059  00                DCB      0
+00005a  00                DCB      0
+00005b  00                DCB      0
+                  |L20.92|
+00005c  6e657469          DCB      "netif_set_ipaddr: invalid netif",0
+000060  665f7365
+000064  745f6970
+000068  61646472
+00006c  3a20696e
+000070  76616c69
+000074  64206e65
+000078  74696600
+                  |L20.124|
+00007c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000080  7274696f
+000084  6e202225
+000088  73222066
+00008c  61696c65
+000090  64206174
+000094  206c696e
+000098  65202564
+00009c  20696e20
+0000a0  25730a00
+                  |L20.164|
                           DCD      ip_addr_any
 
                           AREA ||i.netif_set_link_callback||, CODE, READONLY, ALIGN=1
 
                   netif_set_link_callback PROC
-;;;773    void
-;;;774    netif_set_link_callback(struct netif *netif, netif_status_callback_fn link_callback)
+;;;1050   void
+;;;1051   netif_set_link_callback(struct netif *netif, netif_status_callback_fn link_callback)
 000000  2800              CMP      r0,#0
-;;;775    {
-000002  d000              BEQ      |L12.6|
-;;;776      if (netif) {
-;;;777        netif->link_callback = link_callback;
+;;;1052   {
+000002  d000              BEQ      |L21.6|
+;;;1053     LWIP_ASSERT_CORE_LOCKED();
+;;;1054   
+;;;1055     if (netif) {
+;;;1056       netif->link_callback = link_callback;
 000004  6201              STR      r1,[r0,#0x20]
-                  |L12.6|
-;;;778      }
-;;;779    }
+                  |L21.6|
+;;;1057     }
+;;;1058   }
 000006  4770              BX       lr
-;;;780    #endif /* LWIP_NETIF_LINK_CALLBACK */
+;;;1059   #endif /* LWIP_NETIF_LINK_CALLBACK */
                           ENDP
 
 
-                          AREA ||i.netif_set_link_down||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_link_down||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_link_down PROC
-;;;759    void
-;;;760    netif_set_link_down(struct netif *netif )
-000000  f8901037          LDRB     r1,[r0,#0x37]
-;;;761    {
-;;;762      if (netif->flags & NETIF_FLAG_LINK_UP) {
-000004  074a              LSLS     r2,r1,#29
-000006  d507              BPL      |L13.24|
-;;;763        netif->flags &= ~NETIF_FLAG_LINK_UP;
-000008  f0210104          BIC      r1,r1,#4
-00000c  f8801037          STRB     r1,[r0,#0x37]
-;;;764        NETIF_LINK_CALLBACK(netif);
-000010  6a01              LDR      r1,[r0,#0x20]
-000012  2900              CMP      r1,#0
-000014  d000              BEQ      |L13.24|
-000016  4708              BX       r1
-                  |L13.24|
-;;;765      }
-;;;766    }
-000018  4770              BX       lr
-;;;767    
+;;;1025   void
+;;;1026   netif_set_link_down(struct netif *netif)
+000000  2800              CMP      r0,#0
+;;;1027   {
+000002  d00b              BEQ      |L22.28|
+;;;1028     LWIP_ASSERT_CORE_LOCKED();
+;;;1029   
+;;;1030     LWIP_ERROR("netif_set_link_down: invalid netif", netif != NULL, return);
+;;;1031   
+;;;1032     if (netif->flags & NETIF_FLAG_LINK_UP) {
+000004  f8901035          LDRB     r1,[r0,#0x35]
+000008  074a              LSLS     r2,r1,#29
+00000a  d50e              BPL      |L22.42|
+;;;1033       netif_clear_flags(netif, NETIF_FLAG_LINK_UP);
+00000c  f00101fb          AND      r1,r1,#0xfb
+000010  f8801035          STRB     r1,[r0,#0x35]
+;;;1034       NETIF_LINK_CALLBACK(netif);
+000014  6a01              LDR      r1,[r0,#0x20]
+000016  2900              CMP      r1,#0
+000018  d007              BEQ      |L22.42|
+00001a  4708              BX       r1
+                  |L22.28|
+00001c  a303              ADR      r3,|L22.44|
+00001e  f2404206          MOV      r2,#0x406             ;1030
+000022  a10f              ADR      r1,|L22.96|
+000024  a017              ADR      r0,|L22.132|
+000026  f7ffbffe          B.W      __2printf
+                  |L22.42|
+;;;1035   #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;1036       {
+;;;1037         netif_ext_callback_args_t args;
+;;;1038         args.link_changed.state = 0;
+;;;1039         netif_invoke_ext_callback(netif, LWIP_NSC_LINK_CHANGED, &args);
+;;;1040       }
+;;;1041   #endif
+;;;1042     }
+;;;1043   }
+00002a  4770              BX       lr
+;;;1044   
                           ENDP
 
+                  |L22.44|
+00002c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000030  6964646c
+000034  65776172
+000038  65735c54
+00003c  68697264
+000040  5f506172
+000044  74795c4c
+000048  7749505c
+00004c  7372635c
+000050  636f7265
+000054  5c6e6574
+000058  69662e63
+00005c  00      
+00005d  00                DCB      0
+00005e  00                DCB      0
+00005f  00                DCB      0
+                  |L22.96|
+000060  6e657469          DCB      "netif_set_link_down: invalid netif",0
+000064  665f7365
+000068  745f6c69
+00006c  6e6b5f64
+000070  6f776e3a
+000074  20696e76
+000078  616c6964
+00007c  206e6574
+000080  696600  
+000083  00                DCB      0
+                  |L22.132|
+000084  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000088  7274696f
+00008c  6e202225
+000090  73222066
+000094  61696c65
+000098  64206174
+00009c  206c696e
+0000a0  65202564
+0000a4  20696e20
+0000a8  25730a00
 
-                          AREA ||i.netif_set_link_up||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_link_up||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_link_up PROC
-;;;734    void
-;;;735    netif_set_link_up(struct netif *netif)
+;;;987    void
+;;;988    netif_set_link_up(struct netif *netif)
 000000  b510              PUSH     {r4,lr}
-;;;736    {
+;;;989    {
 000002  4604              MOV      r4,r0
-;;;737      if (!(netif->flags & NETIF_FLAG_LINK_UP)) {
-000004  f8940037          LDRB     r0,[r4,#0x37]
-000008  0741              LSLS     r1,r0,#29
-00000a  d415              BMI      |L14.56|
-;;;738        netif->flags |= NETIF_FLAG_LINK_UP;
-00000c  f0400004          ORR      r0,r0,#4
-000010  f8840037          STRB     r0,[r4,#0x37]
-;;;739    
-;;;740    #if LWIP_DHCP
-;;;741        dhcp_network_changed(netif);
-000014  4620              MOV      r0,r4
-000016  f7fffffe          BL       dhcp_network_changed
-;;;742    #endif /* LWIP_DHCP */
-;;;743    
-;;;744    #if LWIP_AUTOIP
-;;;745        autoip_network_changed(netif);
-;;;746    #endif /* LWIP_AUTOIP */
-;;;747    
-;;;748        if (netif->flags & NETIF_FLAG_UP) {
-00001a  f8940037          LDRB     r0,[r4,#0x37]
-00001e  07c0              LSLS     r0,r0,#31
-000020  d003              BEQ      |L14.42|
-;;;749          netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4|NETIF_REPORT_TYPE_IPV6);
-000022  2103              MOVS     r1,#3
-000024  4620              MOV      r0,r4
-000026  f7fffffe          BL       netif_issue_reports
-                  |L14.42|
-;;;750        }
-;;;751        NETIF_LINK_CALLBACK(netif);
-00002a  6a21              LDR      r1,[r4,#0x20]
-00002c  2900              CMP      r1,#0
-00002e  d003              BEQ      |L14.56|
-000030  4620              MOV      r0,r4
-000032  e8bd4010          POP      {r4,lr}
-000036  4708              BX       r1
-                  |L14.56|
-;;;752      }
-;;;753    }
-000038  bd10              POP      {r4,pc}
-;;;754    
+;;;990      LWIP_ASSERT_CORE_LOCKED();
+;;;991    
+;;;992      LWIP_ERROR("netif_set_link_up: invalid netif", netif != NULL, return);
+000004  2c00              CMP      r4,#0
+000006  d015              BEQ      |L23.52|
+;;;993    
+;;;994      if (!(netif->flags & NETIF_FLAG_LINK_UP)) {
+000008  f8940035          LDRB     r0,[r4,#0x35]
+00000c  0741              LSLS     r1,r0,#29
+00000e  d41a              BMI      |L23.70|
+;;;995        netif_set_flags(netif, NETIF_FLAG_LINK_UP);
+000010  f0400004          ORR      r0,r0,#4
+000014  f8840035          STRB     r0,[r4,#0x35]
+;;;996    
+;;;997    #if LWIP_DHCP
+;;;998        dhcp_network_changed(netif);
+000018  4620              MOV      r0,r4
+00001a  f7fffffe          BL       dhcp_network_changed
+;;;999    #endif /* LWIP_DHCP */
+;;;1000   
+;;;1001   #if LWIP_AUTOIP
+;;;1002       autoip_network_changed(netif);
+;;;1003   #endif /* LWIP_AUTOIP */
+;;;1004   
+;;;1005       netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4 | NETIF_REPORT_TYPE_IPV6);
+00001e  2103              MOVS     r1,#3
+000020  4620              MOV      r0,r4
+000022  f7fffffe          BL       netif_issue_reports
+;;;1006   #if LWIP_IPV6
+;;;1007       nd6_restart_netif(netif);
+;;;1008   #endif /* LWIP_IPV6 */
+;;;1009   
+;;;1010       NETIF_LINK_CALLBACK(netif);
+000026  6a21              LDR      r1,[r4,#0x20]
+000028  2900              CMP      r1,#0
+00002a  d00c              BEQ      |L23.70|
+00002c  4620              MOV      r0,r4
+00002e  e8bd4010          POP      {r4,lr}
+000032  4708              BX       r1
+                  |L23.52|
+000034  e8bd4010          POP      {r4,lr}               ;992
+000038  a303              ADR      r3,|L23.72|
+00003a  f44f7278          MOV      r2,#0x3e0             ;992
+00003e  a10f              ADR      r1,|L23.124|
+000040  a017              ADR      r0,|L23.160|
+000042  f7ffbffe          B.W      __2printf
+                  |L23.70|
+;;;1011   #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;1012       {
+;;;1013         netif_ext_callback_args_t args;
+;;;1014         args.link_changed.state = 1;
+;;;1015         netif_invoke_ext_callback(netif, LWIP_NSC_LINK_CHANGED, &args);
+;;;1016       }
+;;;1017   #endif
+;;;1018     }
+;;;1019   }
+000046  bd10              POP      {r4,pc}
+;;;1020   
                           ENDP
 
+                  |L23.72|
+000048  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+00004c  6964646c
+000050  65776172
+000054  65735c54
+000058  68697264
+00005c  5f506172
+000060  74795c4c
+000064  7749505c
+000068  7372635c
+00006c  636f7265
+000070  5c6e6574
+000074  69662e63
+000078  00      
+000079  00                DCB      0
+00007a  00                DCB      0
+00007b  00                DCB      0
+                  |L23.124|
+00007c  6e657469          DCB      "netif_set_link_up: invalid netif",0
+000080  665f7365
+000084  745f6c69
+000088  6e6b5f75
+00008c  703a2069
+000090  6e76616c
+000094  6964206e
+000098  65746966
+00009c  00      
+00009d  00                DCB      0
+00009e  00                DCB      0
+00009f  00                DCB      0
+                  |L23.160|
+0000a0  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000a4  7274696f
+0000a8  6e202225
+0000ac  73222066
+0000b0  61696c65
+0000b4  64206174
+0000b8  206c696e
+0000bc  65202564
+0000c0  20696e20
+0000c4  25730a00
 
-                          AREA ||i.netif_set_netmask||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_netmask||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_netmask PROC
-;;;579    void
-;;;580    netif_set_netmask(struct netif *netif, const ip4_addr_t *netmask)
-000000  2900              CMP      r1,#0
-;;;581    {
-000002  d002              BEQ      |L15.10|
-;;;582      mib2_remove_route_ip4(0, netif);
-;;;583      /* set new netmask to netif */
-;;;584      ip4_addr_set(ip_2_ip4(&netif->netmask), netmask);
-000004  6809              LDR      r1,[r1,#0]
-                  |L15.6|
-000006  6081              STR      r1,[r0,#8]
-;;;585      IP_SET_TYPE_VAL(netif->netmask, IPADDR_TYPE_V4);
-;;;586      mib2_add_route_ip4(0, netif);
-;;;587      LWIP_DEBUGF(NETIF_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("netif: netmask of interface %c%c set to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-;;;588        netif->name[0], netif->name[1],
-;;;589        ip4_addr1_16(netif_ip4_netmask(netif)),
-;;;590        ip4_addr2_16(netif_ip4_netmask(netif)),
-;;;591        ip4_addr3_16(netif_ip4_netmask(netif)),
-;;;592        ip4_addr4_16(netif_ip4_netmask(netif))));
-;;;593    }
-000008  4770              BX       lr
-                  |L15.10|
-00000a  2100              MOVS     r1,#0                 ;584
-00000c  e7fb              B        |L15.6|
-;;;594    #endif /* LWIP_IPV4 */
+;;;559    void
+;;;560    netif_set_netmask(struct netif *netif, const ip4_addr_t *netmask)
+000000  2200              MOVS     r2,#0
+;;;561    {
+;;;562    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;563      ip_addr_t old_nm_val;
+;;;564      ip_addr_t *old_nm = &old_nm_val;
+;;;565    #else
+;;;566      ip_addr_t *old_nm = NULL;
+;;;567    #endif
+;;;568      LWIP_ASSERT_CORE_LOCKED();
+;;;569    
+;;;570      LWIP_ERROR("netif_set_netmask: invalid netif", netif != NULL, return);
+000002  2800              CMP      r0,#0
+000004  d002              BEQ      |L24.12|
+;;;571    
+;;;572      /* Don't propagate NULL pointer (IPv4 ANY) to subsequent functions */
+;;;573      if (netmask == NULL) {
+000006  2900              CMP      r1,#0
+000008  d007              BEQ      |L24.26|
+00000a  e007              B        |L24.28|
+                  |L24.12|
+00000c  a304              ADR      r3,|L24.32|
+00000e  f240223a          MOV      r2,#0x23a             ;570
+000012  a110              ADR      r1,|L24.84|
+000014  a018              ADR      r0,|L24.120|
+000016  f7ffbffe          B.W      __2printf
+                  |L24.26|
+;;;574        netmask = IP4_ADDR_ANY4;
+00001a  4921              LDR      r1,|L24.160|
+                  |L24.28|
+;;;575      }
+;;;576    
+;;;577      if (netif_do_set_netmask(netif, netmask, old_nm)) {
+00001c  f7ffbffe          B.W      netif_do_set_netmask
+;;;578    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;579        netif_ext_callback_args_t args;
+;;;580        args.ipv4_changed.old_netmask = old_nm;
+;;;581        netif_invoke_ext_callback(netif, LWIP_NSC_IPV4_NETMASK_CHANGED, &args);
+;;;582    #endif
+;;;583      }
+;;;584    }
+;;;585    
                           ENDP
 
+                  |L24.32|
+000020  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000024  6964646c
+000028  65776172
+00002c  65735c54
+000030  68697264
+000034  5f506172
+000038  74795c4c
+00003c  7749505c
+000040  7372635c
+000044  636f7265
+000048  5c6e6574
+00004c  69662e63
+000050  00      
+000051  00                DCB      0
+000052  00                DCB      0
+000053  00                DCB      0
+                  |L24.84|
+000054  6e657469          DCB      "netif_set_netmask: invalid netif",0
+000058  665f7365
+00005c  745f6e65
+000060  746d6173
+000064  6b3a2069
+000068  6e76616c
+00006c  6964206e
+000070  65746966
+000074  00      
+000075  00                DCB      0
+000076  00                DCB      0
+000077  00                DCB      0
+                  |L24.120|
+000078  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00007c  7274696f
+000080  6e202225
+000084  73222066
+000088  61696c65
+00008c  64206174
+000090  206c696e
+000094  65202564
+000098  20696e20
+00009c  25730a00
+                  |L24.160|
+                          DCD      ip_addr_any
 
                           AREA ||i.netif_set_status_callback||, CODE, READONLY, ALIGN=1
 
                   netif_set_status_callback PROC
-;;;707    void
-;;;708    netif_set_status_callback(struct netif *netif, netif_status_callback_fn status_callback)
+;;;956    void
+;;;957    netif_set_status_callback(struct netif *netif, netif_status_callback_fn status_callback)
 000000  2800              CMP      r0,#0
-;;;709    {
-000002  d000              BEQ      |L16.6|
-;;;710      if (netif) {
-;;;711        netif->status_callback = status_callback;
+;;;958    {
+000002  d000              BEQ      |L25.6|
+;;;959      LWIP_ASSERT_CORE_LOCKED();
+;;;960    
+;;;961      if (netif) {
+;;;962        netif->status_callback = status_callback;
 000004  61c1              STR      r1,[r0,#0x1c]
-                  |L16.6|
-;;;712      }
-;;;713    }
+                  |L25.6|
+;;;963      }
+;;;964    }
 000006  4770              BX       lr
-;;;714    #endif /* LWIP_NETIF_STATUS_CALLBACK */
+;;;965    #endif /* LWIP_NETIF_STATUS_CALLBACK */
                           ENDP
 
 
-                          AREA ||i.netif_set_up||, CODE, READONLY, ALIGN=1
+                          AREA ||i.netif_set_up||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
                   netif_set_up PROC
-;;;623    void
-;;;624    netif_set_up(struct netif *netif)
+;;;843    void
+;;;844    netif_set_up(struct netif *netif)
 000000  b510              PUSH     {r4,lr}
-;;;625    {
+;;;845    {
 000002  4604              MOV      r4,r0
-;;;626      if (!(netif->flags & NETIF_FLAG_UP)) {
-000004  f8940037          LDRB     r0,[r4,#0x37]
-000008  07c1              LSLS     r1,r0,#31
-00000a  d111              BNE      |L17.48|
-;;;627        netif->flags |= NETIF_FLAG_UP;
-00000c  f0400001          ORR      r0,r0,#1
-000010  f8840037          STRB     r0,[r4,#0x37]
-;;;628    
-;;;629        MIB2_COPY_SYSUPTIME_TO(&netif->ts);
-;;;630    
-;;;631        NETIF_STATUS_CALLBACK(netif);
-000014  69e1              LDR      r1,[r4,#0x1c]
-000016  b109              CBZ      r1,|L17.28|
-000018  4620              MOV      r0,r4
-00001a  4788              BLX      r1
-                  |L17.28|
-;;;632    
-;;;633        if (netif->flags & NETIF_FLAG_LINK_UP) {
-00001c  f8940037          LDRB     r0,[r4,#0x37]
-000020  0740              LSLS     r0,r0,#29
-000022  d505              BPL      |L17.48|
-;;;634          netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4|NETIF_REPORT_TYPE_IPV6);
-000024  4620              MOV      r0,r4
-000026  e8bd4010          POP      {r4,lr}
-00002a  2103              MOVS     r1,#3
-00002c  f7ffbffe          B.W      netif_issue_reports
-                  |L17.48|
-;;;635        }
-;;;636      }
-;;;637    }
-000030  bd10              POP      {r4,pc}
-;;;638    
+;;;846      LWIP_ASSERT_CORE_LOCKED();
+;;;847    
+;;;848      LWIP_ERROR("netif_set_up: invalid netif", netif != NULL, return);
+000004  2c00              CMP      r4,#0
+000006  d011              BEQ      |L26.44|
+;;;849    
+;;;850      if (!(netif->flags & NETIF_FLAG_UP)) {
+000008  f8940035          LDRB     r0,[r4,#0x35]
+00000c  07c1              LSLS     r1,r0,#31
+00000e  d116              BNE      |L26.62|
+;;;851        netif_set_flags(netif, NETIF_FLAG_UP);
+000010  f0400001          ORR      r0,r0,#1
+000014  f8840035          STRB     r0,[r4,#0x35]
+;;;852    
+;;;853        MIB2_COPY_SYSUPTIME_TO(&netif->ts);
+;;;854    
+;;;855        NETIF_STATUS_CALLBACK(netif);
+000018  69e1              LDR      r1,[r4,#0x1c]
+00001a  b109              CBZ      r1,|L26.32|
+00001c  4620              MOV      r0,r4
+00001e  4788              BLX      r1
+                  |L26.32|
+;;;856    
+;;;857    #if LWIP_NETIF_EXT_STATUS_CALLBACK
+;;;858        {
+;;;859          netif_ext_callback_args_t args;
+;;;860          args.status_changed.state = 1;
+;;;861          netif_invoke_ext_callback(netif, LWIP_NSC_STATUS_CHANGED, &args);
+;;;862        }
+;;;863    #endif
+;;;864    
+;;;865        netif_issue_reports(netif, NETIF_REPORT_TYPE_IPV4 | NETIF_REPORT_TYPE_IPV6);
+000020  4620              MOV      r0,r4
+000022  e8bd4010          POP      {r4,lr}
+000026  2103              MOVS     r1,#3
+000028  f7ffbffe          B.W      netif_issue_reports
+                  |L26.44|
+00002c  e8bd4010          POP      {r4,lr}               ;848
+000030  a303              ADR      r3,|L26.64|
+000032  f44f7254          MOV      r2,#0x350             ;848
+000036  a10f              ADR      r1,|L26.116|
+000038  a015              ADR      r0,|L26.144|
+00003a  f7ffbffe          B.W      __2printf
+                  |L26.62|
+;;;866    #if LWIP_IPV6
+;;;867        nd6_restart_netif(netif);
+;;;868    #endif /* LWIP_IPV6 */
+;;;869      }
+;;;870    }
+00003e  bd10              POP      {r4,pc}
+;;;871    
                           ENDP
 
+                  |L26.64|
+000040  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\netif.c",0
+000044  6964646c
+000048  65776172
+00004c  65735c54
+000050  68697264
+000054  5f506172
+000058  74795c4c
+00005c  7749505c
+000060  7372635c
+000064  636f7265
+000068  5c6e6574
+00006c  69662e63
+000070  00      
+000071  00                DCB      0
+000072  00                DCB      0
+000073  00                DCB      0
+                  |L26.116|
+000074  6e657469          DCB      "netif_set_up: invalid netif",0
+000078  665f7365
+00007c  745f7570
+000080  3a20696e
+000084  76616c69
+000088  64206e65
+00008c  74696600
+                  |L26.144|
+000090  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000094  7274696f
+000098  6e202225
+00009c  73222066
+0000a0  61696c65
+0000a4  64206174
+0000a8  206c696e
+0000ac  65202564
+0000b0  20696e20
+0000b4  25730a00
 
                           AREA ||.data||, DATA, ALIGN=2
 

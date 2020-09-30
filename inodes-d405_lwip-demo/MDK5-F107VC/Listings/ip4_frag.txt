@@ -12,501 +12,526 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   ip4_frag PROC
-;;;717    err_t
-;;;718    ip4_frag(struct pbuf *p, struct netif *netif, const ip4_addr_t *dest)
+;;;739    err_t
+;;;740    ip4_frag(struct pbuf *p, struct netif *netif, const ip4_addr_t *dest)
 000000  e92d4ff7          PUSH     {r0-r2,r4-r11,lr}
-;;;719    {
+;;;741    {
 000004  b088              SUB      sp,sp,#0x20
 000006  4604              MOV      r4,r0
-;;;720      struct pbuf *rambuf;
-;;;721    #if !LWIP_NETIF_TX_SINGLE_PBUF
-;;;722      struct pbuf *newpbuf;
-;;;723      u16_t newpbuflen = 0;
+;;;742      struct pbuf *rambuf;
+;;;743    #if !LWIP_NETIF_TX_SINGLE_PBUF
+;;;744      struct pbuf *newpbuf;
+;;;745      u16_t newpbuflen = 0;
 000008  2700              MOVS     r7,#0
-;;;724      u16_t left_to_copy;
-;;;725    #endif
-;;;726      struct ip_hdr *original_iphdr;
-;;;727      struct ip_hdr *iphdr;
-;;;728      const u16_t nfb = (netif->mtu - IP_HLEN) / 8;
+;;;746      u16_t left_to_copy;
+;;;747    #endif
+;;;748      struct ip_hdr *original_iphdr;
+;;;749      struct ip_hdr *iphdr;
+;;;750      const u16_t nfb = (u16_t)((netif->mtu - IP_HLEN) / 8);
 00000a  9809              LDR      r0,[sp,#0x24]
-00000c  8dc0              LDRH     r0,[r0,#0x2e]
+00000c  8d80              LDRH     r0,[r0,#0x2c]
 00000e  3814              SUBS     r0,r0,#0x14
 000010  17c1              ASRS     r1,r0,#31
 000012  eb007051          ADD      r0,r0,r1,LSR #29
 000016  f3c000cf          UBFX     r0,r0,#3,#16
 00001a  9005              STR      r0,[sp,#0x14]
-;;;729      u16_t left, fragsize;
-;;;730      u16_t ofo;
-;;;731      int last;
-;;;732      u16_t poff = IP_HLEN;
-00001c  2614              MOVS     r6,#0x14
-;;;733      u16_t tmp;
-;;;734    
-;;;735      original_iphdr = (struct ip_hdr *)p->payload;
+;;;751      u16_t left, fragsize;
+;;;752      u16_t ofo;
+;;;753      int last;
+;;;754      u16_t poff = IP_HLEN;
+00001c  2514              MOVS     r5,#0x14
+;;;755      u16_t tmp;
+;;;756      int mf_set;
+;;;757    
+;;;758      original_iphdr = (struct ip_hdr *)p->payload;
 00001e  6860              LDR      r0,[r4,#4]
 000020  9007              STR      r0,[sp,#0x1c]
-;;;736      iphdr = original_iphdr;
+;;;759      iphdr = original_iphdr;
 000022  9807              LDR      r0,[sp,#0x1c]
-;;;737      LWIP_ERROR("ip4_frag() does not support IP options", IPH_HL(iphdr) * 4 == IP_HLEN, return ERR_VAL);
-000024  1fbd              SUBS     r5,r7,#6
-000026  7801              LDRB     r1,[r0,#0]
-000028  f001010f          AND      r1,r1,#0xf
-00002c  2905              CMP      r1,#5
-00002e  d00a              BEQ      |L1.70|
-000030  a35e              ADR      r3,|L1.428|
-000032  f24022e1          MOV      r2,#0x2e1
-000036  a16c              ADR      r1,|L1.488|
-000038  a075              ADR      r0,|L1.528|
-00003a  f7fffffe          BL       __2printf
-00003e  4628              MOV      r0,r5
-                  |L1.64|
-;;;738    
-;;;739      /* Save original offset */
-;;;740      tmp = lwip_ntohs(IPH_OFFSET(iphdr));
-;;;741      ofo = tmp & IP_OFFMASK;
-;;;742      LWIP_ERROR("ip_frag(): MF already set", (tmp & IP_MF) == 0, return ERR_VAL);
-;;;743    
-;;;744      left = p->tot_len - IP_HLEN;
-;;;745    
-;;;746      while (left) {
-;;;747        /* Fill this fragment */
-;;;748        fragsize = LWIP_MIN(left, nfb * 8);
-;;;749    
-;;;750    #if LWIP_NETIF_TX_SINGLE_PBUF
-;;;751        rambuf = pbuf_alloc(PBUF_IP, fragsize, PBUF_RAM);
-;;;752        if (rambuf == NULL) {
-;;;753          goto memerr;
-;;;754        }
-;;;755        LWIP_ASSERT("this needs a pbuf in one piece!",
-;;;756          (rambuf->len == rambuf->tot_len) && (rambuf->next == NULL));
-;;;757        poff += pbuf_copy_partial(p, rambuf->payload, fragsize, poff);
-;;;758        /* make room for the IP header */
-;;;759        if (pbuf_header(rambuf, IP_HLEN)) {
-;;;760          pbuf_free(rambuf);
-;;;761          goto memerr;
-;;;762        }
-;;;763        /* fill in the IP header */
-;;;764        SMEMCPY(rambuf->payload, original_iphdr, IP_HLEN);
-;;;765        iphdr = (struct ip_hdr*)rambuf->payload;
-;;;766    #else /* LWIP_NETIF_TX_SINGLE_PBUF */
-;;;767        /* When not using a static buffer, create a chain of pbufs.
-;;;768         * The first will be a PBUF_RAM holding the link and IP header.
-;;;769         * The rest will be PBUF_REFs mirroring the pbuf chain to be fragged,
-;;;770         * but limited to the size of an mtu.
-;;;771         */
-;;;772        rambuf = pbuf_alloc(PBUF_LINK, IP_HLEN, PBUF_RAM);
-;;;773        if (rambuf == NULL) {
-;;;774          goto memerr;
-;;;775        }
-;;;776        LWIP_ASSERT("this needs a pbuf in one piece!",
-;;;777                    (p->len >= (IP_HLEN)));
-;;;778        SMEMCPY(rambuf->payload, original_iphdr, IP_HLEN);
-;;;779        iphdr = (struct ip_hdr *)rambuf->payload;
-;;;780    
-;;;781        left_to_copy = fragsize;
-;;;782        while (left_to_copy) {
-;;;783          struct pbuf_custom_ref *pcr;
-;;;784          u16_t plen = p->len - poff;
-;;;785          newpbuflen = LWIP_MIN(left_to_copy, plen);
-;;;786          /* Is this pbuf already empty? */
-;;;787          if (!newpbuflen) {
-;;;788            poff = 0;
-;;;789            p = p->next;
-;;;790            continue;
-;;;791          }
-;;;792          pcr = ip_frag_alloc_pbuf_custom_ref();
-;;;793          if (pcr == NULL) {
-;;;794            pbuf_free(rambuf);
-;;;795            goto memerr;
-;;;796          }
-;;;797          /* Mirror this pbuf, although we might not need all of it. */
-;;;798          newpbuf = pbuf_alloced_custom(PBUF_RAW, newpbuflen, PBUF_REF, &pcr->pc,
-;;;799            (u8_t*)p->payload + poff, newpbuflen);
-;;;800          if (newpbuf == NULL) {
-;;;801            ip_frag_free_pbuf_custom_ref(pcr);
-;;;802            pbuf_free(rambuf);
-;;;803            goto memerr;
-;;;804          }
-;;;805          pbuf_ref(p);
-;;;806          pcr->original = p;
-;;;807          pcr->pc.custom_free_function = ipfrag_free_pbuf_custom;
+;;;760      if (IPH_HL_BYTES(iphdr) != IP_HLEN) {
+;;;761        /* ip4_frag() does not support IP options */
+;;;762        return ERR_VAL;
+000024  1fbe              SUBS     r6,r7,#6
+000026  7801              LDRB     r1,[r0,#0]            ;760
+000028  f001010f          AND      r1,r1,#0xf            ;760
+00002c  2905              CMP      r1,#5                 ;760
+00002e  d003              BEQ      |L1.56|
+000030  4630              MOV      r0,r6
+                  |L1.50|
+;;;763      }
+;;;764      LWIP_ERROR("ip4_frag(): pbuf too short", p->len >= IP_HLEN, return ERR_VAL);
+;;;765    
+;;;766      /* Save original offset */
+;;;767      tmp = lwip_ntohs(IPH_OFFSET(iphdr));
+;;;768      ofo = tmp & IP_OFFMASK;
+;;;769      /* already fragmented? if so, the last fragment we create must have MF, too */
+;;;770      mf_set = tmp & IP_MF;
+;;;771    
+;;;772      left = (u16_t)(p->tot_len - IP_HLEN);
+;;;773    
+;;;774      while (left) {
+;;;775        /* Fill this fragment */
+;;;776        fragsize = LWIP_MIN(left, (u16_t)(nfb * 8));
+;;;777    
+;;;778    #if LWIP_NETIF_TX_SINGLE_PBUF
+;;;779        rambuf = pbuf_alloc(PBUF_IP, fragsize, PBUF_RAM);
+;;;780        if (rambuf == NULL) {
+;;;781          goto memerr;
+;;;782        }
+;;;783        LWIP_ASSERT("this needs a pbuf in one piece!",
+;;;784                    (rambuf->len == rambuf->tot_len) && (rambuf->next == NULL));
+;;;785        poff += pbuf_copy_partial(p, rambuf->payload, fragsize, poff);
+;;;786        /* make room for the IP header */
+;;;787        if (pbuf_add_header(rambuf, IP_HLEN)) {
+;;;788          pbuf_free(rambuf);
+;;;789          goto memerr;
+;;;790        }
+;;;791        /* fill in the IP header */
+;;;792        SMEMCPY(rambuf->payload, original_iphdr, IP_HLEN);
+;;;793        iphdr = (struct ip_hdr *)rambuf->payload;
+;;;794    #else /* LWIP_NETIF_TX_SINGLE_PBUF */
+;;;795        /* When not using a static buffer, create a chain of pbufs.
+;;;796         * The first will be a PBUF_RAM holding the link and IP header.
+;;;797         * The rest will be PBUF_REFs mirroring the pbuf chain to be fragged,
+;;;798         * but limited to the size of an mtu.
+;;;799         */
+;;;800        rambuf = pbuf_alloc(PBUF_LINK, IP_HLEN, PBUF_RAM);
+;;;801        if (rambuf == NULL) {
+;;;802          goto memerr;
+;;;803        }
+;;;804        LWIP_ASSERT("this needs a pbuf in one piece!",
+;;;805                    (rambuf->len >= (IP_HLEN)));
+;;;806        SMEMCPY(rambuf->payload, original_iphdr, IP_HLEN);
+;;;807        iphdr = (struct ip_hdr *)rambuf->payload;
 ;;;808    
-;;;809          /* Add it to end of rambuf's chain, but using pbuf_cat, not pbuf_chain
-;;;810           * so that it is removed when pbuf_dechain is later called on rambuf.
-;;;811           */
-;;;812          pbuf_cat(rambuf, newpbuf);
-;;;813          left_to_copy -= newpbuflen;
-;;;814          if (left_to_copy) {
-;;;815            poff = 0;
-;;;816            p = p->next;
-;;;817          }
-;;;818        }
-;;;819        poff += newpbuflen;
-;;;820    #endif /* LWIP_NETIF_TX_SINGLE_PBUF */
-;;;821    
-;;;822        /* Correct header */
-;;;823        last = (left <= netif->mtu - IP_HLEN);
-;;;824    
-;;;825        /* Set new offset and MF flag */
-;;;826        tmp = (IP_OFFMASK & (ofo));
-;;;827        if (!last) {
-;;;828          tmp = tmp | IP_MF;
-;;;829        }
-;;;830        IPH_OFFSET_SET(iphdr, lwip_htons(tmp));
-;;;831        IPH_LEN_SET(iphdr, lwip_htons(fragsize + IP_HLEN));
-;;;832        IPH_CHKSUM_SET(iphdr, 0);
-;;;833    #if CHECKSUM_GEN_IP
-;;;834        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
-;;;835          IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, IP_HLEN));
-;;;836        }
-;;;837    #endif /* CHECKSUM_GEN_IP */
-;;;838    
-;;;839        /* No need for separate header pbuf - we allowed room for it in rambuf
-;;;840         * when allocated.
-;;;841         */
-;;;842        netif->output(netif, rambuf, dest);
-;;;843        IPFRAG_STATS_INC(ip_frag.xmit);
-;;;844    
-;;;845        /* Unfortunately we can't reuse rambuf - the hardware may still be
-;;;846         * using the buffer. Instead we free it (and the ensuing chain) and
-;;;847         * recreate it next time round the loop. If we're lucky the hardware
-;;;848         * will have already sent the packet, the free will really free, and
-;;;849         * there will be zero memory penalty.
-;;;850         */
-;;;851    
-;;;852        pbuf_free(rambuf);
-;;;853        left -= fragsize;
-;;;854        ofo += nfb;
-;;;855      }
-;;;856      MIB2_STATS_INC(mib2.ipfragoks);
-;;;857      return ERR_OK;
-;;;858    memerr:
-;;;859      MIB2_STATS_INC(mib2.ipfragfails);
-;;;860      return ERR_MEM;
-;;;861    }
-000040  b00b              ADD      sp,sp,#0x2c
-000042  e8bd8ff0          POP      {r4-r11,pc}
-                  |L1.70|
-000046  88c0              LDRH     r0,[r0,#6]            ;740
-000048  f7fffffe          BL       lwip_htons
-00004c  f3c0010c          UBFX     r1,r0,#0,#13          ;741
-000050  9103              STR      r1,[sp,#0xc]          ;741
-000052  0480              LSLS     r0,r0,#18             ;742
-000054  d508              BPL      |L1.104|
-000056  a355              ADR      r3,|L1.428|
-000058  f24022e6          MOV      r2,#0x2e6             ;742
-00005c  a176              ADR      r1,|L1.568|
-00005e  a06c              ADR      r0,|L1.528|
-000060  f7fffffe          BL       __2printf
-000064  4628              MOV      r0,r5                 ;742
-000066  e7eb              B        |L1.64|
-                  |L1.104|
-000068  8920              LDRH     r0,[r4,#8]            ;744
-00006a  3814              SUBS     r0,r0,#0x14           ;744
-00006c  fa1ff880          UXTH     r8,r0                 ;744
-000070  e096              B        |L1.416|
-                  |L1.114|
-000072  9805              LDR      r0,[sp,#0x14]         ;748
-000074  ebb80fc0          CMP      r8,r0,LSL #3          ;748
-000078  d201              BCS      |L1.126|
-00007a  4640              MOV      r0,r8                 ;748
-00007c  e001              B        |L1.130|
-                  |L1.126|
-00007e  9805              LDR      r0,[sp,#0x14]         ;748
-000080  00c0              LSLS     r0,r0,#3              ;748
-                  |L1.130|
-000082  b280              UXTH     r0,r0                 ;748
-000084  9004              STR      r0,[sp,#0x10]         ;748
-000086  2200              MOVS     r2,#0                 ;772
-000088  2114              MOVS     r1,#0x14              ;772
-00008a  2002              MOVS     r0,#2                 ;772
-00008c  f7fffffe          BL       pbuf_alloc
-000090  4683              MOV      r11,r0                ;772
-000092  ea5f000b          MOVS     r0,r11                ;773
-000096  d059              BEQ      |L1.332|
-000098  8960              LDRH     r0,[r4,#0xa]          ;776
-00009a  2814              CMP      r0,#0x14              ;776
-00009c  d206              BCS      |L1.172|
-00009e  a343              ADR      r3,|L1.428|
-0000a0  f44f7242          MOV      r2,#0x308             ;776
-0000a4  a16b              ADR      r1,|L1.596|
-0000a6  a05a              ADR      r0,|L1.528|
-0000a8  f7fffffe          BL       __2printf
-                  |L1.172|
-0000ac  2214              MOVS     r2,#0x14              ;778
-0000ae  f8db0004          LDR      r0,[r11,#4]           ;778
-0000b2  9907              LDR      r1,[sp,#0x1c]         ;778
-0000b4  f7fffffe          BL       __aeabi_memcpy
-0000b8  f8db0004          LDR      r0,[r11,#4]           ;779
-0000bc  9006              STR      r0,[sp,#0x18]         ;779
-0000be  9d04              LDR      r5,[sp,#0x10]         ;781
-0000c0  e02b              B        |L1.282|
-                  |L1.194|
-0000c2  8960              LDRH     r0,[r4,#0xa]          ;784
-0000c4  1b80              SUBS     r0,r0,r6              ;784
-0000c6  b287              UXTH     r7,r0                 ;784
-0000c8  42bd              CMP      r5,r7                 ;785
-0000ca  d200              BCS      |L1.206|
-0000cc  462f              MOV      r7,r5                 ;785
-                  |L1.206|
-0000ce  b37f              CBZ      r7,|L1.304|
-0000d0  f7fffffe          BL       ip_frag_alloc_pbuf_custom_ref
-0000d4  4681              MOV      r9,r0                 ;792
-0000d6  ea5f0009          MOVS     r0,r9                 ;793
-0000da  d02d              BEQ      |L1.312|
-0000dc  6860              LDR      r0,[r4,#4]            ;798
-0000de  464b              MOV      r3,r9                 ;798
-0000e0  4430              ADD      r0,r0,r6              ;798
-0000e2  e9cd0700          STRD     r0,r7,[sp,#0]         ;798
-0000e6  2202              MOVS     r2,#2                 ;798
-0000e8  4639              MOV      r1,r7                 ;798
-0000ea  2004              MOVS     r0,#4                 ;798
-0000ec  f7fffffe          BL       pbuf_alloced_custom
-0000f0  4682              MOV      r10,r0                ;798
-0000f2  f1ba0f00          CMP      r10,#0                ;800
-0000f6  d023              BEQ      |L1.320|
-0000f8  4620              MOV      r0,r4                 ;805
-0000fa  f7fffffe          BL       pbuf_ref
-0000fe  f8c94014          STR      r4,[r9,#0x14]         ;806
-000102  485c              LDR      r0,|L1.628|
-000104  f8c90010          STR      r0,[r9,#0x10]         ;807
-000108  4651              MOV      r1,r10                ;812
-00010a  4658              MOV      r0,r11                ;812
-00010c  f7fffffe          BL       pbuf_cat
-000110  1be8              SUBS     r0,r5,r7              ;813
-000112  b285              UXTH     r5,r0                 ;813
-000114  b10d              CBZ      r5,|L1.282|
-000116  2600              MOVS     r6,#0                 ;815
-000118  6824              LDR      r4,[r4,#0]            ;816
-                  |L1.282|
-00011a  2d00              CMP      r5,#0                 ;782
-00011c  d1d1              BNE      |L1.194|
-00011e  19f0              ADDS     r0,r6,r7              ;819
-000120  b286              UXTH     r6,r0                 ;819
-000122  9809              LDR      r0,[sp,#0x24]         ;823
-000124  8dc0              LDRH     r0,[r0,#0x2e]         ;823
-000126  3814              SUBS     r0,r0,#0x14           ;823
-000128  4540              CMP      r0,r8                 ;823
-00012a  db12              BLT      |L1.338|
-00012c  2101              MOVS     r1,#1                 ;823
-00012e  e011              B        |L1.340|
-                  |L1.304|
-000130  e7ff              B        |L1.306|
-                  |L1.306|
-000132  2600              MOVS     r6,#0                 ;788
-000134  6824              LDR      r4,[r4,#0]            ;789
-000136  e7f0              B        |L1.282|
-                  |L1.312|
-000138  4658              MOV      r0,r11                ;794
-00013a  f7fffffe          BL       pbuf_free
-00013e  e005              B        |L1.332|
+;;;809        left_to_copy = fragsize;
+;;;810        while (left_to_copy) {
+;;;811          struct pbuf_custom_ref *pcr;
+;;;812          u16_t plen = (u16_t)(p->len - poff);
+;;;813          LWIP_ASSERT("p->len >= poff", p->len >= poff);
+;;;814          newpbuflen = LWIP_MIN(left_to_copy, plen);
+;;;815          /* Is this pbuf already empty? */
+;;;816          if (!newpbuflen) {
+;;;817            poff = 0;
+;;;818            p = p->next;
+;;;819            continue;
+;;;820          }
+;;;821          pcr = ip_frag_alloc_pbuf_custom_ref();
+;;;822          if (pcr == NULL) {
+;;;823            pbuf_free(rambuf);
+;;;824            goto memerr;
+;;;825          }
+;;;826          /* Mirror this pbuf, although we might not need all of it. */
+;;;827          newpbuf = pbuf_alloced_custom(PBUF_RAW, newpbuflen, PBUF_REF, &pcr->pc,
+;;;828                                        (u8_t *)p->payload + poff, newpbuflen);
+;;;829          if (newpbuf == NULL) {
+;;;830            ip_frag_free_pbuf_custom_ref(pcr);
+;;;831            pbuf_free(rambuf);
+;;;832            goto memerr;
+;;;833          }
+;;;834          pbuf_ref(p);
+;;;835          pcr->original = p;
+;;;836          pcr->pc.custom_free_function = ipfrag_free_pbuf_custom;
+;;;837    
+;;;838          /* Add it to end of rambuf's chain, but using pbuf_cat, not pbuf_chain
+;;;839           * so that it is removed when pbuf_dechain is later called on rambuf.
+;;;840           */
+;;;841          pbuf_cat(rambuf, newpbuf);
+;;;842          left_to_copy = (u16_t)(left_to_copy - newpbuflen);
+;;;843          if (left_to_copy) {
+;;;844            poff = 0;
+;;;845            p = p->next;
+;;;846          }
+;;;847        }
+;;;848        poff = (u16_t)(poff + newpbuflen);
+;;;849    #endif /* LWIP_NETIF_TX_SINGLE_PBUF */
+;;;850    
+;;;851        /* Correct header */
+;;;852        last = (left <= netif->mtu - IP_HLEN);
+;;;853    
+;;;854        /* Set new offset and MF flag */
+;;;855        tmp = (IP_OFFMASK & (ofo));
+;;;856        if (!last || mf_set) {
+;;;857          /* the last fragment has MF set if the input frame had it */
+;;;858          tmp = tmp | IP_MF;
+;;;859        }
+;;;860        IPH_OFFSET_SET(iphdr, lwip_htons(tmp));
+;;;861        IPH_LEN_SET(iphdr, lwip_htons((u16_t)(fragsize + IP_HLEN)));
+;;;862        IPH_CHKSUM_SET(iphdr, 0);
+;;;863    #if CHECKSUM_GEN_IP
+;;;864        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
+;;;865          IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, IP_HLEN));
+;;;866        }
+;;;867    #endif /* CHECKSUM_GEN_IP */
+;;;868    
+;;;869        /* No need for separate header pbuf - we allowed room for it in rambuf
+;;;870         * when allocated.
+;;;871         */
+;;;872        netif->output(netif, rambuf, dest);
+;;;873        IPFRAG_STATS_INC(ip_frag.xmit);
+;;;874    
+;;;875        /* Unfortunately we can't reuse rambuf - the hardware may still be
+;;;876         * using the buffer. Instead we free it (and the ensuing chain) and
+;;;877         * recreate it next time round the loop. If we're lucky the hardware
+;;;878         * will have already sent the packet, the free will really free, and
+;;;879         * there will be zero memory penalty.
+;;;880         */
+;;;881    
+;;;882        pbuf_free(rambuf);
+;;;883        left = (u16_t)(left - fragsize);
+;;;884        ofo = (u16_t)(ofo + nfb);
+;;;885      }
+;;;886      MIB2_STATS_INC(mib2.ipfragoks);
+;;;887      return ERR_OK;
+;;;888    memerr:
+;;;889      MIB2_STATS_INC(mib2.ipfragfails);
+;;;890      return ERR_MEM;
+;;;891    }
+000032  b00b              ADD      sp,sp,#0x2c
+000034  e8bd8ff0          POP      {r4-r11,pc}
+                  |L1.56|
+000038  8961              LDRH     r1,[r4,#0xa]          ;764
+00003a  2914              CMP      r1,#0x14              ;764
+00003c  d208              BCS      |L1.80|
+00003e  a360              ADR      r3,|L1.448|
+000040  f44f723f          MOV      r2,#0x2fc             ;764
+000044  a16d              ADR      r1,|L1.508|
+000046  a074              ADR      r0,|L1.536|
+000048  f7fffffe          BL       __2printf
+00004c  4630              MOV      r0,r6                 ;764
+00004e  e7f0              B        |L1.50|
+                  |L1.80|
+000050  88c0              LDRH     r0,[r0,#6]            ;767
+000052  f7fffffe          BL       lwip_htons
+000056  f3c0010c          UBFX     r1,r0,#0,#13          ;768
+00005a  9103              STR      r1,[sp,#0xc]          ;768
+00005c  f4005000          AND      r0,r0,#0x2000         ;770
+000060  9002              STR      r0,[sp,#8]            ;770
+000062  8920              LDRH     r0,[r4,#8]            ;772
+000064  3814              SUBS     r0,r0,#0x14           ;772
+000066  fa1ff880          UXTH     r8,r0                 ;772
+00006a  e0a2              B        |L1.434|
+                  |L1.108|
+00006c  9805              LDR      r0,[sp,#0x14]         ;776
+00006e  f64f71ff          MOV      r1,#0xffff            ;776
+000072  ea0100c0          AND      r0,r1,r0,LSL #3       ;776
+000076  4540              CMP      r0,r8                 ;776
+000078  d900              BLS      |L1.124|
+00007a  4640              MOV      r0,r8                 ;776
+                  |L1.124|
+00007c  9004              STR      r0,[sp,#0x10]         ;776
+00007e  f44f7220          MOV      r2,#0x280             ;800
+000082  2114              MOVS     r1,#0x14              ;800
+000084  200e              MOVS     r0,#0xe               ;800
+000086  f7fffffe          BL       pbuf_alloc
+00008a  4682              MOV      r10,r0                ;800
+00008c  ea5f000a          MOVS     r0,r10                ;801
+000090  d063              BEQ      |L1.346|
+000092  f8ba000a          LDRH     r0,[r10,#0xa]         ;804
+000096  2814              CMP      r0,#0x14              ;804
+000098  d206              BCS      |L1.168|
+00009a  a349              ADR      r3,|L1.448|
+00009c  f44f7249          MOV      r2,#0x324             ;804
+0000a0  a167              ADR      r1,|L1.576|
+0000a2  a05d              ADR      r0,|L1.536|
+0000a4  f7fffffe          BL       __2printf
+                  |L1.168|
+0000a8  2214              MOVS     r2,#0x14              ;806
+0000aa  f8da0004          LDR      r0,[r10,#4]           ;806
+0000ae  9907              LDR      r1,[sp,#0x1c]         ;806
+0000b0  f7fffffe          BL       __aeabi_memcpy
+0000b4  f8da0004          LDR      r0,[r10,#4]           ;807
+0000b8  9006              STR      r0,[sp,#0x18]         ;807
+0000ba  9e04              LDR      r6,[sp,#0x10]         ;809
+0000bc  e034              B        |L1.296|
+                  |L1.190|
+0000be  8960              LDRH     r0,[r4,#0xa]          ;812
+0000c0  1b41              SUBS     r1,r0,r5              ;812
+0000c2  b28f              UXTH     r7,r1                 ;812
+0000c4  42a8              CMP      r0,r5                 ;813
+0000c6  d206              BCS      |L1.214|
+0000c8  a33d              ADR      r3,|L1.448|
+0000ca  f240322d          MOV      r2,#0x32d             ;813
+0000ce  a164              ADR      r1,|L1.608|
+0000d0  a051              ADR      r0,|L1.536|
+0000d2  f7fffffe          BL       __2printf
+                  |L1.214|
+0000d6  42be              CMP      r6,r7                 ;814
+0000d8  d200              BCS      |L1.220|
+0000da  4637              MOV      r7,r6                 ;814
+                  |L1.220|
+0000dc  b37f              CBZ      r7,|L1.318|
+0000de  f7fffffe          BL       ip_frag_alloc_pbuf_custom_ref
+0000e2  4681              MOV      r9,r0                 ;821
+0000e4  ea5f0009          MOVS     r0,r9                 ;822
+0000e8  d02d              BEQ      |L1.326|
+0000ea  6860              LDR      r0,[r4,#4]            ;827
+0000ec  464b              MOV      r3,r9                 ;827
+0000ee  4428              ADD      r0,r0,r5              ;827
+0000f0  e9cd0700          STRD     r0,r7,[sp,#0]         ;827
+0000f4  2241              MOVS     r2,#0x41              ;827
+0000f6  4639              MOV      r1,r7                 ;827
+0000f8  2000              MOVS     r0,#0                 ;827
+0000fa  f7fffffe          BL       pbuf_alloced_custom
+0000fe  4683              MOV      r11,r0                ;827
+000100  f1bb0f00          CMP      r11,#0                ;829
+000104  d023              BEQ      |L1.334|
+000106  4620              MOV      r0,r4                 ;834
+000108  f7fffffe          BL       pbuf_ref
+00010c  f8c94014          STR      r4,[r9,#0x14]         ;835
+000110  4857              LDR      r0,|L1.624|
+000112  f8c90010          STR      r0,[r9,#0x10]         ;836
+000116  4659              MOV      r1,r11                ;841
+000118  4650              MOV      r0,r10                ;841
+00011a  f7fffffe          BL       pbuf_cat
+00011e  1bf0              SUBS     r0,r6,r7              ;842
+000120  b286              UXTH     r6,r0                 ;842
+000122  b10e              CBZ      r6,|L1.296|
+000124  2500              MOVS     r5,#0                 ;844
+000126  6824              LDR      r4,[r4,#0]            ;845
+                  |L1.296|
+000128  2e00              CMP      r6,#0                 ;810
+00012a  d1c8              BNE      |L1.190|
+00012c  19e8              ADDS     r0,r5,r7              ;848
+00012e  b285              UXTH     r5,r0                 ;848
+000130  9809              LDR      r0,[sp,#0x24]         ;852
+000132  8d80              LDRH     r0,[r0,#0x2c]         ;852
+000134  3814              SUBS     r0,r0,#0x14           ;852
+000136  4540              CMP      r0,r8                 ;852
+000138  db12              BLT      |L1.352|
+00013a  2101              MOVS     r1,#1                 ;852
+00013c  e011              B        |L1.354|
+                  |L1.318|
+00013e  e7ff              B        |L1.320|
                   |L1.320|
-000140  4648              MOV      r0,r9                 ;801
-000142  f7fffffe          BL       ip_frag_free_pbuf_custom_ref
-000146  4658              MOV      r0,r11                ;802
+000140  2500              MOVS     r5,#0                 ;817
+000142  6824              LDR      r4,[r4,#0]            ;818
+000144  e7f0              B        |L1.296|
+                  |L1.326|
+000146  4650              MOV      r0,r10                ;823
 000148  f7fffffe          BL       pbuf_free
-                  |L1.332|
-00014c  f04f30ff          MOV      r0,#0xffffffff        ;860
-000150  e776              B        |L1.64|
-                  |L1.338|
-000152  2100              MOVS     r1,#0                 ;823
-                  |L1.340|
-000154  9803              LDR      r0,[sp,#0xc]          ;826
-000156  f3c0000c          UBFX     r0,r0,#0,#13          ;826
-00015a  b909              CBNZ     r1,|L1.352|
-00015c  f4405000          ORR      r0,r0,#0x2000         ;828
+00014c  e005              B        |L1.346|
+                  |L1.334|
+00014e  4648              MOV      r0,r9                 ;830
+000150  f7fffffe          BL       ip_frag_free_pbuf_custom_ref
+000154  4650              MOV      r0,r10                ;831
+000156  f7fffffe          BL       pbuf_free
+                  |L1.346|
+00015a  f04f30ff          MOV      r0,#0xffffffff        ;890
+00015e  e768              B        |L1.50|
                   |L1.352|
-000160  f7fffffe          BL       lwip_htons
-000164  9906              LDR      r1,[sp,#0x18]         ;830
-000166  80c8              STRH     r0,[r1,#6]            ;830
-000168  9804              LDR      r0,[sp,#0x10]         ;831
-00016a  3014              ADDS     r0,r0,#0x14           ;831
-00016c  b280              UXTH     r0,r0                 ;831
-00016e  f7fffffe          BL       lwip_htons
-000172  9906              LDR      r1,[sp,#0x18]         ;831
-000174  8048              STRH     r0,[r1,#2]            ;831
-000176  9806              LDR      r0,[sp,#0x18]         ;832
-000178  2100              MOVS     r1,#0                 ;832
-00017a  8141              STRH     r1,[r0,#0xa]          ;832
-00017c  9809              LDR      r0,[sp,#0x24]         ;842
-00017e  4659              MOV      r1,r11                ;842
-000180  9a0a              LDR      r2,[sp,#0x28]         ;842
-000182  6943              LDR      r3,[r0,#0x14]         ;842
-000184  4798              BLX      r3                    ;842
-000186  4658              MOV      r0,r11                ;852
-000188  f7fffffe          BL       pbuf_free
-00018c  9804              LDR      r0,[sp,#0x10]         ;853
-00018e  eba80000          SUB      r0,r8,r0              ;853
-000192  fa1ff880          UXTH     r8,r0                 ;853
-000196  9905              LDR      r1,[sp,#0x14]         ;854
-000198  9803              LDR      r0,[sp,#0xc]          ;854
-00019a  4408              ADD      r0,r0,r1              ;854
-00019c  b280              UXTH     r0,r0                 ;854
-00019e  9003              STR      r0,[sp,#0xc]          ;854
-                  |L1.416|
-0001a0  f1b80f00          CMP      r8,#0                 ;746
-0001a4  f47faf65          BNE      |L1.114|
-0001a8  2000              MOVS     r0,#0                 ;857
-0001aa  e749              B        |L1.64|
-;;;862    #endif /* IP_FRAG */
+000160  2100              MOVS     r1,#0                 ;852
+                  |L1.354|
+000162  9803              LDR      r0,[sp,#0xc]          ;855
+000164  f3c0000c          UBFX     r0,r0,#0,#13          ;855
+000168  b109              CBZ      r1,|L1.366|
+00016a  9902              LDR      r1,[sp,#8]            ;856
+00016c  b109              CBZ      r1,|L1.370|
+                  |L1.366|
+00016e  f4405000          ORR      r0,r0,#0x2000         ;858
+                  |L1.370|
+000172  f7fffffe          BL       lwip_htons
+000176  9906              LDR      r1,[sp,#0x18]         ;860
+000178  80c8              STRH     r0,[r1,#6]            ;860
+00017a  9804              LDR      r0,[sp,#0x10]         ;861
+00017c  3014              ADDS     r0,r0,#0x14           ;861
+00017e  b280              UXTH     r0,r0                 ;861
+000180  f7fffffe          BL       lwip_htons
+000184  9906              LDR      r1,[sp,#0x18]         ;861
+000186  8048              STRH     r0,[r1,#2]            ;861
+000188  9806              LDR      r0,[sp,#0x18]         ;862
+00018a  2100              MOVS     r1,#0                 ;862
+00018c  8141              STRH     r1,[r0,#0xa]          ;862
+00018e  9809              LDR      r0,[sp,#0x24]         ;872
+000190  4651              MOV      r1,r10                ;872
+000192  9a0a              LDR      r2,[sp,#0x28]         ;872
+000194  6943              LDR      r3,[r0,#0x14]         ;872
+000196  4798              BLX      r3                    ;872
+000198  4650              MOV      r0,r10                ;882
+00019a  f7fffffe          BL       pbuf_free
+00019e  9804              LDR      r0,[sp,#0x10]         ;883
+0001a0  eba80000          SUB      r0,r8,r0              ;883
+0001a4  fa1ff880          UXTH     r8,r0                 ;883
+0001a8  9905              LDR      r1,[sp,#0x14]         ;884
+0001aa  9803              LDR      r0,[sp,#0xc]          ;884
+0001ac  4408              ADD      r0,r0,r1              ;884
+0001ae  b280              UXTH     r0,r0                 ;884
+0001b0  9003              STR      r0,[sp,#0xc]          ;884
+                  |L1.434|
+0001b2  f1b80f00          CMP      r8,#0                 ;774
+0001b6  f47faf59          BNE      |L1.108|
+0001ba  2000              MOVS     r0,#0                 ;887
+0001bc  e739              B        |L1.50|
+;;;892    #endif /* IP_FRAG */
                           ENDP
 
-                  |L1.428|
-0001ac  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
-0001b0  6964646c
-0001b4  65776172
-0001b8  65735c54
-0001bc  68697264
-0001c0  5f506172
-0001c4  74795c4c
-0001c8  7749505c
-0001cc  7372635c
-0001d0  636f7265
-0001d4  5c697076
-0001d8  345c6970
-0001dc  345f6672          DCB      "4_frag.c",0
-0001e0  61672e63
-0001e4  00      
-0001e5  00                DCB      0
-0001e6  00                DCB      0
-0001e7  00                DCB      0
-                  |L1.488|
-0001e8  6970345f          DCB      "ip4_frag() does not support IP options",0
-0001ec  66726167
-0001f0  28292064
-0001f4  6f657320
-0001f8  6e6f7420
-0001fc  73757070
-000200  6f727420
-000204  4950206f
-000208  7074696f
-00020c  6e7300  
-00020f  00                DCB      0
-                  |L1.528|
-000210  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000214  7274696f
-000218  6e202225
-00021c  73222066
-000220  61696c65
-000224  64206174
-000228  206c696e
-00022c  65202564
-000230  20696e20
-000234  25730a00
-                  |L1.568|
-000238  69705f66          DCB      "ip_frag(): MF already set",0
-00023c  72616728
-000240  293a204d
-000244  4620616c
-000248  72656164
-00024c  79207365
-000250  7400    
-000252  00                DCB      0
-000253  00                DCB      0
-                  |L1.596|
-000254  74686973          DCB      "this needs a pbuf in one piece!",0
-000258  206e6565
-00025c  64732061
-000260  20706275
-000264  6620696e
-000268  206f6e65
-00026c  20706965
-000270  63652100
-                  |L1.628|
+0001be  0000              DCW      0x0000
+                  |L1.448|
+0001c0  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
+0001c4  6964646c
+0001c8  65776172
+0001cc  65735c54
+0001d0  68697264
+0001d4  5f506172
+0001d8  74795c4c
+0001dc  7749505c
+0001e0  7372635c
+0001e4  636f7265
+0001e8  5c697076
+0001ec  345c6970
+0001f0  345f6672          DCB      "4_frag.c",0
+0001f4  61672e63
+0001f8  00      
+0001f9  00                DCB      0
+0001fa  00                DCB      0
+0001fb  00                DCB      0
+                  |L1.508|
+0001fc  6970345f          DCB      "ip4_frag(): pbuf too short",0
+000200  66726167
+000204  28293a20
+000208  70627566
+00020c  20746f6f
+000210  2073686f
+000214  727400  
+000217  00                DCB      0
+                  |L1.536|
+000218  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+00021c  7274696f
+000220  6e202225
+000224  73222066
+000228  61696c65
+00022c  64206174
+000230  206c696e
+000234  65202564
+000238  20696e20
+00023c  25730a00
+                  |L1.576|
+000240  74686973          DCB      "this needs a pbuf in one piece!",0
+000244  206e6565
+000248  64732061
+00024c  20706275
+000250  6620696e
+000254  206f6e65
+000258  20706965
+00025c  63652100
+                  |L1.608|
+000260  702d3e6c          DCB      "p->len >= poff",0
+000264  656e203e
+000268  3d20706f
+00026c  666600  
+00026f  00                DCB      0
+                  |L1.624|
                           DCD      ipfrag_free_pbuf_custom
 
                           AREA ||i.ip4_reass||, CODE, READONLY, ALIGN=2
 
+                          REQUIRE _printf_percent
+                          REQUIRE _printf_d
+                          REQUIRE _printf_s
+                          REQUIRE _printf_int_dec
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   ip4_reass PROC
-;;;497    struct pbuf *
-;;;498    ip4_reass(struct pbuf *p)
+;;;502    struct pbuf *
+;;;503    ip4_reass(struct pbuf *p)
 000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;499    {
+;;;504    {
 000004  4682              MOV      r10,r0
-;;;500      struct pbuf *r;
-;;;501      struct ip_hdr *fraghdr;
-;;;502      struct ip_reassdata *ipr;
-;;;503      struct ip_reass_helper *iprh;
-;;;504      u16_t offset, len, clen;
-;;;505      int valid;
-;;;506      int is_last;
-;;;507    
-;;;508      IPFRAG_STATS_INC(ip_frag.recv);
-;;;509      MIB2_STATS_INC(mib2.ipreasmreqds);
-;;;510    
-;;;511      fraghdr = (struct ip_hdr*)p->payload;
+;;;505      struct pbuf *r;
+;;;506      struct ip_hdr *fraghdr;
+;;;507      struct ip_reassdata *ipr;
+;;;508      struct ip_reass_helper *iprh;
+;;;509      u16_t offset, len, clen;
+;;;510      u8_t hlen;
+;;;511      int valid;
+;;;512      int is_last;
+;;;513    
+;;;514      IPFRAG_STATS_INC(ip_frag.recv);
+;;;515      MIB2_STATS_INC(mib2.ipreasmreqds);
+;;;516    
+;;;517      fraghdr = (struct ip_hdr *)p->payload;
 000006  f8da5004          LDR      r5,[r10,#4]
-;;;512    
-;;;513      if ((IPH_HL(fraghdr) * 4) != IP_HLEN) {
+;;;518    
+;;;519      if (IPH_HL_BYTES(fraghdr) != IP_HLEN) {
 00000a  7828              LDRB     r0,[r5,#0]
 00000c  f000000f          AND      r0,r0,#0xf
 000010  2805              CMP      r0,#5
 000012  d173              BNE      |L2.252|
-;;;514        LWIP_DEBUGF(IP_REASS_DEBUG,("ip4_reass: IP options currently not supported!\n"));
-;;;515        IPFRAG_STATS_INC(ip_frag.err);
-;;;516        goto nullreturn;
-;;;517      }
-;;;518    
-;;;519      offset = (lwip_ntohs(IPH_OFFSET(fraghdr)) & IP_OFFMASK) * 8;
+;;;520        LWIP_DEBUGF(IP_REASS_DEBUG, ("ip4_reass: IP options currently not supported!\n"));
+;;;521        IPFRAG_STATS_INC(ip_frag.err);
+;;;522        goto nullreturn;
+;;;523      }
+;;;524    
+;;;525      offset = IPH_OFFSET_BYTES(fraghdr);
 000014  88e8              LDRH     r0,[r5,#6]
 000016  f7fffffe          BL       lwip_htons
 00001a  04c0              LSLS     r0,r0,#19
 00001c  ea4f4810          LSR      r8,r0,#16
-;;;520      len = lwip_ntohs(IPH_LEN(fraghdr)) - IPH_HL(fraghdr) * 4;
+;;;526      len = lwip_ntohs(IPH_LEN(fraghdr));
 000020  8868              LDRH     r0,[r5,#2]
 000022  f7fffffe          BL       lwip_htons
+;;;527      hlen = IPH_HL_BYTES(fraghdr);
 000026  7829              LDRB     r1,[r5,#0]
-000028  f001010f          AND      r1,r1,#0xf
-00002c  4249              RSBS     r1,r1,#0
-00002e  eb000081          ADD      r0,r0,r1,LSL #2
+000028  0709              LSLS     r1,r1,#28
+00002a  0e89              LSRS     r1,r1,#26
+;;;528      if (hlen > len) {
+00002c  4281              CMP      r1,r0
+                  |L2.46|
+00002e  d865              BHI      |L2.252|
+;;;529        /* invalid datagram */
+;;;530        goto nullreturn;
+;;;531      }
+;;;532      len = (u16_t)(len - hlen);
+000030  1a40              SUBS     r0,r0,r1
 000032  fa1ff980          UXTH     r9,r0
-;;;521    
-;;;522      /* Check if we are allowed to enqueue more datagrams. */
-;;;523      clen = pbuf_clen(p);
+;;;533    
+;;;534      /* Check if we are allowed to enqueue more datagrams. */
+;;;535      clen = pbuf_clen(p);
 000036  4650              MOV      r0,r10
 000038  f7fffffe          BL       pbuf_clen
 00003c  4606              MOV      r6,r0
-;;;524      if ((ip_reass_pbufcount + clen) > IP_REASS_MAX_PBUFS) {
-00003e  4f4f              LDR      r7,|L2.380|
+;;;536      if ((ip_reass_pbufcount + clen) > IP_REASS_MAX_PBUFS) {
+00003e  4f5c              LDR      r7,|L2.432|
 000040  8838              LDRH     r0,[r7,#0]  ; ip_reass_pbufcount
 000042  4430              ADD      r0,r0,r6
 000044  280a              CMP      r0,#0xa
 000046  d909              BLS      |L2.92|
-;;;525    #if IP_REASS_FREE_OLDEST
-;;;526        if (!ip_reass_remove_oldest_datagram(fraghdr, clen) ||
+;;;537    #if IP_REASS_FREE_OLDEST
+;;;538        if (!ip_reass_remove_oldest_datagram(fraghdr, clen) ||
 000048  4631              MOV      r1,r6
 00004a  4628              MOV      r0,r5
 00004c  f7fffffe          BL       ip_reass_remove_oldest_datagram
 000050  2800              CMP      r0,#0
+                  |L2.82|
 000052  d053              BEQ      |L2.252|
-;;;527            ((ip_reass_pbufcount + clen) > IP_REASS_MAX_PBUFS))
+;;;539            ((ip_reass_pbufcount + clen) > IP_REASS_MAX_PBUFS))
 000054  8838              LDRH     r0,[r7,#0]  ; ip_reass_pbufcount
 000056  4430              ADD      r0,r0,r6
 000058  280a              CMP      r0,#0xa
-00005a  d84f              BHI      |L2.252|
+00005a  d8e8              BHI      |L2.46|
                   |L2.92|
-;;;528    #endif /* IP_REASS_FREE_OLDEST */
-;;;529        {
-;;;530          /* No datagram could be freed and still too many pbufs enqueued */
-;;;531          LWIP_DEBUGF(IP_REASS_DEBUG,("ip4_reass: Overflow condition: pbufct=%d, clen=%d, MAX=%d\n",
-;;;532            ip_reass_pbufcount, clen, IP_REASS_MAX_PBUFS));
-;;;533          IPFRAG_STATS_INC(ip_frag.memerr);
-;;;534          /* @todo: send ICMP time exceeded here? */
-;;;535          /* drop this pbuf */
-;;;536          goto nullreturn;
-;;;537        }
-;;;538      }
-;;;539    
-;;;540      /* Look for the datagram the fragment belongs to in the current datagram queue,
-;;;541       * remembering the previous in the queue for later dequeueing. */
-;;;542      for (ipr = reassdatagrams; ipr != NULL; ipr = ipr->next) {
+;;;540    #endif /* IP_REASS_FREE_OLDEST */
+;;;541        {
+;;;542          /* No datagram could be freed and still too many pbufs enqueued */
+;;;543          LWIP_DEBUGF(IP_REASS_DEBUG, ("ip4_reass: Overflow condition: pbufct=%d, clen=%d, MAX=%d\n",
+;;;544                                       ip_reass_pbufcount, clen, IP_REASS_MAX_PBUFS));
+;;;545          IPFRAG_STATS_INC(ip_frag.memerr);
+;;;546          /* @todo: send ICMP time exceeded here? */
+;;;547          /* drop this pbuf */
+;;;548          goto nullreturn;
+;;;549        }
+;;;550      }
+;;;551    
+;;;552      /* Look for the datagram the fragment belongs to in the current datagram queue,
+;;;553       * remembering the previous in the queue for later dequeueing. */
+;;;554      for (ipr = reassdatagrams; ipr != NULL; ipr = ipr->next) {
 00005c  687c              LDR      r4,[r7,#4]  ; reassdatagrams
 00005e  e00c              B        |L2.122|
                   |L2.96|
-;;;543        /* Check if the incoming fragment matches the one currently present
-;;;544           in the reassembly buffer. If so, we proceed with copying the
-;;;545           fragment into the buffer. */
-;;;546        if (IP_ADDRESSES_AND_ID_MATCH(&ipr->iphdr, fraghdr)) {
+;;;555        /* Check if the incoming fragment matches the one currently present
+;;;556           in the reassembly buffer. If so, we proceed with copying the
+;;;557           fragment into the buffer. */
+;;;558        if (IP_ADDRESSES_AND_ID_MATCH(&ipr->iphdr, fraghdr)) {
 000060  6960              LDR      r0,[r4,#0x14]
 000062  68e9              LDR      r1,[r5,#0xc]
 000064  4288              CMP      r0,r1
@@ -520,271 +545,353 @@
 000074  4288              CMP      r0,r1
 000076  d002              BEQ      |L2.126|
                   |L2.120|
-000078  6824              LDR      r4,[r4,#0]            ;542
+000078  6824              LDR      r4,[r4,#0]            ;554
                   |L2.122|
-00007a  2c00              CMP      r4,#0                 ;542
+00007a  2c00              CMP      r4,#0                 ;554
 00007c  d1f0              BNE      |L2.96|
                   |L2.126|
-;;;547          LWIP_DEBUGF(IP_REASS_DEBUG, ("ip4_reass: matching previous fragment ID=%"X16_F"\n",
-;;;548            lwip_ntohs(IPH_ID(fraghdr))));
-;;;549          IPFRAG_STATS_INC(ip_frag.cachehit);
-;;;550          break;
-;;;551        }
-;;;552      }
-;;;553    
-;;;554      if (ipr == NULL) {
+;;;559          LWIP_DEBUGF(IP_REASS_DEBUG, ("ip4_reass: matching previous fragment ID=%"X16_F"\n",
+;;;560                                       lwip_ntohs(IPH_ID(fraghdr))));
+;;;561          IPFRAG_STATS_INC(ip_frag.cachehit);
+;;;562          break;
+;;;563        }
+;;;564      }
+;;;565    
+;;;566      if (ipr == NULL) {
 00007e  b12c              CBZ      r4,|L2.140|
-;;;555      /* Enqueue a new datagram into the datagram queue */
-;;;556        ipr = ip_reass_enqueue_new_datagram(fraghdr, clen);
-;;;557        /* Bail if unable to enqueue */
-;;;558        if (ipr == NULL) {
-;;;559          goto nullreturn;
-;;;560        }
-;;;561      } else {
-;;;562        if (((lwip_ntohs(IPH_OFFSET(fraghdr)) & IP_OFFMASK) == 0) &&
+;;;567        /* Enqueue a new datagram into the datagram queue */
+;;;568        ipr = ip_reass_enqueue_new_datagram(fraghdr, clen);
+;;;569        /* Bail if unable to enqueue */
+;;;570        if (ipr == NULL) {
+;;;571          goto nullreturn;
+;;;572        }
+;;;573      } else {
+;;;574        if (((lwip_ntohs(IPH_OFFSET(fraghdr)) & IP_OFFMASK) == 0) &&
 000080  88e8              LDRH     r0,[r5,#6]
 000082  f7fffffe          BL       lwip_htons
 000086  04c0              LSLS     r0,r0,#19
 000088  d008              BEQ      |L2.156|
 00008a  e012              B        |L2.178|
                   |L2.140|
-00008c  4631              MOV      r1,r6                 ;556
-00008e  4628              MOV      r0,r5                 ;556
+00008c  4631              MOV      r1,r6                 ;568
+00008e  4628              MOV      r0,r5                 ;568
 000090  f7fffffe          BL       ip_reass_enqueue_new_datagram
-000094  4604              MOV      r4,r0                 ;556
-000096  0020              MOVS     r0,r4                 ;558
-000098  d06b              BEQ      |L2.370|
+000094  4604              MOV      r4,r0                 ;568
+000096  0020              MOVS     r0,r4                 ;570
+000098  d0db              BEQ      |L2.82|
 00009a  e00a              B        |L2.178|
                   |L2.156|
-;;;563          ((lwip_ntohs(IPH_OFFSET(&ipr->iphdr)) & IP_OFFMASK) != 0)) {
+;;;575            ((lwip_ntohs(IPH_OFFSET(&ipr->iphdr)) & IP_OFFMASK) != 0)) {
 00009c  89e0              LDRH     r0,[r4,#0xe]
 00009e  f7fffffe          BL       lwip_htons
 0000a2  04c0              LSLS     r0,r0,#19
 0000a4  d005              BEQ      |L2.178|
-;;;564          /* ipr->iphdr is not the header from the first fragment, but fraghdr is
-;;;565           * -> copy fraghdr into ipr->iphdr since we want to have the header
-;;;566           * of the first fragment (for ICMP time exceeded and later, for copying
-;;;567           * all options, if supported)*/
-;;;568          SMEMCPY(&ipr->iphdr, fraghdr, IP_HLEN);
+;;;576          /* ipr->iphdr is not the header from the first fragment, but fraghdr is
+;;;577           * -> copy fraghdr into ipr->iphdr since we want to have the header
+;;;578           * of the first fragment (for ICMP time exceeded and later, for copying
+;;;579           * all options, if supported)*/
+;;;580          SMEMCPY(&ipr->iphdr, fraghdr, IP_HLEN);
 0000a6  2214              MOVS     r2,#0x14
 0000a8  4629              MOV      r1,r5
 0000aa  f1040008          ADD      r0,r4,#8
 0000ae  f7fffffe          BL       __aeabi_memcpy
                   |L2.178|
-;;;569        }
-;;;570      }
-;;;571    
-;;;572      /* At this point, we have either created a new entry or pointing
-;;;573       * to an existing one */
-;;;574    
-;;;575      /* check for 'no more fragments', and update queue entry*/
-;;;576      is_last = (IPH_OFFSET(fraghdr) & PP_NTOHS(IP_MF)) == 0;
+;;;581        }
+;;;582      }
+;;;583    
+;;;584      /* At this point, we have either created a new entry or pointing
+;;;585       * to an existing one */
+;;;586    
+;;;587      /* check for 'no more fragments', and update queue entry*/
+;;;588      is_last = (IPH_OFFSET(fraghdr) & PP_NTOHS(IP_MF)) == 0;
 0000b2  79a8              LDRB     r0,[r5,#6]
 0000b4  f3401540          SBFX     r5,r0,#5,#1
 0000b8  1c6d              ADDS     r5,r5,#1
-;;;577      if (is_last) {
+;;;589      if (is_last) {
 0000ba  b145              CBZ      r5,|L2.206|
-;;;578        u16_t datagram_len = (u16_t)(offset + len);
+;;;590        u16_t datagram_len = (u16_t)(offset + len);
 0000bc  eb080009          ADD      r0,r8,r9
 0000c0  b280              UXTH     r0,r0
-;;;579        if ((datagram_len < offset) || (datagram_len > (0xFFFF - IP_HLEN))) {
+;;;591        if ((datagram_len < offset) || (datagram_len > (0xFFFF - IP_HLEN))) {
 0000c2  4540              CMP      r0,r8
-0000c4  d355              BCC      |L2.370|
+0000c4  d35f              BCC      |L2.390|
 0000c6  f64f71eb          MOV      r1,#0xffeb
 0000ca  4288              CMP      r0,r1
-0000cc  d851              BHI      |L2.370|
+0000cc  d85b              BHI      |L2.390|
                   |L2.206|
-;;;580          /* u16_t overflow, cannot handle this */
-;;;581          goto nullreturn;
-;;;582        }
-;;;583      }
-;;;584      /* find the right place to insert this pbuf */
-;;;585      /* @todo: trim pbufs if fragments are overlapping */
-;;;586      valid = ip_reass_chain_frag_into_datagram_and_validate(ipr, p, is_last);
+;;;592          /* u16_t overflow, cannot handle this */
+;;;593          goto nullreturn_ipr;
+;;;594        }
+;;;595      }
+;;;596      /* find the right place to insert this pbuf */
+;;;597      /* @todo: trim pbufs if fragments are overlapping */
+;;;598      valid = ip_reass_chain_frag_into_datagram_and_validate(ipr, p, is_last);
 0000ce  462a              MOV      r2,r5
 0000d0  4651              MOV      r1,r10
 0000d2  4620              MOV      r0,r4
 0000d4  f7fffffe          BL       ip_reass_chain_frag_into_datagram_and_validate
-;;;587      if (valid == IP_REASS_VALIDATE_PBUF_DROPPED) {
+;;;599      if (valid == IP_REASS_VALIDATE_PBUF_DROPPED) {
 0000d8  1c41              ADDS     r1,r0,#1
-0000da  d04a              BEQ      |L2.370|
-;;;588        goto nullreturn;
-;;;589      }
-;;;590      /* if we come here, the pbuf has been enqueued */
-;;;591    
-;;;592      /* Track the current number of pbufs current 'in-flight', in order to limit
-;;;593         the number of fragments that may be enqueued at any one time
-;;;594         (overflow checked by testing against IP_REASS_MAX_PBUFS) */
-;;;595      ip_reass_pbufcount = (u16_t)(ip_reass_pbufcount + clen);
+0000da  d054              BEQ      |L2.390|
+;;;600        goto nullreturn_ipr;
+;;;601      }
+;;;602      /* if we come here, the pbuf has been enqueued */
+;;;603    
+;;;604      /* Track the current number of pbufs current 'in-flight', in order to limit
+;;;605         the number of fragments that may be enqueued at any one time
+;;;606         (overflow checked by testing against IP_REASS_MAX_PBUFS) */
+;;;607      ip_reass_pbufcount = (u16_t)(ip_reass_pbufcount + clen);
 0000dc  8839              LDRH     r1,[r7,#0]  ; ip_reass_pbufcount
 0000de  4431              ADD      r1,r1,r6
 0000e0  8039              STRH     r1,[r7,#0]
-;;;596      if (is_last) {
+;;;608      if (is_last) {
 0000e2  b135              CBZ      r5,|L2.242|
-;;;597        u16_t datagram_len = (u16_t)(offset + len);
+;;;609        u16_t datagram_len = (u16_t)(offset + len);
 0000e4  eb080109          ADD      r1,r8,r9
-;;;598        ipr->datagram_len = datagram_len;
+;;;610        ipr->datagram_len = datagram_len;
 0000e8  83a1              STRH     r1,[r4,#0x1c]
-;;;599        ipr->flags |= IP_REASS_FLAG_LASTFRAG;
+;;;611        ipr->flags |= IP_REASS_FLAG_LASTFRAG;
 0000ea  7fa1              LDRB     r1,[r4,#0x1e]
 0000ec  f0410101          ORR      r1,r1,#1
 0000f0  77a1              STRB     r1,[r4,#0x1e]
                   |L2.242|
-;;;600        LWIP_DEBUGF(IP_REASS_DEBUG,
-;;;601         ("ip4_reass: last fragment seen, total len %"S16_F"\n",
-;;;602          ipr->datagram_len));
-;;;603      }
-;;;604    
-;;;605      if (valid == IP_REASS_VALIDATE_TELEGRAM_FINISHED) {
+;;;612        LWIP_DEBUGF(IP_REASS_DEBUG,
+;;;613                    ("ip4_reass: last fragment seen, total len %"S16_F"\n",
+;;;614                     ipr->datagram_len));
+;;;615      }
+;;;616    
+;;;617      if (valid == IP_REASS_VALIDATE_TELEGRAM_FINISHED) {
 0000f2  2801              CMP      r0,#1
 0000f4  d003              BEQ      |L2.254|
-;;;606        struct ip_reassdata *ipr_prev;
-;;;607        /* the totally last fragment (flag more fragments = 0) was received at least
-;;;608         * once AND all fragments are received */
-;;;609        ipr->datagram_len += IP_HLEN;
-;;;610    
-;;;611        /* save the second pbuf before copying the header over the pointer */
-;;;612        r = ((struct ip_reass_helper*)ipr->p->payload)->next_pbuf;
-;;;613    
-;;;614        /* copy the original ip header back to the first pbuf */
-;;;615        fraghdr = (struct ip_hdr*)(ipr->p->payload);
-;;;616        SMEMCPY(fraghdr, &ipr->iphdr, IP_HLEN);
-;;;617        IPH_LEN_SET(fraghdr, lwip_htons(ipr->datagram_len));
-;;;618        IPH_OFFSET_SET(fraghdr, 0);
-;;;619        IPH_CHKSUM_SET(fraghdr, 0);
-;;;620        /* @todo: do we need to set/calculate the correct checksum? */
-;;;621    #if CHECKSUM_GEN_IP
-;;;622        IF__NETIF_CHECKSUM_ENABLED(ip_current_input_netif(), NETIF_CHECKSUM_GEN_IP) {
-;;;623          IPH_CHKSUM_SET(fraghdr, inet_chksum(fraghdr, IP_HLEN));
-;;;624        }
-;;;625    #endif /* CHECKSUM_GEN_IP */
-;;;626    
-;;;627        p = ipr->p;
-;;;628    
-;;;629        /* chain together the pbufs contained within the reass_data list. */
-;;;630        while (r != NULL) {
-;;;631          iprh = (struct ip_reass_helper*)r->payload;
-;;;632    
-;;;633          /* hide the ip header for every succeeding fragment */
-;;;634          pbuf_header(r, -IP_HLEN);
-;;;635          pbuf_cat(p, r);
-;;;636          r = iprh->next_pbuf;
-;;;637        }
+;;;618        struct ip_reassdata *ipr_prev;
+;;;619        /* the totally last fragment (flag more fragments = 0) was received at least
+;;;620         * once AND all fragments are received */
+;;;621        u16_t datagram_len = (u16_t)(ipr->datagram_len + IP_HLEN);
+;;;622    
+;;;623        /* save the second pbuf before copying the header over the pointer */
+;;;624        r = ((struct ip_reass_helper *)ipr->p->payload)->next_pbuf;
+;;;625    
+;;;626        /* copy the original ip header back to the first pbuf */
+;;;627        fraghdr = (struct ip_hdr *)(ipr->p->payload);
+;;;628        SMEMCPY(fraghdr, &ipr->iphdr, IP_HLEN);
+;;;629        IPH_LEN_SET(fraghdr, lwip_htons(datagram_len));
+;;;630        IPH_OFFSET_SET(fraghdr, 0);
+;;;631        IPH_CHKSUM_SET(fraghdr, 0);
+;;;632        /* @todo: do we need to set/calculate the correct checksum? */
+;;;633    #if CHECKSUM_GEN_IP
+;;;634        IF__NETIF_CHECKSUM_ENABLED(ip_current_input_netif(), NETIF_CHECKSUM_GEN_IP) {
+;;;635          IPH_CHKSUM_SET(fraghdr, inet_chksum(fraghdr, IP_HLEN));
+;;;636        }
+;;;637    #endif /* CHECKSUM_GEN_IP */
 ;;;638    
-;;;639        /* find the previous entry in the linked list */
-;;;640        if (ipr == reassdatagrams) {
-;;;641          ipr_prev = NULL;
-;;;642        } else {
-;;;643          for (ipr_prev = reassdatagrams; ipr_prev != NULL; ipr_prev = ipr_prev->next) {
-;;;644            if (ipr_prev->next == ipr) {
-;;;645              break;
-;;;646            }
-;;;647          }
-;;;648        }
-;;;649    
-;;;650        /* release the sources allocate for the fragment queue entry */
-;;;651        ip_reass_dequeue_datagram(ipr, ipr_prev);
-;;;652    
-;;;653        /* and adjust the number of pbufs currently queued for reassembly. */
-;;;654        ip_reass_pbufcount -= pbuf_clen(p);
-;;;655    
-;;;656        MIB2_STATS_INC(mib2.ipreasmoks);
-;;;657    
-;;;658        /* Return the pbuf chain */
-;;;659        return p;
-;;;660      }
-;;;661      /* the datagram is not (yet?) reassembled completely */
-;;;662      LWIP_DEBUGF(IP_REASS_DEBUG,("ip_reass_pbufcount: %d out\n", ip_reass_pbufcount));
-;;;663      return NULL;
+;;;639        p = ipr->p;
+;;;640    
+;;;641        /* chain together the pbufs contained within the reass_data list. */
+;;;642        while (r != NULL) {
+;;;643          iprh = (struct ip_reass_helper *)r->payload;
+;;;644    
+;;;645          /* hide the ip header for every succeeding fragment */
+;;;646          pbuf_remove_header(r, IP_HLEN);
+;;;647          pbuf_cat(p, r);
+;;;648          r = iprh->next_pbuf;
+;;;649        }
+;;;650    
+;;;651        /* find the previous entry in the linked list */
+;;;652        if (ipr == reassdatagrams) {
+;;;653          ipr_prev = NULL;
+;;;654        } else {
+;;;655          for (ipr_prev = reassdatagrams; ipr_prev != NULL; ipr_prev = ipr_prev->next) {
+;;;656            if (ipr_prev->next == ipr) {
+;;;657              break;
+;;;658            }
+;;;659          }
+;;;660        }
+;;;661    
+;;;662        /* release the sources allocate for the fragment queue entry */
+;;;663        ip_reass_dequeue_datagram(ipr, ipr_prev);
+;;;664    
+;;;665        /* and adjust the number of pbufs currently queued for reassembly. */
+;;;666        clen = pbuf_clen(p);
+;;;667        LWIP_ASSERT("ip_reass_pbufcount >= clen", ip_reass_pbufcount >= clen);
+;;;668        ip_reass_pbufcount = (u16_t)(ip_reass_pbufcount - clen);
+;;;669    
+;;;670        MIB2_STATS_INC(mib2.ipreasmoks);
+;;;671    
+;;;672        /* Return the pbuf chain */
+;;;673        return p;
+;;;674      }
+;;;675      /* the datagram is not (yet?) reassembled completely */
+;;;676      LWIP_DEBUGF(IP_REASS_DEBUG, ("ip_reass_pbufcount: %d out\n", ip_reass_pbufcount));
+;;;677      return NULL;
 0000f6  2000              MOVS     r0,#0
                   |L2.248|
-;;;664    
-;;;665    nullreturn:
-;;;666      LWIP_DEBUGF(IP_REASS_DEBUG,("ip4_reass: nullreturn\n"));
-;;;667      IPFRAG_STATS_INC(ip_frag.drop);
-;;;668      pbuf_free(p);
-;;;669      return NULL;
-;;;670    }
+;;;678    
+;;;679    nullreturn_ipr:
+;;;680      LWIP_ASSERT("ipr != NULL", ipr != NULL);
+;;;681      if (ipr->p == NULL) {
+;;;682        /* dropped pbuf after creating a new datagram entry: remove the entry, too */
+;;;683        LWIP_ASSERT("not firstalthough just enqueued", ipr == reassdatagrams);
+;;;684        ip_reass_dequeue_datagram(ipr, NULL);
+;;;685      }
+;;;686    
+;;;687    nullreturn:
+;;;688      LWIP_DEBUGF(IP_REASS_DEBUG, ("ip4_reass: nullreturn\n"));
+;;;689      IPFRAG_STATS_INC(ip_frag.drop);
+;;;690      pbuf_free(p);
+;;;691      return NULL;
+;;;692    }
 0000f8  e8bd87f0          POP      {r4-r10,pc}
                   |L2.252|
-0000fc  e039              B        |L2.370|
+0000fc  e053              B        |L2.422|
                   |L2.254|
-0000fe  8ba0              LDRH     r0,[r4,#0x1c]         ;609
-000100  3014              ADDS     r0,r0,#0x14           ;609
-000102  83a0              STRH     r0,[r4,#0x1c]         ;609
-000104  6860              LDR      r0,[r4,#4]            ;612
-000106  6846              LDR      r6,[r0,#4]            ;612
-000108  6835              LDR      r5,[r6,#0]            ;612
-00010a  2214              MOVS     r2,#0x14              ;616
-00010c  f1040108          ADD      r1,r4,#8              ;616
-000110  4630              MOV      r0,r6                 ;616
-000112  f7fffffe          BL       __aeabi_memcpy
-000116  8ba0              LDRH     r0,[r4,#0x1c]         ;617
-000118  f7fffffe          BL       lwip_htons
-00011c  8070              STRH     r0,[r6,#2]            ;617
-00011e  2000              MOVS     r0,#0                 ;618
-000120  80f0              STRH     r0,[r6,#6]            ;618
-000122  8170              STRH     r0,[r6,#0xa]          ;619
-000124  f8d48004          LDR      r8,[r4,#4]            ;627
-000128  f06f0913          MVN      r9,#0x13              ;634
-00012c  e009              B        |L2.322|
-                  |L2.302|
-00012e  686e              LDR      r6,[r5,#4]            ;631
-000130  4649              MOV      r1,r9                 ;634
-000132  4628              MOV      r0,r5                 ;634
-000134  f7fffffe          BL       pbuf_header
-000138  4629              MOV      r1,r5                 ;635
-00013a  4640              MOV      r0,r8                 ;635
-00013c  f7fffffe          BL       pbuf_cat
-000140  6835              LDR      r5,[r6,#0]            ;636
-                  |L2.322|
-000142  2d00              CMP      r5,#0                 ;630
-000144  d1f3              BNE      |L2.302|
-000146  6879              LDR      r1,[r7,#4]            ;640  ; reassdatagrams
-000148  428c              CMP      r4,r1                 ;640
-00014a  d105              BNE      |L2.344|
-00014c  2100              MOVS     r1,#0                 ;641
-00014e  e005              B        |L2.348|
-                  |L2.336|
-000150  6808              LDR      r0,[r1,#0]            ;644
-000152  42a0              CMP      r0,r4                 ;644
-000154  d002              BEQ      |L2.348|
-000156  4601              MOV      r1,r0                 ;643
-                  |L2.344|
-000158  2900              CMP      r1,#0                 ;643
-00015a  d1f9              BNE      |L2.336|
-                  |L2.348|
-00015c  4620              MOV      r0,r4                 ;651
-00015e  f7fffffe          BL       ip_reass_dequeue_datagram
-000162  4640              MOV      r0,r8                 ;654
-000164  f7fffffe          BL       pbuf_clen
-000168  8839              LDRH     r1,[r7,#0]            ;654  ; ip_reass_pbufcount
-00016a  1a08              SUBS     r0,r1,r0              ;654
-00016c  8038              STRH     r0,[r7,#0]            ;654
-00016e  4640              MOV      r0,r8                 ;659
-000170  e7c2              B        |L2.248|
-                  |L2.370|
-000172  4650              MOV      r0,r10                ;668
-000174  f7fffffe          BL       pbuf_free
-000178  2000              MOVS     r0,#0                 ;669
-00017a  e7bd              B        |L2.248|
-;;;671    #endif /* IP_REASSEMBLY */
+0000fe  8ba0              LDRH     r0,[r4,#0x1c]         ;621
+000100  3014              ADDS     r0,r0,#0x14           ;621
+000102  fa1ff880          UXTH     r8,r0                 ;621
+000106  6860              LDR      r0,[r4,#4]            ;624
+000108  6846              LDR      r6,[r0,#4]            ;624
+00010a  6835              LDR      r5,[r6,#0]            ;624
+00010c  2214              MOVS     r2,#0x14              ;628
+00010e  f1040108          ADD      r1,r4,#8              ;628
+000112  4630              MOV      r0,r6                 ;628
+000114  f7fffffe          BL       __aeabi_memcpy
+000118  4640              MOV      r0,r8                 ;629
+00011a  f7fffffe          BL       lwip_htons
+00011e  8070              STRH     r0,[r6,#2]            ;629
+000120  2000              MOVS     r0,#0                 ;630
+000122  80f0              STRH     r0,[r6,#6]            ;630
+000124  8170              STRH     r0,[r6,#0xa]          ;631
+000126  f8d48004          LDR      r8,[r4,#4]            ;639
+00012a  e009              B        |L2.320|
+                  |L2.300|
+00012c  686e              LDR      r6,[r5,#4]            ;643
+00012e  2114              MOVS     r1,#0x14              ;646
+000130  4628              MOV      r0,r5                 ;646
+000132  f7fffffe          BL       pbuf_remove_header
+000136  4629              MOV      r1,r5                 ;647
+000138  4640              MOV      r0,r8                 ;647
+00013a  f7fffffe          BL       pbuf_cat
+00013e  6835              LDR      r5,[r6,#0]            ;648
+                  |L2.320|
+000140  2d00              CMP      r5,#0                 ;642
+000142  d1f3              BNE      |L2.300|
+000144  6879              LDR      r1,[r7,#4]            ;652  ; reassdatagrams
+000146  428c              CMP      r4,r1                 ;652
+000148  d105              BNE      |L2.342|
+00014a  2100              MOVS     r1,#0                 ;653
+00014c  e005              B        |L2.346|
+                  |L2.334|
+00014e  6808              LDR      r0,[r1,#0]            ;656
+000150  42a0              CMP      r0,r4                 ;656
+000152  d002              BEQ      |L2.346|
+000154  4601              MOV      r1,r0                 ;655
+                  |L2.342|
+000156  2900              CMP      r1,#0                 ;655
+000158  d1f9              BNE      |L2.334|
+                  |L2.346|
+00015a  4620              MOV      r0,r4                 ;663
+00015c  f7fffffe          BL       ip_reass_dequeue_datagram
+000160  4640              MOV      r0,r8                 ;666
+000162  f7fffffe          BL       pbuf_clen
+000166  4604              MOV      r4,r0                 ;666
+000168  8838              LDRH     r0,[r7,#0]            ;667  ; ip_reass_pbufcount
+00016a  42a0              CMP      r0,r4                 ;667
+00016c  d206              BCS      |L2.380|
+00016e  a311              ADR      r3,|L2.436|
+000170  f240229b          MOV      r2,#0x29b             ;667
+000174  a11e              ADR      r1,|L2.496|
+000176  a025              ADR      r0,|L2.524|
+000178  f7fffffe          BL       __2printf
+                  |L2.380|
+00017c  8838              LDRH     r0,[r7,#0]            ;668  ; ip_reass_pbufcount
+00017e  1b00              SUBS     r0,r0,r4              ;668
+000180  8038              STRH     r0,[r7,#0]            ;668
+000182  4640              MOV      r0,r8                 ;673
+000184  e7b8              B        |L2.248|
+                  |L2.390|
+000186  6860              LDR      r0,[r4,#4]            ;681
+000188  b968              CBNZ     r0,|L2.422|
+00018a  6878              LDR      r0,[r7,#4]            ;683  ; reassdatagrams
+00018c  4284              CMP      r4,r0                 ;683
+00018e  d006              BEQ      |L2.414|
+000190  a308              ADR      r3,|L2.436|
+000192  f24022ab          MOV      r2,#0x2ab             ;683
+000196  a127              ADR      r1,|L2.564|
+000198  a01c              ADR      r0,|L2.524|
+00019a  f7fffffe          BL       __2printf
+                  |L2.414|
+00019e  2100              MOVS     r1,#0                 ;684
+0001a0  4620              MOV      r0,r4                 ;684
+0001a2  f7fffffe          BL       ip_reass_dequeue_datagram
+                  |L2.422|
+0001a6  4650              MOV      r0,r10                ;690
+0001a8  f7fffffe          BL       pbuf_free
+0001ac  2000              MOVS     r0,#0                 ;691
+0001ae  e7a3              B        |L2.248|
+;;;693    #endif /* IP_REASSEMBLY */
                           ENDP
 
-                  |L2.380|
+                  |L2.432|
                           DCD      ||.data||
+                  |L2.436|
+0001b4  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
+0001b8  6964646c
+0001bc  65776172
+0001c0  65735c54
+0001c4  68697264
+0001c8  5f506172
+0001cc  74795c4c
+0001d0  7749505c
+0001d4  7372635c
+0001d8  636f7265
+0001dc  5c697076
+0001e0  345c6970
+0001e4  345f6672          DCB      "4_frag.c",0
+0001e8  61672e63
+0001ec  00      
+0001ed  00                DCB      0
+0001ee  00                DCB      0
+0001ef  00                DCB      0
+                  |L2.496|
+0001f0  69705f72          DCB      "ip_reass_pbufcount >= clen",0
+0001f4  65617373
+0001f8  5f706275
+0001fc  66636f75
+000200  6e74203e
+000204  3d20636c
+000208  656e00  
+00020b  00                DCB      0
+                  |L2.524|
+00020c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000210  7274696f
+000214  6e202225
+000218  73222066
+00021c  61696c65
+000220  64206174
+000224  206c696e
+000228  65202564
+00022c  20696e20
+000230  25730a00
+                  |L2.564|
+000234  6e6f7420          DCB      "not firstalthough just enqueued",0
+000238  66697273
+00023c  74616c74
+000240  686f7567
+000244  68206a75
+000248  73742065
+00024c  6e717565
+000250  75656400
 
                           AREA ||i.ip_frag_alloc_pbuf_custom_ref||, CODE, READONLY, ALIGN=1
 
                   ip_frag_alloc_pbuf_custom_ref PROC
-;;;676    static struct pbuf_custom_ref*
-;;;677    ip_frag_alloc_pbuf_custom_ref(void)
+;;;698    static struct pbuf_custom_ref *
+;;;699    ip_frag_alloc_pbuf_custom_ref(void)
 000000  2005              MOVS     r0,#5
-;;;678    {
-;;;679      return (struct pbuf_custom_ref*)memp_malloc(MEMP_FRAG_PBUF);
+;;;700    {
+;;;701      return (struct pbuf_custom_ref *)memp_malloc(MEMP_FRAG_PBUF);
 000002  f7ffbffe          B.W      memp_malloc
-;;;680    }
-;;;681    
+;;;702    }
+;;;703    
                           ENDP
 
 
@@ -796,27 +903,27 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   ip_frag_free_pbuf_custom_ref PROC
-;;;683    static void
-;;;684    ip_frag_free_pbuf_custom_ref(struct pbuf_custom_ref* p)
+;;;705    static void
+;;;706    ip_frag_free_pbuf_custom_ref(struct pbuf_custom_ref *p)
 000000  b510              PUSH     {r4,lr}
-;;;685    {
+;;;707    {
 000002  4604              MOV      r4,r0
-;;;686      LWIP_ASSERT("p != NULL", p != NULL);
+;;;708      LWIP_ASSERT("p != NULL", p != NULL);
 000004  2c00              CMP      r4,#0
 000006  d106              BNE      |L4.22|
 000008  a306              ADR      r3,|L4.36|
-00000a  f24022ae          MOV      r2,#0x2ae
+00000a  f44f7231          MOV      r2,#0x2c4
 00000e  a114              ADR      r1,|L4.96|
 000010  a016              ADR      r0,|L4.108|
 000012  f7fffffe          BL       __2printf
                   |L4.22|
-;;;687      memp_free(MEMP_FRAG_PBUF, p);
+;;;709      memp_free(MEMP_FRAG_PBUF, p);
 000016  4621              MOV      r1,r4
 000018  e8bd4010          POP      {r4,lr}
 00001c  2005              MOVS     r0,#5
 00001e  f7ffbffe          B.W      memp_free
-;;;688    }
-;;;689    
+;;;710    }
+;;;711    
                           ENDP
 
 000022  0000              DCW      0x0000
@@ -871,419 +978,432 @@
                   ip_reass_chain_frag_into_datagram_and_validate PROC
 ;;;343    static int
 ;;;344    ip_reass_chain_frag_into_datagram_and_validate(struct ip_reassdata *ipr, struct pbuf *new_p, int is_last)
-000000  e92d47f0          PUSH     {r4-r10,lr}
+000000  e92d5ff0          PUSH     {r4-r12,lr}
 ;;;345    {
 000004  4607              MOV      r7,r0
 000006  4688              MOV      r8,r1
-000008  4691              MOV      r9,r2
-;;;346      struct ip_reass_helper *iprh, *iprh_tmp, *iprh_prev=NULL;
+000008  4692              MOV      r10,r2
+;;;346      struct ip_reass_helper *iprh, *iprh_tmp, *iprh_prev = NULL;
 00000a  2500              MOVS     r5,#0
 ;;;347      struct pbuf *q;
 ;;;348      u16_t offset, len;
-;;;349      struct ip_hdr *fraghdr;
-;;;350      int valid = 1;
+;;;349      u8_t hlen;
+;;;350      struct ip_hdr *fraghdr;
+;;;351      int valid = 1;
 00000c  2601              MOVS     r6,#1
-;;;351    
-;;;352      /* Extract length and fragment offset from current fragment */
-;;;353      fraghdr = (struct ip_hdr*)new_p->payload;
+;;;352    
+;;;353      /* Extract length and fragment offset from current fragment */
+;;;354      fraghdr = (struct ip_hdr *)new_p->payload;
 00000e  f8d84004          LDR      r4,[r8,#4]
-;;;354      len = lwip_ntohs(IPH_LEN(fraghdr)) - IPH_HL(fraghdr) * 4;
+;;;355      len = lwip_ntohs(IPH_LEN(fraghdr));
 000012  8860              LDRH     r0,[r4,#2]
 000014  f7fffffe          BL       lwip_htons
+;;;356      hlen = IPH_HL_BYTES(fraghdr);
 000018  7821              LDRB     r1,[r4,#0]
-00001a  f001010f          AND      r1,r1,#0xf
-00001e  4249              RSBS     r1,r1,#0
-000020  eb000a81          ADD      r10,r0,r1,LSL #2
-;;;355      offset = (lwip_ntohs(IPH_OFFSET(fraghdr)) & IP_OFFMASK) * 8;
-000024  88e0              LDRH     r0,[r4,#6]
-000026  f7fffffe          BL       lwip_htons
-00002a  04c0              LSLS     r0,r0,#19
-00002c  0c01              LSRS     r1,r0,#16
-;;;356    
-;;;357      /* overwrite the fragment's ip header from the pbuf with our helper struct,
-;;;358       * and setup the embedded helper structure. */
-;;;359      /* make sure the struct ip_reass_helper fits into the IP header */
-;;;360      LWIP_ASSERT("sizeof(struct ip_reass_helper) <= IP_HLEN",
-;;;361                  sizeof(struct ip_reass_helper) <= IP_HLEN);
-;;;362      iprh = (struct ip_reass_helper*)new_p->payload;
-00002e  f8d84004          LDR      r4,[r8,#4]
-;;;363      iprh->next_pbuf = NULL;
-000032  2000              MOVS     r0,#0
-000034  6020              STR      r0,[r4,#0]
-;;;364      iprh->start = offset;
-000036  80a1              STRH     r1,[r4,#4]
-;;;365      iprh->end = offset + len;
-000038  eb01000a          ADD      r0,r1,r10
-00003c  fa1ffc80          UXTH     r12,r0
-000040  f8a4c006          STRH     r12,[r4,#6]
-;;;366    
-;;;367      /* Iterate through until we either get to the end of the list (append),
-;;;368       * or we find one with a larger offset (insert). */
-;;;369      for (q = ipr->p; q != NULL;) {
-000044  687b              LDR      r3,[r7,#4]
-000046  e023              B        |L5.144|
-                  |L5.72|
-;;;370        iprh_tmp = (struct ip_reass_helper*)q->payload;
-000048  6858              LDR      r0,[r3,#4]
-;;;371        if (iprh->start < iprh_tmp->start) {
-00004a  8882              LDRH     r2,[r0,#4]
-00004c  4291              CMP      r1,r2
-00004e  d214              BCS      |L5.122|
-;;;372          /* the new pbuf should be inserted before this */
-;;;373          iprh->next_pbuf = q;
-000050  6023              STR      r3,[r4,#0]
-;;;374          if (iprh_prev != NULL) {
-000052  b165              CBZ      r5,|L5.110|
-;;;375            /* not the fragment with the lowest offset */
-;;;376    #if IP_REASS_CHECK_OVERLAP
-;;;377            if ((iprh->start < iprh_prev->end) || (iprh->end > iprh_tmp->start)) {
-000054  88ea              LDRH     r2,[r5,#6]
-000056  4291              CMP      r1,r2
-000058  d37e              BCC      |L5.344|
-00005a  8880              LDRH     r0,[r0,#4]
-00005c  4584              CMP      r12,r0
-00005e  d87b              BHI      |L5.344|
-;;;378              /* fragment overlaps with previous or following, throw away */
-;;;379              goto freepbuf;
-;;;380            }
-;;;381    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;382            iprh_prev->next_pbuf = new_p;
-000060  f8c58000          STR      r8,[r5,#0]
-;;;383            if (iprh_prev->end != iprh->start) {
-000064  88a0              LDRH     r0,[r4,#4]
-000066  4282              CMP      r2,r0
-000068  d014              BEQ      |L5.148|
-;;;384              /* There is a fragment missing between the current
-;;;385               * and the previous fragment */
-;;;386              valid = 0;
-00006a  2600              MOVS     r6,#0
-00006c  e012              B        |L5.148|
-                  |L5.110|
-;;;387            }
-;;;388          } else {
-;;;389    #if IP_REASS_CHECK_OVERLAP
-;;;390            if (iprh->end > iprh_tmp->start) {
-00006e  8880              LDRH     r0,[r0,#4]
-000070  4584              CMP      r12,r0
-000072  d876              BHI      |L5.354|
-;;;391              /* fragment overlaps with following, throw away */
-;;;392              goto freepbuf;
-;;;393            }
-;;;394    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;395            /* fragment with the lowest offset */
-;;;396            ipr->p = new_p;
-000074  f8c78004          STR      r8,[r7,#4]
-000078  e00c              B        |L5.148|
-                  |L5.122|
-;;;397          }
-;;;398          break;
-;;;399        } else if (iprh->start == iprh_tmp->start) {
-00007a  d072              BEQ      |L5.354|
-;;;400          /* received the same datagram twice: no need to keep the datagram */
-;;;401          goto freepbuf;
-;;;402    #if IP_REASS_CHECK_OVERLAP
-;;;403        } else if (iprh->start < iprh_tmp->end) {
-00007c  88c3              LDRH     r3,[r0,#6]
-00007e  4299              CMP      r1,r3
-000080  d36f              BCC      |L5.354|
-;;;404          /* overlap: no need to keep the new datagram */
-;;;405          goto freepbuf;
-;;;406    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;407        } else {
-;;;408          /* Check if the fragments received so far have no holes. */
-;;;409          if (iprh_prev != NULL) {
-000082  b11d              CBZ      r5,|L5.140|
-;;;410            if (iprh_prev->end != iprh_tmp->start) {
-000084  88eb              LDRH     r3,[r5,#6]
-000086  4293              CMP      r3,r2
-000088  d000              BEQ      |L5.140|
-;;;411              /* There is a fragment missing between the current
-;;;412               * and the previous fragment */
-;;;413              valid = 0;
-00008a  2600              MOVS     r6,#0
-                  |L5.140|
-;;;414            }
-;;;415          }
-;;;416        }
-;;;417        q = iprh_tmp->next_pbuf;
-00008c  6803              LDR      r3,[r0,#0]
-;;;418        iprh_prev = iprh_tmp;
-00008e  4605              MOV      r5,r0
+00001a  0709              LSLS     r1,r1,#28
+00001c  0e89              LSRS     r1,r1,#26
+;;;357      if (hlen > len) {
+;;;358        /* invalid datagram */
+;;;359        return IP_REASS_VALIDATE_PBUF_DROPPED;
+00001e  f04f39ff          MOV      r9,#0xffffffff
+000022  4281              CMP      r1,r0                 ;357
+000024  d902              BLS      |L5.44|
+000026  4648              MOV      r0,r9
+                  |L5.40|
+;;;360      }
+;;;361      len = (u16_t)(len - hlen);
+;;;362      offset = IPH_OFFSET_BYTES(fraghdr);
+;;;363    
+;;;364      /* overwrite the fragment's ip header from the pbuf with our helper struct,
+;;;365       * and setup the embedded helper structure. */
+;;;366      /* make sure the struct ip_reass_helper fits into the IP header */
+;;;367      LWIP_ASSERT("sizeof(struct ip_reass_helper) <= IP_HLEN",
+;;;368                  sizeof(struct ip_reass_helper) <= IP_HLEN);
+;;;369      iprh = (struct ip_reass_helper *)new_p->payload;
+;;;370      iprh->next_pbuf = NULL;
+;;;371      iprh->start = offset;
+;;;372      iprh->end = (u16_t)(offset + len);
+;;;373      if (iprh->end < offset) {
+;;;374        /* u16_t overflow, cannot handle this */
+;;;375        return IP_REASS_VALIDATE_PBUF_DROPPED;
+;;;376      }
+;;;377    
+;;;378      /* Iterate through until we either get to the end of the list (append),
+;;;379       * or we find one with a larger offset (insert). */
+;;;380      for (q = ipr->p; q != NULL;) {
+;;;381        iprh_tmp = (struct ip_reass_helper *)q->payload;
+;;;382        if (iprh->start < iprh_tmp->start) {
+;;;383          /* the new pbuf should be inserted before this */
+;;;384          iprh->next_pbuf = q;
+;;;385          if (iprh_prev != NULL) {
+;;;386            /* not the fragment with the lowest offset */
+;;;387    #if IP_REASS_CHECK_OVERLAP
+;;;388            if ((iprh->start < iprh_prev->end) || (iprh->end > iprh_tmp->start)) {
+;;;389              /* fragment overlaps with previous or following, throw away */
+;;;390              return IP_REASS_VALIDATE_PBUF_DROPPED;
+;;;391            }
+;;;392    #endif /* IP_REASS_CHECK_OVERLAP */
+;;;393            iprh_prev->next_pbuf = new_p;
+;;;394            if (iprh_prev->end != iprh->start) {
+;;;395              /* There is a fragment missing between the current
+;;;396               * and the previous fragment */
+;;;397              valid = 0;
+;;;398            }
+;;;399          } else {
+;;;400    #if IP_REASS_CHECK_OVERLAP
+;;;401            if (iprh->end > iprh_tmp->start) {
+;;;402              /* fragment overlaps with following, throw away */
+;;;403              return IP_REASS_VALIDATE_PBUF_DROPPED;
+;;;404            }
+;;;405    #endif /* IP_REASS_CHECK_OVERLAP */
+;;;406            /* fragment with the lowest offset */
+;;;407            ipr->p = new_p;
+;;;408          }
+;;;409          break;
+;;;410        } else if (iprh->start == iprh_tmp->start) {
+;;;411          /* received the same datagram twice: no need to keep the datagram */
+;;;412          return IP_REASS_VALIDATE_PBUF_DROPPED;
+;;;413    #if IP_REASS_CHECK_OVERLAP
+;;;414        } else if (iprh->start < iprh_tmp->end) {
+;;;415          /* overlap: no need to keep the new datagram */
+;;;416          return IP_REASS_VALIDATE_PBUF_DROPPED;
+;;;417    #endif /* IP_REASS_CHECK_OVERLAP */
+;;;418        } else {
+;;;419          /* Check if the fragments received so far have no holes. */
+;;;420          if (iprh_prev != NULL) {
+;;;421            if (iprh_prev->end != iprh_tmp->start) {
+;;;422              /* There is a fragment missing between the current
+;;;423               * and the previous fragment */
+;;;424              valid = 0;
+;;;425            }
+;;;426          }
+;;;427        }
+;;;428        q = iprh_tmp->next_pbuf;
+;;;429        iprh_prev = iprh_tmp;
+;;;430      }
+;;;431    
+;;;432      /* If q is NULL, then we made it to the end of the list. Determine what to do now */
+;;;433      if (q == NULL) {
+;;;434        if (iprh_prev != NULL) {
+;;;435          /* this is (for now), the fragment with the highest offset:
+;;;436           * chain it to the last fragment */
+;;;437    #if IP_REASS_CHECK_OVERLAP
+;;;438          LWIP_ASSERT("check fragments don't overlap", iprh_prev->end <= iprh->start);
+;;;439    #endif /* IP_REASS_CHECK_OVERLAP */
+;;;440          iprh_prev->next_pbuf = new_p;
+;;;441          if (iprh_prev->end != iprh->start) {
+;;;442            valid = 0;
+;;;443          }
+;;;444        } else {
+;;;445    #if IP_REASS_CHECK_OVERLAP
+;;;446          LWIP_ASSERT("no previous fragment, this must be the first fragment!",
+;;;447                      ipr->p == NULL);
+;;;448    #endif /* IP_REASS_CHECK_OVERLAP */
+;;;449          /* this is the first fragment we ever received for this ip datagram */
+;;;450          ipr->p = new_p;
+;;;451        }
+;;;452      }
+;;;453    
+;;;454      /* At this point, the validation part begins: */
+;;;455      /* If we already received the last fragment */
+;;;456      if (is_last || ((ipr->flags & IP_REASS_FLAG_LASTFRAG) != 0)) {
+;;;457        /* and had no holes so far */
+;;;458        if (valid) {
+;;;459          /* then check if the rest of the fragments is here */
+;;;460          /* Check if the queue starts with the first datagram */
+;;;461          if ((ipr->p == NULL) || (((struct ip_reass_helper *)ipr->p->payload)->start != 0)) {
+;;;462            valid = 0;
+;;;463          } else {
+;;;464            /* and check that there are no holes after this datagram */
+;;;465            iprh_prev = iprh;
+;;;466            q = iprh->next_pbuf;
+;;;467            while (q != NULL) {
+;;;468              iprh = (struct ip_reass_helper *)q->payload;
+;;;469              if (iprh_prev->end != iprh->start) {
+;;;470                valid = 0;
+;;;471                break;
+;;;472              }
+;;;473              iprh_prev = iprh;
+;;;474              q = iprh->next_pbuf;
+;;;475            }
+;;;476            /* if still valid, all fragments are received
+;;;477             * (because to the MF==0 already arrived */
+;;;478            if (valid) {
+;;;479              LWIP_ASSERT("sanity check", ipr->p != NULL);
+;;;480              LWIP_ASSERT("sanity check",
+;;;481                          ((struct ip_reass_helper *)ipr->p->payload) != iprh);
+;;;482              LWIP_ASSERT("validate_datagram:next_pbuf!=NULL",
+;;;483                          iprh->next_pbuf == NULL);
+;;;484            }
+;;;485          }
+;;;486        }
+;;;487        /* If valid is 0 here, there are some fragments missing in the middle
+;;;488         * (since MF == 0 has already arrived). Such datagrams simply time out if
+;;;489         * no more fragments are received... */
+;;;490        return valid ? IP_REASS_VALIDATE_TELEGRAM_FINISHED : IP_REASS_VALIDATE_PBUF_QUEUED;
+;;;491      }
+;;;492      /* If we come here, not all fragments were received, yet! */
+;;;493      return IP_REASS_VALIDATE_PBUF_QUEUED; /* not yet valid! */
+;;;494    }
+000028  e8bd9ff0          POP      {r4-r12,pc}
+                  |L5.44|
+00002c  eba00b01          SUB      r11,r0,r1             ;361
+000030  88e0              LDRH     r0,[r4,#6]            ;362
+000032  f7fffffe          BL       lwip_htons
+000036  04c0              LSLS     r0,r0,#19             ;362
+000038  0c01              LSRS     r1,r0,#16             ;362
+00003a  f8d84004          LDR      r4,[r8,#4]            ;369
+00003e  2000              MOVS     r0,#0                 ;370
+000040  6020              STR      r0,[r4,#0]            ;370
+000042  80a1              STRH     r1,[r4,#4]            ;371
+000044  eb01000b          ADD      r0,r1,r11             ;372
+000048  fa1ffc80          UXTH     r12,r0                ;372
+00004c  f8a4c006          STRH     r12,[r4,#6]           ;372
+000050  458c              CMP      r12,r1                ;373
+000052  d201              BCS      |L5.88|
+000054  4648              MOV      r0,r9                 ;375
+000056  e7e7              B        |L5.40|
+                  |L5.88|
+000058  6878              LDR      r0,[r7,#4]            ;380
+00005a  e02b              B        |L5.180|
+                  |L5.92|
+00005c  6843              LDR      r3,[r0,#4]            ;381
+00005e  889a              LDRH     r2,[r3,#4]            ;382
+000060  4291              CMP      r1,r2                 ;382
+000062  d218              BCS      |L5.150|
+000064  6020              STR      r0,[r4,#0]            ;384
+000066  b175              CBZ      r5,|L5.134|
+000068  88ea              LDRH     r2,[r5,#6]            ;388
+00006a  4291              CMP      r1,r2                 ;388
+00006c  d302              BCC      |L5.116|
+00006e  8899              LDRH     r1,[r3,#4]            ;388
+000070  458c              CMP      r12,r1                ;388
+000072  d901              BLS      |L5.120|
+                  |L5.116|
+000074  4648              MOV      r0,r9                 ;390
+000076  e7d7              B        |L5.40|
+                  |L5.120|
+000078  f8c58000          STR      r8,[r5,#0]            ;393
+00007c  88a1              LDRH     r1,[r4,#4]            ;394
+00007e  428a              CMP      r2,r1                 ;394
+000080  d01a              BEQ      |L5.184|
+000082  2600              MOVS     r6,#0                 ;397
+000084  e018              B        |L5.184|
+                  |L5.134|
+000086  8899              LDRH     r1,[r3,#4]            ;401
+000088  458c              CMP      r12,r1                ;401
+00008a  d901              BLS      |L5.144|
+00008c  4648              MOV      r0,r9                 ;403
+00008e  e7cb              B        |L5.40|
                   |L5.144|
-000090  2b00              CMP      r3,#0                 ;369
-000092  d1d9              BNE      |L5.72|
-                  |L5.148|
-;;;419      }
-;;;420    
-;;;421      /* If q is NULL, then we made it to the end of the list. Determine what to do now */
-;;;422      if (q == NULL) {
-000094  2b00              CMP      r3,#0
-000096  d120              BNE      |L5.218|
-;;;423        if (iprh_prev != NULL) {
-000098  2d00              CMP      r5,#0
-00009a  d012              BEQ      |L5.194|
-;;;424          /* this is (for now), the fragment with the highest offset:
-;;;425           * chain it to the last fragment */
-;;;426    #if IP_REASS_CHECK_OVERLAP
-;;;427          LWIP_ASSERT("check fragments don't overlap", iprh_prev->end <= iprh->start);
-00009c  88e8              LDRH     r0,[r5,#6]
-00009e  88a1              LDRH     r1,[r4,#4]
-0000a0  4288              CMP      r0,r1
-0000a2  d906              BLS      |L5.178|
-0000a4  a335              ADR      r3,|L5.380|
-0000a6  f24012ab          MOV      r2,#0x1ab
-0000aa  a143              ADR      r1,|L5.440|
-0000ac  a04a              ADR      r0,|L5.472|
-0000ae  f7fffffe          BL       __2printf
-                  |L5.178|
-;;;428    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;429          iprh_prev->next_pbuf = new_p;
-0000b2  f8c58000          STR      r8,[r5,#0]
-;;;430          if (iprh_prev->end != iprh->start) {
-0000b6  88e8              LDRH     r0,[r5,#6]
-0000b8  88a1              LDRH     r1,[r4,#4]
-0000ba  4288              CMP      r0,r1
-0000bc  d00d              BEQ      |L5.218|
-;;;431            valid = 0;
-0000be  2600              MOVS     r6,#0
-0000c0  e00b              B        |L5.218|
-                  |L5.194|
-;;;432          }
-;;;433        } else {
-;;;434    #if IP_REASS_CHECK_OVERLAP
-;;;435          LWIP_ASSERT("no previous fragment, this must be the first fragment!",
-0000c2  6878              LDR      r0,[r7,#4]
-0000c4  2800              CMP      r0,#0
-0000c6  d006              BEQ      |L5.214|
-0000c8  a32c              ADR      r3,|L5.380|
-0000ca  f24012b3          MOV      r2,#0x1b3
-0000ce  a14c              ADR      r1,|L5.512|
-0000d0  a041              ADR      r0,|L5.472|
-0000d2  f7fffffe          BL       __2printf
-                  |L5.214|
-;;;436            ipr->p == NULL);
-;;;437    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;438          /* this is the first fragment we ever received for this ip datagram */
-;;;439          ipr->p = new_p;
-0000d6  f8c78004          STR      r8,[r7,#4]
-                  |L5.218|
-;;;440        }
-;;;441      }
-;;;442    
-;;;443      /* At this point, the validation part begins: */
-;;;444      /* If we already received the last fragment */
-;;;445      if (is_last || ((ipr->flags & IP_REASS_FLAG_LASTFRAG) != 0)) {
-0000da  f1b90f00          CMP      r9,#0
-0000de  d102              BNE      |L5.230|
-0000e0  7fb8              LDRB     r0,[r7,#0x1e]
-0000e2  07c0              LSLS     r0,r0,#31
-0000e4  d03b              BEQ      |L5.350|
-                  |L5.230|
-;;;446        /* and had no holes so far */
-;;;447        if (valid) {
-0000e6  2e00              CMP      r6,#0
-0000e8  d032              BEQ      |L5.336|
-;;;448          /* then check if the rest of the fragments is here */
-;;;449          /* Check if the queue starts with the first datagram */
-;;;450          if ((ipr->p == NULL) || (((struct ip_reass_helper*)ipr->p->payload)->start != 0)) {
-0000ea  687a              LDR      r2,[r7,#4]
-0000ec  b112              CBZ      r2,|L5.244|
-0000ee  6850              LDR      r0,[r2,#4]
-0000f0  8880              LDRH     r0,[r0,#4]
-0000f2  b108              CBZ      r0,|L5.248|
-                  |L5.244|
-;;;451            valid = 0;
-0000f4  2600              MOVS     r6,#0
-0000f6  e02b              B        |L5.336|
-                  |L5.248|
-;;;452          } else {
-;;;453            /* and check that there are no holes after this datagram */
-;;;454            iprh_prev = iprh;
-;;;455            q = iprh->next_pbuf;
-0000f8  4621              MOV      r1,r4
-0000fa  6820              LDR      r0,[r4,#0]
-;;;456            while (q != NULL) {
-0000fc  e008              B        |L5.272|
-                  |L5.254|
-;;;457              iprh = (struct ip_reass_helper*)q->payload;
-0000fe  6844              LDR      r4,[r0,#4]
-;;;458              if (iprh_prev->end != iprh->start) {
-000100  88c8              LDRH     r0,[r1,#6]
-000102  88a1              LDRH     r1,[r4,#4]
-000104  4288              CMP      r0,r1
-000106  d001              BEQ      |L5.268|
-;;;459                valid = 0;
-000108  2600              MOVS     r6,#0
-;;;460                break;
-00010a  e003              B        |L5.276|
-                  |L5.268|
-;;;461              }
-;;;462              iprh_prev = iprh;
-;;;463              q = iprh->next_pbuf;
-00010c  6820              LDR      r0,[r4,#0]
-00010e  4621              MOV      r1,r4
-                  |L5.272|
-000110  2800              CMP      r0,#0                 ;456
-000112  d1f4              BNE      |L5.254|
+000090  f8c78004          STR      r8,[r7,#4]            ;407
+000094  e010              B        |L5.184|
+                  |L5.150|
+000096  d101              BNE      |L5.156|
+000098  4648              MOV      r0,r9                 ;412
+00009a  e7c5              B        |L5.40|
+                  |L5.156|
+00009c  88d8              LDRH     r0,[r3,#6]            ;414
+00009e  4281              CMP      r1,r0                 ;414
+0000a0  d201              BCS      |L5.166|
+0000a2  4648              MOV      r0,r9                 ;416
+0000a4  e7c0              B        |L5.40|
+                  |L5.166|
+0000a6  b11d              CBZ      r5,|L5.176|
+0000a8  88e8              LDRH     r0,[r5,#6]            ;421
+0000aa  4290              CMP      r0,r2                 ;421
+0000ac  d000              BEQ      |L5.176|
+0000ae  2600              MOVS     r6,#0                 ;424
+                  |L5.176|
+0000b0  6818              LDR      r0,[r3,#0]            ;428
+0000b2  461d              MOV      r5,r3                 ;429
+                  |L5.180|
+0000b4  2800              CMP      r0,#0                 ;380
+0000b6  d1d1              BNE      |L5.92|
+                  |L5.184|
+0000b8  2800              CMP      r0,#0                 ;433
+0000ba  d11e              BNE      |L5.250|
+0000bc  b195              CBZ      r5,|L5.228|
+0000be  88e8              LDRH     r0,[r5,#6]            ;438
+0000c0  88a1              LDRH     r1,[r4,#4]            ;438
+0000c2  4288              CMP      r0,r1                 ;438
+0000c4  d906              BLS      |L5.212|
+0000c6  a32e              ADR      r3,|L5.384|
+0000c8  f44f72db          MOV      r2,#0x1b6             ;438
+0000cc  a13b              ADR      r1,|L5.444|
+0000ce  a043              ADR      r0,|L5.476|
+0000d0  f7fffffe          BL       __2printf
+                  |L5.212|
+0000d4  f8c58000          STR      r8,[r5,#0]            ;440
+0000d8  88e8              LDRH     r0,[r5,#6]            ;441
+0000da  88a1              LDRH     r1,[r4,#4]            ;441
+0000dc  4288              CMP      r0,r1                 ;441
+0000de  d00c              BEQ      |L5.250|
+0000e0  2600              MOVS     r6,#0                 ;442
+0000e2  e00a              B        |L5.250|
+                  |L5.228|
+0000e4  6878              LDR      r0,[r7,#4]            ;446
+0000e6  b130              CBZ      r0,|L5.246|
+0000e8  a325              ADR      r3,|L5.384|
+0000ea  f44f72df          MOV      r2,#0x1be             ;446
+0000ee  a145              ADR      r1,|L5.516|
+0000f0  a03a              ADR      r0,|L5.476|
+0000f2  f7fffffe          BL       __2printf
+                  |L5.246|
+0000f6  f8c78004          STR      r8,[r7,#4]            ;450
+                  |L5.250|
+0000fa  f1ba0f00          CMP      r10,#0                ;456
+0000fe  d102              BNE      |L5.262|
+000100  7fb8              LDRB     r0,[r7,#0x1e]         ;456
+000102  07c0              LSLS     r0,r0,#31             ;456
+000104  d039              BEQ      |L5.378|
+                  |L5.262|
+000106  2e00              CMP      r6,#0                 ;458
+000108  d032              BEQ      |L5.368|
+00010a  687a              LDR      r2,[r7,#4]            ;461
+00010c  b112              CBZ      r2,|L5.276|
+00010e  6850              LDR      r0,[r2,#4]            ;461
+000110  8880              LDRH     r0,[r0,#4]            ;461
+000112  b108              CBZ      r0,|L5.280|
                   |L5.276|
-;;;464            }
-;;;465            /* if still valid, all fragments are received
-;;;466             * (because to the MF==0 already arrived */
-;;;467            if (valid) {
-000114  2e00              CMP      r6,#0
-000116  d01b              BEQ      |L5.336|
-;;;468              LWIP_ASSERT("sanity check", ipr->p != NULL);
-000118  b932              CBNZ     r2,|L5.296|
-00011a  a318              ADR      r3,|L5.380|
-00011c  f44f72ea          MOV      r2,#0x1d4
-000120  a145              ADR      r1,|L5.568|
-000122  a02d              ADR      r0,|L5.472|
-000124  f7fffffe          BL       __2printf
-                  |L5.296|
-;;;469              LWIP_ASSERT("sanity check",
-000128  6878              LDR      r0,[r7,#4]
-00012a  6840              LDR      r0,[r0,#4]
-00012c  42a0              CMP      r0,r4
-00012e  d106              BNE      |L5.318|
-000130  a312              ADR      r3,|L5.380|
-000132  f24012d5          MOV      r2,#0x1d5
-000136  a140              ADR      r1,|L5.568|
-000138  a027              ADR      r0,|L5.472|
-00013a  f7fffffe          BL       __2printf
-                  |L5.318|
-;;;470                ((struct ip_reass_helper*)ipr->p->payload) != iprh);
-;;;471              LWIP_ASSERT("validate_datagram:next_pbuf!=NULL",
-00013e  6820              LDR      r0,[r4,#0]
-000140  b130              CBZ      r0,|L5.336|
-000142  a30e              ADR      r3,|L5.380|
-000144  f24012d7          MOV      r2,#0x1d7
-000148  a13f              ADR      r1,|L5.584|
-00014a  a023              ADR      r0,|L5.472|
-00014c  f7fffffe          BL       __2printf
-                  |L5.336|
-;;;472                iprh->next_pbuf == NULL);
-;;;473            }
-;;;474          }
-;;;475        }
-;;;476        /* If valid is 0 here, there are some fragments missing in the middle
-;;;477         * (since MF == 0 has already arrived). Such datagrams simply time out if
-;;;478         * no more fragments are received... */
-;;;479        return valid ? IP_REASS_VALIDATE_TELEGRAM_FINISHED : IP_REASS_VALIDATE_PBUF_QUEUED;
-000150  b11e              CBZ      r6,|L5.346|
-000152  2001              MOVS     r0,#1
-                  |L5.340|
-;;;480      }
-;;;481      /* If we come here, not all fragments were received, yet! */
-;;;482      return IP_REASS_VALIDATE_PBUF_QUEUED; /* not yet valid! */
-;;;483    #if IP_REASS_CHECK_OVERLAP
-;;;484    freepbuf:
-;;;485      ip_reass_pbufcount -= pbuf_clen(new_p);
-;;;486      pbuf_free(new_p);
-;;;487      return IP_REASS_VALIDATE_PBUF_DROPPED;
-;;;488    #endif /* IP_REASS_CHECK_OVERLAP */
-;;;489    }
-000154  e8bd87f0          POP      {r4-r10,pc}
-                  |L5.344|
-000158  e003              B        |L5.354|
-                  |L5.346|
-00015a  2000              MOVS     r0,#0                 ;479
-00015c  e7fa              B        |L5.340|
+000114  2600              MOVS     r6,#0                 ;462
+000116  e02b              B        |L5.368|
+                  |L5.280|
+000118  4621              MOV      r1,r4                 ;466
+00011a  6820              LDR      r0,[r4,#0]            ;466
+00011c  e008              B        |L5.304|
+                  |L5.286|
+00011e  6844              LDR      r4,[r0,#4]            ;468
+000120  88c8              LDRH     r0,[r1,#6]            ;469
+000122  88a1              LDRH     r1,[r4,#4]            ;469
+000124  4288              CMP      r0,r1                 ;469
+000126  d001              BEQ      |L5.300|
+000128  2600              MOVS     r6,#0                 ;470
+00012a  e003              B        |L5.308|
+                  |L5.300|
+00012c  6820              LDR      r0,[r4,#0]            ;474
+00012e  4621              MOV      r1,r4                 ;474
+                  |L5.304|
+000130  2800              CMP      r0,#0                 ;467
+000132  d1f4              BNE      |L5.286|
+                  |L5.308|
+000134  2e00              CMP      r6,#0                 ;478
+000136  d01b              BEQ      |L5.368|
+000138  b932              CBNZ     r2,|L5.328|
+00013a  a311              ADR      r3,|L5.384|
+00013c  f24012df          MOV      r2,#0x1df             ;479
+000140  a13e              ADR      r1,|L5.572|
+000142  a026              ADR      r0,|L5.476|
+000144  f7fffffe          BL       __2printf
+                  |L5.328|
+000148  6878              LDR      r0,[r7,#4]            ;480
+00014a  6840              LDR      r0,[r0,#4]            ;480
+00014c  42a0              CMP      r0,r4                 ;480
+00014e  d106              BNE      |L5.350|
+000150  a30b              ADR      r3,|L5.384|
+000152  f44f72f0          MOV      r2,#0x1e0             ;480
+000156  a139              ADR      r1,|L5.572|
+000158  a020              ADR      r0,|L5.476|
+00015a  f7fffffe          BL       __2printf
                   |L5.350|
-00015e  2000              MOVS     r0,#0                 ;482
-000160  e7f8              B        |L5.340|
-                  |L5.354|
-000162  4640              MOV      r0,r8                 ;485
-000164  f7fffffe          BL       pbuf_clen
-000168  4940              LDR      r1,|L5.620|
-00016a  880a              LDRH     r2,[r1,#0]            ;485  ; ip_reass_pbufcount
-00016c  1a10              SUBS     r0,r2,r0              ;485
-00016e  8008              STRH     r0,[r1,#0]            ;485
-000170  4640              MOV      r0,r8                 ;486
-000172  f7fffffe          BL       pbuf_free
-000176  f04f30ff          MOV      r0,#0xffffffff        ;487
-00017a  e7eb              B        |L5.340|
-;;;490    
+00015e  6820              LDR      r0,[r4,#0]            ;482
+000160  b130              CBZ      r0,|L5.368|
+000162  a307              ADR      r3,|L5.384|
+000164  f44f72f1          MOV      r2,#0x1e2             ;482
+000168  a138              ADR      r1,|L5.588|
+00016a  a01c              ADR      r0,|L5.476|
+00016c  f7fffffe          BL       __2printf
+                  |L5.368|
+000170  b10e              CBZ      r6,|L5.374|
+000172  2001              MOVS     r0,#1                 ;490
+000174  e758              B        |L5.40|
+                  |L5.374|
+000176  2000              MOVS     r0,#0                 ;490
+000178  e756              B        |L5.40|
+                  |L5.378|
+00017a  2000              MOVS     r0,#0                 ;493
+00017c  e754              B        |L5.40|
+;;;495    
                           ENDP
 
-                  |L5.380|
-00017c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
-000180  6964646c
-000184  65776172
-000188  65735c54
-00018c  68697264
-000190  5f506172
-000194  74795c4c
-000198  7749505c
-00019c  7372635c
-0001a0  636f7265
-0001a4  5c697076
-0001a8  345c6970
-0001ac  345f6672          DCB      "4_frag.c",0
-0001b0  61672e63
-0001b4  00      
-0001b5  00                DCB      0
-0001b6  00                DCB      0
-0001b7  00                DCB      0
-                  |L5.440|
-0001b8  63686563          DCB      "check fragments don't overlap",0
-0001bc  6b206672
-0001c0  61676d65
-0001c4  6e747320
-0001c8  646f6e27
-0001cc  74206f76
-0001d0  65726c61
-0001d4  7000    
-0001d6  00                DCB      0
-0001d7  00                DCB      0
-                  |L5.472|
-0001d8  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0001dc  7274696f
-0001e0  6e202225
-0001e4  73222066
-0001e8  61696c65
-0001ec  64206174
-0001f0  206c696e
-0001f4  65202564
-0001f8  20696e20
-0001fc  25730a00
-                  |L5.512|
-000200  6e6f2070          DCB      "no previous fragment, this must be the first fragment!",0
-000204  72657669
-000208  6f757320
-00020c  66726167
-000210  6d656e74
-000214  2c207468
-000218  6973206d
-00021c  75737420
-000220  62652074
-000224  68652066
-000228  69727374
-00022c  20667261
-000230  676d656e
-000234  742100  
-000237  00                DCB      0
-                  |L5.568|
-000238  73616e69          DCB      "sanity check",0
-00023c  74792063
-000240  6865636b
-000244  00      
-000245  00                DCB      0
-000246  00                DCB      0
-000247  00                DCB      0
-                  |L5.584|
-000248  76616c69          DCB      "validate_datagram:next_pbuf!=NULL",0
-00024c  64617465
-000250  5f646174
-000254  61677261
-000258  6d3a6e65
-00025c  78745f70
-000260  62756621
-000264  3d4e554c
-000268  4c00    
-00026a  00                DCB      0
-00026b  00                DCB      0
-                  |L5.620|
-                          DCD      ||.data||
+00017e  0000              DCW      0x0000
+                  |L5.384|
+000180  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
+000184  6964646c
+000188  65776172
+00018c  65735c54
+000190  68697264
+000194  5f506172
+000198  74795c4c
+00019c  7749505c
+0001a0  7372635c
+0001a4  636f7265
+0001a8  5c697076
+0001ac  345c6970
+0001b0  345f6672          DCB      "4_frag.c",0
+0001b4  61672e63
+0001b8  00      
+0001b9  00                DCB      0
+0001ba  00                DCB      0
+0001bb  00                DCB      0
+                  |L5.444|
+0001bc  63686563          DCB      "check fragments don't overlap",0
+0001c0  6b206672
+0001c4  61676d65
+0001c8  6e747320
+0001cc  646f6e27
+0001d0  74206f76
+0001d4  65726c61
+0001d8  7000    
+0001da  00                DCB      0
+0001db  00                DCB      0
+                  |L5.476|
+0001dc  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0001e0  7274696f
+0001e4  6e202225
+0001e8  73222066
+0001ec  61696c65
+0001f0  64206174
+0001f4  206c696e
+0001f8  65202564
+0001fc  20696e20
+000200  25730a00
+                  |L5.516|
+000204  6e6f2070          DCB      "no previous fragment, this must be the first fragment!",0
+000208  72657669
+00020c  6f757320
+000210  66726167
+000214  6d656e74
+000218  2c207468
+00021c  6973206d
+000220  75737420
+000224  62652074
+000228  68652066
+00022c  69727374
+000230  20667261
+000234  676d656e
+000238  742100  
+00023b  00                DCB      0
+                  |L5.572|
+00023c  73616e69          DCB      "sanity check",0
+000240  74792063
+000244  6865636b
+000248  00      
+000249  00                DCB      0
+00024a  00                DCB      0
+00024b  00                DCB      0
+                  |L5.588|
+00024c  76616c69          DCB      "validate_datagram:next_pbuf!=NULL",0
+000250  64617465
+000254  5f646174
+000258  61677261
+00025c  6d3a6e65
+000260  78745f70
+000264  62756621
+000268  3d4e554c
+00026c  4c00    
+00026e  00                DCB      0
+00026f  00                DCB      0
 
                           AREA ||i.ip_reass_dequeue_datagram||, CODE, READONLY, ALIGN=2
 
@@ -1386,13 +1506,13 @@
                           AREA ||i.ip_reass_enqueue_new_datagram||, CODE, READONLY, ALIGN=2
 
                   ip_reass_enqueue_new_datagram PROC
-;;;277    static struct ip_reassdata*
+;;;277    static struct ip_reassdata *
 ;;;278    ip_reass_enqueue_new_datagram(struct ip_hdr *fraghdr, int clen)
 000000  b570              PUSH     {r4-r6,lr}
 ;;;279    {
 000002  4606              MOV      r6,r0
 000004  460d              MOV      r5,r1
-;;;280      struct ip_reassdata* ipr;
+;;;280      struct ip_reassdata *ipr;
 ;;;281    #if ! IP_REASS_FREE_OLDEST
 ;;;282      LWIP_UNUSED_ARG(clen);
 ;;;283    #endif
@@ -1423,7 +1543,7 @@
 ;;;293    #endif /* IP_REASS_FREE_OLDEST */
 ;;;294        {
 ;;;295          IPFRAG_STATS_INC(ip_frag.memerr);
-;;;296          LWIP_DEBUGF(IP_REASS_DEBUG,("Failed to alloc reassdata struct\n"));
+;;;296          LWIP_DEBUGF(IP_REASS_DEBUG, ("Failed to alloc reassdata struct\n"));
 ;;;297          return NULL;
 ;;;298        }
 ;;;299      }
@@ -1432,7 +1552,7 @@
 000028  4620              MOV      r0,r4
 00002a  f7fffffe          BL       __aeabi_memclr4
 ;;;301      ipr->timer = IP_REASS_MAXAGE;
-00002e  2003              MOVS     r0,#3
+00002e  200f              MOVS     r0,#0xf
 000030  77e0              STRB     r0,[r4,#0x1f]
 ;;;302    
 ;;;303      /* enqueue the new structure to the front of the list */
@@ -1550,7 +1670,7 @@
 00006e  a02b              ADR      r0,|L8.284|
 000070  f7fffffe          BL       __2printf
                   |L8.116|
-;;;189        pbufs_freed += clen;
+;;;189        pbufs_freed = (u16_t)(pbufs_freed + clen);
 000074  b2a5              UXTH     r5,r4
 ;;;190        pbuf_free(p);
 000076  4640              MOV      r0,r8
@@ -1587,7 +1707,7 @@
 000098  a020              ADR      r0,|L8.284|
 00009a  f7fffffe          BL       __2printf
                   |L8.158|
-;;;205        pbufs_freed += clen;
+;;;205        pbufs_freed = (u16_t)(pbufs_freed + clen);
 00009e  b2ad              UXTH     r5,r5
 ;;;206        pbuf_free(pcur);
 0000a0  4640              MOV      r0,r8
@@ -1601,7 +1721,7 @@
 0000aa  4639              MOV      r1,r7
 0000ac  4630              MOV      r0,r6
 0000ae  f7fffffe          BL       ip_reass_dequeue_datagram
-;;;210      LWIP_ASSERT("ip_reass_pbufcount >= clen", ip_reass_pbufcount >= pbufs_freed);
+;;;210      LWIP_ASSERT("ip_reass_pbufcount >= pbufs_freed", ip_reass_pbufcount >= pbufs_freed);
 0000b2  4c31              LDR      r4,|L8.376|
 0000b4  8820              LDRH     r0,[r4,#0]  ; ip_reass_pbufcount
 0000b6  42a8              CMP      r0,r5
@@ -1612,7 +1732,7 @@
 0000c0  a016              ADR      r0,|L8.284|
 0000c2  f7fffffe          BL       __2printf
                   |L8.198|
-;;;211      ip_reass_pbufcount -= pbufs_freed;
+;;;211      ip_reass_pbufcount = (u16_t)(ip_reass_pbufcount - pbufs_freed);
 0000c6  8820              LDRH     r0,[r4,#0]  ; ip_reass_pbufcount
 0000c8  1b40              SUBS     r0,r0,r5
 0000ca  8020              STRH     r0,[r4,#0]
@@ -1682,14 +1802,17 @@
                   |L8.376|
                           DCD      ||.data||
                   |L8.380|
-00017c  69705f72          DCB      "ip_reass_pbufcount >= clen",0
+00017c  69705f72          DCB      "ip_reass_pbufcount >= pbufs_freed",0
 000180  65617373
 000184  5f706275
 000188  66636f75
 00018c  6e74203e
-000190  3d20636c
-000194  656e00  
-000197  00                DCB      0
+000190  3d207062
+000194  7566735f
+000198  66726565
+00019c  6400    
+00019e  00                DCB      0
+00019f  00                DCB      0
 
                           AREA ||i.ip_reass_remove_oldest_datagram||, CODE, READONLY, ALIGN=2
 
@@ -1827,7 +1950,7 @@
 ;;;137          r->timer--;
 00000e  1e40              SUBS     r0,r0,#1
 000010  77e0              STRB     r0,[r4,#0x1f]
-;;;138          LWIP_DEBUGF(IP_REASS_DEBUG, ("ip_reass_tmr: timer dec %"U16_F"\n",(u16_t)r->timer));
+;;;138          LWIP_DEBUGF(IP_REASS_DEBUG, ("ip_reass_tmr: timer dec %"U16_F"\n", (u16_t)r->timer));
 ;;;139          prev = r;
 000012  4625              MOV      r5,r4
 ;;;140          r = r->next;
@@ -1850,8 +1973,8 @@
                   |L10.34|
 000022  2c00              CMP      r4,#0                 ;133
 000024  d1f1              BNE      |L10.10|
-;;;150         }
-;;;151       }
+;;;150        }
+;;;151      }
 ;;;152    }
 000026  bd70              POP      {r4-r6,pc}
 ;;;153    
@@ -1868,35 +1991,35 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   ipfrag_free_pbuf_custom PROC
-;;;692    static void
-;;;693    ipfrag_free_pbuf_custom(struct pbuf *p)
+;;;714    static void
+;;;715    ipfrag_free_pbuf_custom(struct pbuf *p)
 000000  b510              PUSH     {r4,lr}
-;;;694    {
+;;;716    {
 000002  4604              MOV      r4,r0
-;;;695      struct pbuf_custom_ref *pcr = (struct pbuf_custom_ref*)p;
-;;;696      LWIP_ASSERT("pcr != NULL", pcr != NULL);
+;;;717      struct pbuf_custom_ref *pcr = (struct pbuf_custom_ref *)p;
+;;;718      LWIP_ASSERT("pcr != NULL", pcr != NULL);
 000004  2c00              CMP      r4,#0
 000006  d106              BNE      |L11.22|
 000008  a307              ADR      r3,|L11.40|
-00000a  f44f722e          MOV      r2,#0x2b8
+00000a  f24022ce          MOV      r2,#0x2ce
 00000e  a115              ADR      r1,|L11.100|
 000010  a017              ADR      r0,|L11.112|
 000012  f7fffffe          BL       __2printf
                   |L11.22|
-;;;697      LWIP_ASSERT("pcr == p", (void*)pcr == (void*)p);
-;;;698      if (pcr->original != NULL) {
+;;;719      LWIP_ASSERT("pcr == p", (void *)pcr == (void *)p);
+;;;720      if (pcr->original != NULL) {
 000016  6960              LDR      r0,[r4,#0x14]
 000018  b108              CBZ      r0,|L11.30|
-;;;699        pbuf_free(pcr->original);
+;;;721        pbuf_free(pcr->original);
 00001a  f7fffffe          BL       pbuf_free
                   |L11.30|
-;;;700      }
-;;;701      ip_frag_free_pbuf_custom_ref(pcr);
+;;;722      }
+;;;723      ip_frag_free_pbuf_custom_ref(pcr);
 00001e  4620              MOV      r0,r4
 000020  e8bd4010          POP      {r4,lr}
 000024  f7ffbffe          B.W      ip_frag_free_pbuf_custom_ref
-;;;702    }
-;;;703    #endif /* !LWIP_NETIF_TX_SINGLE_PBUF */
+;;;724    }
+;;;725    #endif /* !LWIP_NETIF_TX_SINGLE_PBUF */
                           ENDP
 
                   |L11.40|

@@ -5,581 +5,606 @@
                           AREA ||i.ip4_input||, CODE, READONLY, ALIGN=2
 
                   ip4_input PROC
-;;;373    err_t
-;;;374    ip4_input(struct pbuf *p, struct netif *inp)
-000000  e92d5ff0          PUSH     {r4-r12,lr}
-;;;375    {
-000004  4606              MOV      r6,r0
-000006  460f              MOV      r7,r1
-;;;376      struct ip_hdr *iphdr;
-;;;377      struct netif *netif;
-;;;378      u16_t iphdr_hlen;
-;;;379      u16_t iphdr_len;
-;;;380    #if IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP
-;;;381      int check_ip_src = 1;
-000008  f04f0b01          MOV      r11,#1
-;;;382    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP */
-;;;383    
-;;;384      IP_STATS_INC(ip.recv);
-;;;385      MIB2_STATS_INC(mib2.ipinreceives);
-;;;386    
-;;;387      /* identify the IP header */
-;;;388      iphdr = (struct ip_hdr *)p->payload;
-00000c  6875              LDR      r5,[r6,#4]
-;;;389      if (IPH_V(iphdr) != 4) {
+;;;425    err_t
+;;;426    ip4_input(struct pbuf *p, struct netif *inp)
+000000  e92d47f0          PUSH     {r4-r10,lr}
+;;;427    {
+000004  4607              MOV      r7,r0
+000006  460e              MOV      r6,r1
+;;;428      const struct ip_hdr *iphdr;
+;;;429      struct netif *netif;
+;;;430      u16_t iphdr_hlen;
+;;;431      u16_t iphdr_len;
+;;;432    #if IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP
+;;;433      int check_ip_src = 1;
+000008  f04f0901          MOV      r9,#1
+;;;434    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING || LWIP_IGMP */
+;;;435    #if LWIP_RAW
+;;;436      raw_input_state_t raw_status;
+;;;437    #endif /* LWIP_RAW */
+;;;438    
+;;;439      LWIP_ASSERT_CORE_LOCKED();
+;;;440    
+;;;441      IP_STATS_INC(ip.recv);
+;;;442      MIB2_STATS_INC(mib2.ipinreceives);
+;;;443    
+;;;444      /* identify the IP header */
+;;;445      iphdr = (struct ip_hdr *)p->payload;
+00000c  687d              LDR      r5,[r7,#4]
+;;;446      if (IPH_V(iphdr) != 4) {
 00000e  2104              MOVS     r1,#4
 000010  7828              LDRB     r0,[r5,#0]
 000012  ebb11f10          CMP      r1,r0,LSR #4
 000016  d005              BEQ      |L1.36|
-;;;390        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_WARNING, ("IP packet dropped due to bad version number %"U16_F"\n", (u16_t)IPH_V(iphdr)));
-;;;391        ip4_debug_print(p);
-;;;392        pbuf_free(p);
-000018  4630              MOV      r0,r6
+;;;447        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_WARNING, ("IP packet dropped due to bad version number %"U16_F"\n", (u16_t)IPH_V(iphdr)));
+;;;448        ip4_debug_print(p);
+;;;449        pbuf_free(p);
+000018  4638              MOV      r0,r7
 00001a  f7fffffe          BL       pbuf_free
-;;;393        IP_STATS_INC(ip.err);
-;;;394        IP_STATS_INC(ip.drop);
-;;;395        MIB2_STATS_INC(mib2.ipinhdrerrors);
-;;;396        return ERR_OK;
+;;;450        IP_STATS_INC(ip.err);
+;;;451        IP_STATS_INC(ip.drop);
+;;;452        MIB2_STATS_INC(mib2.ipinhdrerrors);
+;;;453        return ERR_OK;
 00001e  2000              MOVS     r0,#0
                   |L1.32|
-;;;397      }
-;;;398    
-;;;399    #ifdef LWIP_HOOK_IP4_INPUT
-;;;400      if (LWIP_HOOK_IP4_INPUT(p, inp)) {
-;;;401        /* the packet has been eaten */
-;;;402        return ERR_OK;
-;;;403      }
-;;;404    #endif
-;;;405    
-;;;406      /* obtain IP header length in number of 32-bit words */
-;;;407      iphdr_hlen = IPH_HL(iphdr);
-;;;408      /* calculate IP header length in bytes */
-;;;409      iphdr_hlen *= 4;
-;;;410      /* obtain ip length in bytes */
-;;;411      iphdr_len = lwip_ntohs(IPH_LEN(iphdr));
-;;;412    
-;;;413      /* Trim pbuf. This is especially required for packets < 60 bytes. */
-;;;414      if (iphdr_len < p->tot_len) {
-;;;415        pbuf_realloc(p, iphdr_len);
-;;;416      }
-;;;417    
-;;;418      /* header length exceeds first pbuf length, or ip length exceeds total pbuf length? */
-;;;419      if ((iphdr_hlen > p->len) || (iphdr_len > p->tot_len) || (iphdr_hlen < IP_HLEN)) {
-;;;420        if (iphdr_hlen < IP_HLEN) {
-;;;421          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;422            ("ip4_input: short IP header (%"U16_F" bytes) received, IP packet dropped\n", iphdr_hlen));
-;;;423        }
-;;;424        if (iphdr_hlen > p->len) {
-;;;425          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;426            ("IP header (len %"U16_F") does not fit in first pbuf (len %"U16_F"), IP packet dropped.\n",
-;;;427            iphdr_hlen, p->len));
-;;;428        }
-;;;429        if (iphdr_len > p->tot_len) {
-;;;430          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;431            ("IP (len %"U16_F") is longer than pbuf (len %"U16_F"), IP packet dropped.\n",
-;;;432            iphdr_len, p->tot_len));
-;;;433        }
-;;;434        /* free (drop) packet pbufs */
-;;;435        pbuf_free(p);
-;;;436        IP_STATS_INC(ip.lenerr);
-;;;437        IP_STATS_INC(ip.drop);
-;;;438        MIB2_STATS_INC(mib2.ipindiscards);
-;;;439        return ERR_OK;
-;;;440      }
-;;;441    
-;;;442      /* verify checksum */
-;;;443    #if CHECKSUM_CHECK_IP
-;;;444      IF__NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_CHECK_IP) {
-;;;445        if (inet_chksum(iphdr, iphdr_hlen) != 0) {
-;;;446    
-;;;447          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
-;;;448            ("Checksum (0x%"X16_F") failed, IP packet dropped.\n", inet_chksum(iphdr, iphdr_hlen)));
-;;;449          ip4_debug_print(p);
-;;;450          pbuf_free(p);
-;;;451          IP_STATS_INC(ip.chkerr);
-;;;452          IP_STATS_INC(ip.drop);
-;;;453          MIB2_STATS_INC(mib2.ipinhdrerrors);
-;;;454          return ERR_OK;
-;;;455        }
-;;;456      }
-;;;457    #endif
-;;;458    
-;;;459      /* copy IP addresses to aligned ip_addr_t */
-;;;460      ip_addr_copy_from_ip4(ip_data.current_iphdr_dest, iphdr->dest);
-;;;461      ip_addr_copy_from_ip4(ip_data.current_iphdr_src, iphdr->src);
+;;;454      }
+;;;455    
+;;;456    #ifdef LWIP_HOOK_IP4_INPUT
+;;;457      if (LWIP_HOOK_IP4_INPUT(p, inp)) {
+;;;458        /* the packet has been eaten */
+;;;459        return ERR_OK;
+;;;460      }
+;;;461    #endif
 ;;;462    
-;;;463      /* match packet against an interface, i.e. is this packet for us? */
-;;;464      if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
-;;;465    #if LWIP_IGMP
-;;;466        if ((inp->flags & NETIF_FLAG_IGMP) && (igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
-;;;467          /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
-;;;468          ip4_addr_t allsystems;
-;;;469          IP4_ADDR(&allsystems, 224, 0, 0, 1);
-;;;470          if (ip4_addr_cmp(ip4_current_dest_addr(), &allsystems) &&
-;;;471              ip4_addr_isany(ip4_current_src_addr())) {
-;;;472            check_ip_src = 0;
-;;;473          }
-;;;474          netif = inp;
-;;;475        } else {
-;;;476          netif = NULL;
-;;;477        }
-;;;478    #else /* LWIP_IGMP */
-;;;479        if ((netif_is_up(inp)) && (!ip4_addr_isany_val(*netif_ip4_addr(inp)))) {
-;;;480          netif = inp;
-;;;481        } else {
-;;;482          netif = NULL;
+;;;463      /* obtain IP header length in bytes */
+;;;464      iphdr_hlen = IPH_HL_BYTES(iphdr);
+;;;465      /* obtain ip length in bytes */
+;;;466      iphdr_len = lwip_ntohs(IPH_LEN(iphdr));
+;;;467    
+;;;468      /* Trim pbuf. This is especially required for packets < 60 bytes. */
+;;;469      if (iphdr_len < p->tot_len) {
+;;;470        pbuf_realloc(p, iphdr_len);
+;;;471      }
+;;;472    
+;;;473      /* header length exceeds first pbuf length, or ip length exceeds total pbuf length? */
+;;;474      if ((iphdr_hlen > p->len) || (iphdr_len > p->tot_len) || (iphdr_hlen < IP_HLEN)) {
+;;;475        if (iphdr_hlen < IP_HLEN) {
+;;;476          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;477                      ("ip4_input: short IP header (%"U16_F" bytes) received, IP packet dropped\n", iphdr_hlen));
+;;;478        }
+;;;479        if (iphdr_hlen > p->len) {
+;;;480          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;481                      ("IP header (len %"U16_F") does not fit in first pbuf (len %"U16_F"), IP packet dropped.\n",
+;;;482                       iphdr_hlen, p->len));
 ;;;483        }
-;;;484    #endif /* LWIP_IGMP */
-;;;485      } else {
-;;;486        /* start trying with inp. if that's not acceptable, start walking the
-;;;487           list of configured netifs.
-;;;488           'first' is used as a boolean to mark whether we started walking the list */
-;;;489        int first = 1;
-;;;490        netif = inp;
-;;;491        do {
-;;;492          LWIP_DEBUGF(IP_DEBUG, ("ip_input: iphdr->dest 0x%"X32_F" netif->ip_addr 0x%"X32_F" (0x%"X32_F", 0x%"X32_F", 0x%"X32_F")\n",
-;;;493              ip4_addr_get_u32(&iphdr->dest), ip4_addr_get_u32(netif_ip4_addr(netif)),
-;;;494              ip4_addr_get_u32(&iphdr->dest) & ip4_addr_get_u32(netif_ip4_netmask(netif)),
-;;;495              ip4_addr_get_u32(netif_ip4_addr(netif)) & ip4_addr_get_u32(netif_ip4_netmask(netif)),
-;;;496              ip4_addr_get_u32(&iphdr->dest) & ~ip4_addr_get_u32(netif_ip4_netmask(netif))));
-;;;497    
-;;;498          /* interface is up and configured? */
-;;;499          if ((netif_is_up(netif)) && (!ip4_addr_isany_val(*netif_ip4_addr(netif)))) {
-;;;500            /* unicast to this interface address? */
-;;;501            if (ip4_addr_cmp(ip4_current_dest_addr(), netif_ip4_addr(netif)) ||
-;;;502                /* or broadcast on this interface network address? */
-;;;503                ip4_addr_isbroadcast(ip4_current_dest_addr(), netif)
-;;;504    #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
-;;;505                || (ip4_addr_get_u32(ip4_current_dest_addr()) == PP_HTONL(IPADDR_LOOPBACK))
-;;;506    #endif /* LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF */
-;;;507                ) {
-;;;508              LWIP_DEBUGF(IP_DEBUG, ("ip4_input: packet accepted on interface %c%c\n",
-;;;509                  netif->name[0], netif->name[1]));
-;;;510              /* break out of for loop */
-;;;511              break;
-;;;512            }
-;;;513    #if LWIP_AUTOIP
-;;;514            /* connections to link-local addresses must persist after changing
-;;;515               the netif's address (RFC3927 ch. 1.9) */
-;;;516            if (autoip_accept_packet(netif, ip4_current_dest_addr())) {
-;;;517              LWIP_DEBUGF(IP_DEBUG, ("ip4_input: LLA packet accepted on interface %c%c\n",
-;;;518                  netif->name[0], netif->name[1]));
-;;;519              /* break out of for loop */
-;;;520              break;
-;;;521            }
-;;;522    #endif /* LWIP_AUTOIP */
-;;;523          }
-;;;524          if (first) {
-;;;525    #if !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF
-;;;526            /* Packets sent to the loopback address must not be accepted on an
-;;;527             * interface that does not have the loopback address assigned to it,
-;;;528             * unless a non-loopback interface is used for loopback traffic. */
-;;;529            if (ip4_addr_isloopback(ip4_current_dest_addr())) {
-;;;530              netif = NULL;
-;;;531              break;
-;;;532            }
-;;;533    #endif /* !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF */
-;;;534            first = 0;
-;;;535            netif = netif_list;
-;;;536          } else {
-;;;537            netif = netif->next;
-;;;538          }
-;;;539          if (netif == inp) {
-;;;540            netif = netif->next;
-;;;541          }
-;;;542        } while (netif != NULL);
-;;;543      }
-;;;544    
-;;;545    #if IP_ACCEPT_LINK_LAYER_ADDRESSING
-;;;546      /* Pass DHCP messages regardless of destination address. DHCP traffic is addressed
-;;;547       * using link layer addressing (such as Ethernet MAC) so we must not filter on IP.
-;;;548       * According to RFC 1542 section 3.1.1, referred by RFC 2131).
-;;;549       *
-;;;550       * If you want to accept private broadcast communication while a netif is down,
-;;;551       * define LWIP_IP_ACCEPT_UDP_PORT(dst_port), e.g.:
-;;;552       *
-;;;553       * #define LWIP_IP_ACCEPT_UDP_PORT(dst_port) ((dst_port) == PP_NTOHS(12345))
-;;;554       */
-;;;555      if (netif == NULL) {
-;;;556        /* remote port is DHCP server? */
-;;;557        if (IPH_PROTO(iphdr) == IP_PROTO_UDP) {
-;;;558          struct udp_hdr *udphdr = (struct udp_hdr *)((u8_t *)iphdr + iphdr_hlen);
-;;;559          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: UDP packet to DHCP client port %"U16_F"\n",
-;;;560            lwip_ntohs(udphdr->dest)));
-;;;561          if (IP_ACCEPT_LINK_LAYER_ADDRESSED_PORT(udphdr->dest)) {
-;;;562            LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: DHCP packet accepted.\n"));
-;;;563            netif = inp;
-;;;564            check_ip_src = 0;
+;;;484        if (iphdr_len > p->tot_len) {
+;;;485          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;486                      ("IP (len %"U16_F") is longer than pbuf (len %"U16_F"), IP packet dropped.\n",
+;;;487                       iphdr_len, p->tot_len));
+;;;488        }
+;;;489        /* free (drop) packet pbufs */
+;;;490        pbuf_free(p);
+;;;491        IP_STATS_INC(ip.lenerr);
+;;;492        IP_STATS_INC(ip.drop);
+;;;493        MIB2_STATS_INC(mib2.ipindiscards);
+;;;494        return ERR_OK;
+;;;495      }
+;;;496    
+;;;497      /* verify checksum */
+;;;498    #if CHECKSUM_CHECK_IP
+;;;499      IF__NETIF_CHECKSUM_ENABLED(inp, NETIF_CHECKSUM_CHECK_IP) {
+;;;500        if (inet_chksum(iphdr, iphdr_hlen) != 0) {
+;;;501    
+;;;502          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS,
+;;;503                      ("Checksum (0x%"X16_F") failed, IP packet dropped.\n", inet_chksum(iphdr, iphdr_hlen)));
+;;;504          ip4_debug_print(p);
+;;;505          pbuf_free(p);
+;;;506          IP_STATS_INC(ip.chkerr);
+;;;507          IP_STATS_INC(ip.drop);
+;;;508          MIB2_STATS_INC(mib2.ipinhdrerrors);
+;;;509          return ERR_OK;
+;;;510        }
+;;;511      }
+;;;512    #endif
+;;;513    
+;;;514      /* copy IP addresses to aligned ip_addr_t */
+;;;515      ip_addr_copy_from_ip4(ip_data.current_iphdr_dest, iphdr->dest);
+;;;516      ip_addr_copy_from_ip4(ip_data.current_iphdr_src, iphdr->src);
+;;;517    
+;;;518      /* match packet against an interface, i.e. is this packet for us? */
+;;;519      if (ip4_addr_ismulticast(ip4_current_dest_addr())) {
+;;;520    #if LWIP_IGMP
+;;;521        if ((inp->flags & NETIF_FLAG_IGMP) && (igmp_lookfor_group(inp, ip4_current_dest_addr()))) {
+;;;522          /* IGMP snooping switches need 0.0.0.0 to be allowed as source address (RFC 4541) */
+;;;523          ip4_addr_t allsystems;
+;;;524          IP4_ADDR(&allsystems, 224, 0, 0, 1);
+;;;525          if (ip4_addr_cmp(ip4_current_dest_addr(), &allsystems) &&
+;;;526              ip4_addr_isany(ip4_current_src_addr())) {
+;;;527            check_ip_src = 0;
+;;;528          }
+;;;529          netif = inp;
+;;;530        } else {
+;;;531          netif = NULL;
+;;;532        }
+;;;533    #else /* LWIP_IGMP */
+;;;534        if ((netif_is_up(inp)) && (!ip4_addr_isany_val(*netif_ip4_addr(inp)))) {
+;;;535          netif = inp;
+;;;536        } else {
+;;;537          netif = NULL;
+;;;538        }
+;;;539    #endif /* LWIP_IGMP */
+;;;540      } else {
+;;;541        /* start trying with inp. if that's not acceptable, start walking the
+;;;542           list of configured netifs. */
+;;;543        if (ip4_input_accept(inp)) {
+;;;544          netif = inp;
+;;;545        } else {
+;;;546          netif = NULL;
+;;;547    #if !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF
+;;;548          /* Packets sent to the loopback address must not be accepted on an
+;;;549           * interface that does not have the loopback address assigned to it,
+;;;550           * unless a non-loopback interface is used for loopback traffic. */
+;;;551          if (!ip4_addr_isloopback(ip4_current_dest_addr()))
+;;;552    #endif /* !LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF */
+;;;553          {
+;;;554    #if !LWIP_SINGLE_NETIF
+;;;555            NETIF_FOREACH(netif) {
+;;;556              if (netif == inp) {
+;;;557                /* we checked that before already */
+;;;558                continue;
+;;;559              }
+;;;560              if (ip4_input_accept(netif)) {
+;;;561                break;
+;;;562              }
+;;;563            }
+;;;564    #endif /* !LWIP_SINGLE_NETIF */
 ;;;565          }
 ;;;566        }
 ;;;567      }
-;;;568    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
-;;;569    
-;;;570      /* broadcast or multicast packet source address? Compliant with RFC 1122: 3.2.1.3 */
-;;;571    #if LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING
-;;;572      if (check_ip_src
-;;;573    #if IP_ACCEPT_LINK_LAYER_ADDRESSING
-;;;574      /* DHCP servers need 0.0.0.0 to be allowed as source address (RFC 1.1.2.2: 3.2.1.3/a) */
-;;;575          && !ip4_addr_isany_val(*ip4_current_src_addr())
-;;;576    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
-;;;577         )
-;;;578    #endif /* LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING */
-;;;579      {
-;;;580        if ((ip4_addr_isbroadcast(ip4_current_src_addr(), inp)) ||
-;;;581            (ip4_addr_ismulticast(ip4_current_src_addr()))) {
-;;;582          /* packet source is not valid */
-;;;583          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING, ("ip4_input: packet source is not valid.\n"));
-;;;584          /* free (drop) packet pbufs */
-;;;585          pbuf_free(p);
-;;;586          IP_STATS_INC(ip.drop);
-;;;587          MIB2_STATS_INC(mib2.ipinaddrerrors);
-;;;588          MIB2_STATS_INC(mib2.ipindiscards);
-;;;589          return ERR_OK;
+;;;568    
+;;;569    #if IP_ACCEPT_LINK_LAYER_ADDRESSING
+;;;570      /* Pass DHCP messages regardless of destination address. DHCP traffic is addressed
+;;;571       * using link layer addressing (such as Ethernet MAC) so we must not filter on IP.
+;;;572       * According to RFC 1542 section 3.1.1, referred by RFC 2131).
+;;;573       *
+;;;574       * If you want to accept private broadcast communication while a netif is down,
+;;;575       * define LWIP_IP_ACCEPT_UDP_PORT(dst_port), e.g.:
+;;;576       *
+;;;577       * #define LWIP_IP_ACCEPT_UDP_PORT(dst_port) ((dst_port) == PP_NTOHS(12345))
+;;;578       */
+;;;579      if (netif == NULL) {
+;;;580        /* remote port is DHCP server? */
+;;;581        if (IPH_PROTO(iphdr) == IP_PROTO_UDP) {
+;;;582          const struct udp_hdr *udphdr = (const struct udp_hdr *)((const u8_t *)iphdr + iphdr_hlen);
+;;;583          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: UDP packet to DHCP client port %"U16_F"\n",
+;;;584                                                  lwip_ntohs(udphdr->dest)));
+;;;585          if (IP_ACCEPT_LINK_LAYER_ADDRESSED_PORT(udphdr->dest)) {
+;;;586            LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: DHCP packet accepted.\n"));
+;;;587            netif = inp;
+;;;588            check_ip_src = 0;
+;;;589          }
 ;;;590        }
 ;;;591      }
-;;;592    
-;;;593      /* packet not for us? */
-;;;594      if (netif == NULL) {
-;;;595        /* packet not for us, route or discard */
-;;;596        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: packet not for us.\n"));
-;;;597    #if IP_FORWARD
-;;;598        /* non-broadcast packet? */
-;;;599        if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), inp)) {
-;;;600          /* try to forward IP packet on (other) interfaces */
-;;;601          ip4_forward(p, iphdr, inp);
-;;;602        } else
-;;;603    #endif /* IP_FORWARD */
-;;;604        {
-;;;605          IP_STATS_INC(ip.drop);
-;;;606          MIB2_STATS_INC(mib2.ipinaddrerrors);
-;;;607          MIB2_STATS_INC(mib2.ipindiscards);
-;;;608        }
-;;;609        pbuf_free(p);
-;;;610        return ERR_OK;
-;;;611      }
-;;;612      /* packet consists of multiple fragments? */
-;;;613      if ((IPH_OFFSET(iphdr) & PP_HTONS(IP_OFFMASK | IP_MF)) != 0) {
-;;;614    #if IP_REASSEMBLY /* packet fragment reassembly code present? */
-;;;615        LWIP_DEBUGF(IP_DEBUG, ("IP packet is a fragment (id=0x%04"X16_F" tot_len=%"U16_F" len=%"U16_F" MF=%"U16_F" offset=%"U16_F"), calling ip4_reass()\n",
-;;;616          lwip_ntohs(IPH_ID(iphdr)), p->tot_len, lwip_ntohs(IPH_LEN(iphdr)), (u16_t)!!(IPH_OFFSET(iphdr) & PP_HTONS(IP_MF)), (u16_t)((lwip_ntohs(IPH_OFFSET(iphdr)) & IP_OFFMASK)*8)));
-;;;617        /* reassemble the packet*/
-;;;618        p = ip4_reass(p);
-;;;619        /* packet not fully reassembled yet? */
-;;;620        if (p == NULL) {
-;;;621          return ERR_OK;
-;;;622        }
-;;;623        iphdr = (struct ip_hdr *)p->payload;
-;;;624    #else /* IP_REASSEMBLY == 0, no packet fragment reassembly code present */
-;;;625        pbuf_free(p);
-;;;626        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since it was fragmented (0x%"X16_F") (while IP_REASSEMBLY == 0).\n",
-;;;627          lwip_ntohs(IPH_OFFSET(iphdr))));
-;;;628        IP_STATS_INC(ip.opterr);
-;;;629        IP_STATS_INC(ip.drop);
-;;;630        /* unsupported protocol feature */
-;;;631        MIB2_STATS_INC(mib2.ipinunknownprotos);
-;;;632        return ERR_OK;
-;;;633    #endif /* IP_REASSEMBLY */
-;;;634      }
-;;;635    
-;;;636    #if IP_OPTIONS_ALLOWED == 0 /* no support for IP options in the IP header? */
-;;;637    
-;;;638    #if LWIP_IGMP
-;;;639      /* there is an extra "router alert" option in IGMP messages which we allow for but do not police */
-;;;640      if ((iphdr_hlen > IP_HLEN) &&  (IPH_PROTO(iphdr) != IP_PROTO_IGMP)) {
-;;;641    #else
-;;;642      if (iphdr_hlen > IP_HLEN) {
-;;;643    #endif /* LWIP_IGMP */
-;;;644        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since there were IP options (while IP_OPTIONS_ALLOWED == 0).\n"));
-;;;645        pbuf_free(p);
-;;;646        IP_STATS_INC(ip.opterr);
-;;;647        IP_STATS_INC(ip.drop);
-;;;648        /* unsupported protocol feature */
-;;;649        MIB2_STATS_INC(mib2.ipinunknownprotos);
-;;;650        return ERR_OK;
-;;;651      }
-;;;652    #endif /* IP_OPTIONS_ALLOWED == 0 */
-;;;653    
-;;;654      /* send to upper layers */
-;;;655      LWIP_DEBUGF(IP_DEBUG, ("ip4_input: \n"));
-;;;656      ip4_debug_print(p);
-;;;657      LWIP_DEBUGF(IP_DEBUG, ("ip4_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
-;;;658    
-;;;659      ip_data.current_netif = netif;
-;;;660      ip_data.current_input_netif = inp;
-;;;661      ip_data.current_ip4_header = iphdr;
-;;;662      ip_data.current_ip_header_tot_len = IPH_HL(iphdr) * 4;
-;;;663    
-;;;664    #if LWIP_RAW
-;;;665      /* raw input did not eat the packet? */
-;;;666      if (raw_input(p, inp) == 0)
-;;;667    #endif /* LWIP_RAW */
-;;;668      {
-;;;669        pbuf_header(p, -(s16_t)iphdr_hlen); /* Move to payload, no check necessary. */
-;;;670    
-;;;671        switch (IPH_PROTO(iphdr)) {
-;;;672    #if LWIP_UDP
-;;;673        case IP_PROTO_UDP:
-;;;674    #if LWIP_UDPLITE
-;;;675        case IP_PROTO_UDPLITE:
-;;;676    #endif /* LWIP_UDPLITE */
-;;;677          MIB2_STATS_INC(mib2.ipindelivers);
-;;;678          udp_input(p, inp);
-;;;679          break;
-;;;680    #endif /* LWIP_UDP */
-;;;681    #if LWIP_TCP
-;;;682        case IP_PROTO_TCP:
-;;;683          MIB2_STATS_INC(mib2.ipindelivers);
-;;;684          tcp_input(p, inp);
-;;;685          break;
-;;;686    #endif /* LWIP_TCP */
-;;;687    #if LWIP_ICMP
-;;;688        case IP_PROTO_ICMP:
-;;;689          MIB2_STATS_INC(mib2.ipindelivers);
-;;;690          icmp_input(p, inp);
-;;;691          break;
-;;;692    #endif /* LWIP_ICMP */
-;;;693    #if LWIP_IGMP
-;;;694        case IP_PROTO_IGMP:
-;;;695          igmp_input(p, inp, ip4_current_dest_addr());
-;;;696          break;
-;;;697    #endif /* LWIP_IGMP */
-;;;698        default:
-;;;699    #if LWIP_ICMP
-;;;700          /* send ICMP destination protocol unreachable unless is was a broadcast */
-;;;701          if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), netif) &&
-;;;702              !ip4_addr_ismulticast(ip4_current_dest_addr())) {
-;;;703            pbuf_header_force(p, iphdr_hlen); /* Move to ip header, no check necessary. */
-;;;704            p->payload = iphdr;
-;;;705            icmp_dest_unreach(p, ICMP_DUR_PROTO);
-;;;706          }
-;;;707    #endif /* LWIP_ICMP */
-;;;708          pbuf_free(p);
-;;;709    
-;;;710          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
-;;;711    
-;;;712          IP_STATS_INC(ip.proterr);
-;;;713          IP_STATS_INC(ip.drop);
-;;;714          MIB2_STATS_INC(mib2.ipinunknownprotos);
-;;;715        }
-;;;716      }
-;;;717    
-;;;718      /* @todo: this is not really necessary... */
-;;;719      ip_data.current_netif = NULL;
-;;;720      ip_data.current_input_netif = NULL;
-;;;721      ip_data.current_ip4_header = NULL;
-;;;722      ip_data.current_ip_header_tot_len = 0;
-;;;723      ip4_addr_set_any(ip4_current_src_addr());
-;;;724      ip4_addr_set_any(ip4_current_dest_addr());
-;;;725    
-;;;726      return ERR_OK;
-;;;727    }
-000020  e8bd9ff0          POP      {r4-r12,pc}
+;;;592    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
+;;;593    
+;;;594      /* broadcast or multicast packet source address? Compliant with RFC 1122: 3.2.1.3 */
+;;;595    #if LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING
+;;;596      if (check_ip_src
+;;;597    #if IP_ACCEPT_LINK_LAYER_ADDRESSING
+;;;598          /* DHCP servers need 0.0.0.0 to be allowed as source address (RFC 1.1.2.2: 3.2.1.3/a) */
+;;;599          && !ip4_addr_isany_val(*ip4_current_src_addr())
+;;;600    #endif /* IP_ACCEPT_LINK_LAYER_ADDRESSING */
+;;;601         )
+;;;602    #endif /* LWIP_IGMP || IP_ACCEPT_LINK_LAYER_ADDRESSING */
+;;;603      {
+;;;604        if ((ip4_addr_isbroadcast(ip4_current_src_addr(), inp)) ||
+;;;605            (ip4_addr_ismulticast(ip4_current_src_addr()))) {
+;;;606          /* packet source is not valid */
+;;;607          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_WARNING, ("ip4_input: packet source is not valid.\n"));
+;;;608          /* free (drop) packet pbufs */
+;;;609          pbuf_free(p);
+;;;610          IP_STATS_INC(ip.drop);
+;;;611          MIB2_STATS_INC(mib2.ipinaddrerrors);
+;;;612          MIB2_STATS_INC(mib2.ipindiscards);
+;;;613          return ERR_OK;
+;;;614        }
+;;;615      }
+;;;616    
+;;;617      /* packet not for us? */
+;;;618      if (netif == NULL) {
+;;;619        /* packet not for us, route or discard */
+;;;620        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_TRACE, ("ip4_input: packet not for us.\n"));
+;;;621    #if IP_FORWARD
+;;;622        /* non-broadcast packet? */
+;;;623        if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), inp)) {
+;;;624          /* try to forward IP packet on (other) interfaces */
+;;;625          ip4_forward(p, (struct ip_hdr *)p->payload, inp);
+;;;626        } else
+;;;627    #endif /* IP_FORWARD */
+;;;628        {
+;;;629          IP_STATS_INC(ip.drop);
+;;;630          MIB2_STATS_INC(mib2.ipinaddrerrors);
+;;;631          MIB2_STATS_INC(mib2.ipindiscards);
+;;;632        }
+;;;633        pbuf_free(p);
+;;;634        return ERR_OK;
+;;;635      }
+;;;636      /* packet consists of multiple fragments? */
+;;;637      if ((IPH_OFFSET(iphdr) & PP_HTONS(IP_OFFMASK | IP_MF)) != 0) {
+;;;638    #if IP_REASSEMBLY /* packet fragment reassembly code present? */
+;;;639        LWIP_DEBUGF(IP_DEBUG, ("IP packet is a fragment (id=0x%04"X16_F" tot_len=%"U16_F" len=%"U16_F" MF=%"U16_F" offset=%"U16_F"), calling ip4_reass()\n",
+;;;640                               lwip_ntohs(IPH_ID(iphdr)), p->tot_len, lwip_ntohs(IPH_LEN(iphdr)), (u16_t)!!(IPH_OFFSET(iphdr) & PP_HTONS(IP_MF)), (u16_t)((lwip_ntohs(IPH_OFFSET(iphdr)) & IP_OFFMASK) * 8)));
+;;;641        /* reassemble the packet*/
+;;;642        p = ip4_reass(p);
+;;;643        /* packet not fully reassembled yet? */
+;;;644        if (p == NULL) {
+;;;645          return ERR_OK;
+;;;646        }
+;;;647        iphdr = (const struct ip_hdr *)p->payload;
+;;;648    #else /* IP_REASSEMBLY == 0, no packet fragment reassembly code present */
+;;;649        pbuf_free(p);
+;;;650        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since it was fragmented (0x%"X16_F") (while IP_REASSEMBLY == 0).\n",
+;;;651                    lwip_ntohs(IPH_OFFSET(iphdr))));
+;;;652        IP_STATS_INC(ip.opterr);
+;;;653        IP_STATS_INC(ip.drop);
+;;;654        /* unsupported protocol feature */
+;;;655        MIB2_STATS_INC(mib2.ipinunknownprotos);
+;;;656        return ERR_OK;
+;;;657    #endif /* IP_REASSEMBLY */
+;;;658      }
+;;;659    
+;;;660    #if IP_OPTIONS_ALLOWED == 0 /* no support for IP options in the IP header? */
+;;;661    
+;;;662    #if LWIP_IGMP
+;;;663      /* there is an extra "router alert" option in IGMP messages which we allow for but do not police */
+;;;664      if ((iphdr_hlen > IP_HLEN) &&  (IPH_PROTO(iphdr) != IP_PROTO_IGMP)) {
+;;;665    #else
+;;;666      if (iphdr_hlen > IP_HLEN) {
+;;;667    #endif /* LWIP_IGMP */
+;;;668        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("IP packet dropped since there were IP options (while IP_OPTIONS_ALLOWED == 0).\n"));
+;;;669        pbuf_free(p);
+;;;670        IP_STATS_INC(ip.opterr);
+;;;671        IP_STATS_INC(ip.drop);
+;;;672        /* unsupported protocol feature */
+;;;673        MIB2_STATS_INC(mib2.ipinunknownprotos);
+;;;674        return ERR_OK;
+;;;675      }
+;;;676    #endif /* IP_OPTIONS_ALLOWED == 0 */
+;;;677    
+;;;678      /* send to upper layers */
+;;;679      LWIP_DEBUGF(IP_DEBUG, ("ip4_input: \n"));
+;;;680      ip4_debug_print(p);
+;;;681      LWIP_DEBUGF(IP_DEBUG, ("ip4_input: p->len %"U16_F" p->tot_len %"U16_F"\n", p->len, p->tot_len));
+;;;682    
+;;;683      ip_data.current_netif = netif;
+;;;684      ip_data.current_input_netif = inp;
+;;;685      ip_data.current_ip4_header = iphdr;
+;;;686      ip_data.current_ip_header_tot_len = IPH_HL_BYTES(iphdr);
+;;;687    
+;;;688    #if LWIP_RAW
+;;;689      /* raw input did not eat the packet? */
+;;;690      raw_status = raw_input(p, inp);
+;;;691      if (raw_status != RAW_INPUT_EATEN)
+;;;692    #endif /* LWIP_RAW */
+;;;693      {
+;;;694        pbuf_remove_header(p, iphdr_hlen); /* Move to payload, no check necessary. */
+;;;695    
+;;;696        switch (IPH_PROTO(iphdr)) {
+;;;697    #if LWIP_UDP
+;;;698          case IP_PROTO_UDP:
+;;;699    #if LWIP_UDPLITE
+;;;700          case IP_PROTO_UDPLITE:
+;;;701    #endif /* LWIP_UDPLITE */
+;;;702            MIB2_STATS_INC(mib2.ipindelivers);
+;;;703            udp_input(p, inp);
+;;;704            break;
+;;;705    #endif /* LWIP_UDP */
+;;;706    #if LWIP_TCP
+;;;707          case IP_PROTO_TCP:
+;;;708            MIB2_STATS_INC(mib2.ipindelivers);
+;;;709            tcp_input(p, inp);
+;;;710            break;
+;;;711    #endif /* LWIP_TCP */
+;;;712    #if LWIP_ICMP
+;;;713          case IP_PROTO_ICMP:
+;;;714            MIB2_STATS_INC(mib2.ipindelivers);
+;;;715            icmp_input(p, inp);
+;;;716            break;
+;;;717    #endif /* LWIP_ICMP */
+;;;718    #if LWIP_IGMP
+;;;719          case IP_PROTO_IGMP:
+;;;720            igmp_input(p, inp, ip4_current_dest_addr());
+;;;721            break;
+;;;722    #endif /* LWIP_IGMP */
+;;;723          default:
+;;;724    #if LWIP_RAW
+;;;725            if (raw_status == RAW_INPUT_DELIVERED) {
+;;;726              MIB2_STATS_INC(mib2.ipindelivers);
+;;;727            } else
+;;;728    #endif /* LWIP_RAW */
+;;;729            {
+;;;730    #if LWIP_ICMP
+;;;731              /* send ICMP destination protocol unreachable unless is was a broadcast */
+;;;732              if (!ip4_addr_isbroadcast(ip4_current_dest_addr(), netif) &&
+;;;733                  !ip4_addr_ismulticast(ip4_current_dest_addr())) {
+;;;734                pbuf_header_force(p, (s16_t)iphdr_hlen); /* Move to ip header, no check necessary. */
+;;;735                icmp_dest_unreach(p, ICMP_DUR_PROTO);
+;;;736              }
+;;;737    #endif /* LWIP_ICMP */
+;;;738    
+;;;739              LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("Unsupported transport protocol %"U16_F"\n", (u16_t)IPH_PROTO(iphdr)));
+;;;740    
+;;;741              IP_STATS_INC(ip.proterr);
+;;;742              IP_STATS_INC(ip.drop);
+;;;743              MIB2_STATS_INC(mib2.ipinunknownprotos);
+;;;744            }
+;;;745            pbuf_free(p);
+;;;746            break;
+;;;747        }
+;;;748      }
+;;;749    
+;;;750      /* @todo: this is not really necessary... */
+;;;751      ip_data.current_netif = NULL;
+;;;752      ip_data.current_input_netif = NULL;
+;;;753      ip_data.current_ip4_header = NULL;
+;;;754      ip_data.current_ip_header_tot_len = 0;
+;;;755      ip4_addr_set_any(ip4_current_src_addr());
+;;;756      ip4_addr_set_any(ip4_current_dest_addr());
+;;;757    
+;;;758      return ERR_OK;
+;;;759    }
+000020  e8bd87f0          POP      {r4-r10,pc}
                   |L1.36|
-000024  f000000f          AND      r0,r0,#0xf            ;407
-000028  f64f71ff          MOV      r1,#0xffff            ;409
-00002c  ea010880          AND      r8,r1,r0,LSL #2       ;409
-000030  8868              LDRH     r0,[r5,#2]            ;411
-000032  f7fffffe          BL       lwip_htons
-000036  4604              MOV      r4,r0                 ;411
-000038  8930              LDRH     r0,[r6,#8]            ;414
-00003a  42a0              CMP      r0,r4                 ;414
-00003c  d903              BLS      |L1.70|
-00003e  4621              MOV      r1,r4                 ;415
-000040  4630              MOV      r0,r6                 ;415
-000042  f7fffffe          BL       pbuf_realloc
-                  |L1.70|
-000046  8970              LDRH     r0,[r6,#0xa]          ;419
-000048  4540              CMP      r0,r8                 ;419
-00004a  d305              BCC      |L1.88|
-00004c  8930              LDRH     r0,[r6,#8]            ;419
-00004e  42a0              CMP      r0,r4                 ;419
-000050  d302              BCC      |L1.88|
-000052  f1b80f14          CMP      r8,#0x14              ;419
-000056  d204              BCS      |L1.98|
-                  |L1.88|
-000058  4630              MOV      r0,r6                 ;435
-00005a  f7fffffe          BL       pbuf_free
-00005e  2000              MOVS     r0,#0                 ;439
-000060  e7de              B        |L1.32|
-                  |L1.98|
-000062  f8dfa184          LDR      r10,|L1.488|
-000066  6928              LDR      r0,[r5,#0x10]         ;460
-000068  f8ca0014          STR      r0,[r10,#0x14]        ;460  ; ip_data
-00006c  68e9              LDR      r1,[r5,#0xc]          ;461
-00006e  f8ca1010          STR      r1,[r10,#0x10]        ;461  ; ip_data
-000072  f3c01003          UBFX     r0,r0,#4,#4           ;464
-000076  280e              CMP      r0,#0xe               ;464
-000078  d011              BEQ      |L1.158|
-00007a  f04f0901          MOV      r9,#1                 ;489
-00007e  463c              MOV      r4,r7                 ;490
+000024  0700              LSLS     r0,r0,#28             ;464
+000026  ea4f6890          LSR      r8,r0,#26             ;464
+00002a  8868              LDRH     r0,[r5,#2]            ;466
+00002c  f7fffffe          BL       lwip_htons
+000030  4604              MOV      r4,r0                 ;466
+000032  8938              LDRH     r0,[r7,#8]            ;469
+000034  42a0              CMP      r0,r4                 ;469
+000036  d903              BLS      |L1.64|
+000038  4621              MOV      r1,r4                 ;470
+00003a  4638              MOV      r0,r7                 ;470
+00003c  f7fffffe          BL       pbuf_realloc
+                  |L1.64|
+000040  8978              LDRH     r0,[r7,#0xa]          ;474
+000042  4540              CMP      r0,r8                 ;474
+000044  d305              BCC      |L1.82|
+000046  8938              LDRH     r0,[r7,#8]            ;474
+000048  42a0              CMP      r0,r4                 ;474
+00004a  d302              BCC      |L1.82|
+00004c  f1b80f14          CMP      r8,#0x14              ;474
+000050  d204              BCS      |L1.92|
+                  |L1.82|
+000052  4638              MOV      r0,r7                 ;490
+000054  f7fffffe          BL       pbuf_free
+000058  2000              MOVS     r0,#0                 ;494
+00005a  e7e1              B        |L1.32|
+                  |L1.92|
+00005c  f8dfa158          LDR      r10,|L1.440|
+000060  6928              LDR      r0,[r5,#0x10]         ;515
+000062  f8ca0014          STR      r0,[r10,#0x14]        ;515  ; ip_data
+000066  68e9              LDR      r1,[r5,#0xc]          ;516
+000068  f8ca1010          STR      r1,[r10,#0x10]        ;516  ; ip_data
+00006c  f3c01003          UBFX     r0,r0,#4,#4           ;519
+000070  280e              CMP      r0,#0xe               ;519
+000072  d005              BEQ      |L1.128|
+000074  4630              MOV      r0,r6                 ;543
+000076  f7fffffe          BL       ip4_input_accept
+00007a  b158              CBZ      r0,|L1.148|
+00007c  4634              MOV      r4,r6                 ;544
+00007e  e01a              B        |L1.182|
                   |L1.128|
-000080  f8940037          LDRB     r0,[r4,#0x37]         ;499
-000084  07c0              LSLS     r0,r0,#31             ;499
-000086  d014              BEQ      |L1.178|
-000088  6861              LDR      r1,[r4,#4]            ;499
-00008a  b191              CBZ      r1,|L1.178|
-00008c  f8da0014          LDR      r0,[r10,#0x14]        ;501  ; ip_data
-000090  4288              CMP      r0,r1                 ;501
-000092  d022              BEQ      |L1.218|
-000094  4621              MOV      r1,r4                 ;503
-000096  f7fffffe          BL       ip4_addr_isbroadcast_u32
-00009a  b9f0              CBNZ     r0,|L1.218|
-00009c  e009              B        |L1.178|
-                  |L1.158|
-00009e  f8970037          LDRB     r0,[r7,#0x37]         ;479
-0000a2  07c0              LSLS     r0,r0,#31             ;479
-0000a4  d003              BEQ      |L1.174|
-0000a6  6878              LDR      r0,[r7,#4]            ;479
-0000a8  b108              CBZ      r0,|L1.174|
-0000aa  463c              MOV      r4,r7                 ;480
-0000ac  e015              B        |L1.218|
-                  |L1.174|
-0000ae  2400              MOVS     r4,#0                 ;482
-0000b0  e013              B        |L1.218|
+000080  f8960035          LDRB     r0,[r6,#0x35]         ;534
+000084  07c0              LSLS     r0,r0,#31             ;534
+000086  d003              BEQ      |L1.144|
+000088  6870              LDR      r0,[r6,#4]            ;534
+00008a  b108              CBZ      r0,|L1.144|
+00008c  4634              MOV      r4,r6                 ;535
+00008e  e012              B        |L1.182|
+                  |L1.144|
+000090  2400              MOVS     r4,#0                 ;537
+000092  e010              B        |L1.182|
+                  |L1.148|
+000094  2400              MOVS     r4,#0                 ;546
+000096  f89a0014          LDRB     r0,[r10,#0x14]        ;551  ; ip_data
+00009a  287f              CMP      r0,#0x7f              ;551
+00009c  d00b              BEQ      |L1.182|
+00009e  4847              LDR      r0,|L1.444|
+0000a0  6804              LDR      r4,[r0,#0]            ;555  ; netif_list
+0000a2  e006              B        |L1.178|
+                  |L1.164|
+0000a4  42b4              CMP      r4,r6                 ;556
+0000a6  d003              BEQ      |L1.176|
+0000a8  4620              MOV      r0,r4                 ;560
+0000aa  f7fffffe          BL       ip4_input_accept
+0000ae  b910              CBNZ     r0,|L1.182|
+                  |L1.176|
+0000b0  6824              LDR      r4,[r4,#0]            ;555
                   |L1.178|
-0000b2  f1b90f00          CMP      r9,#0                 ;524
-0000b6  d00a              BEQ      |L1.206|
-0000b8  f89a0014          LDRB     r0,[r10,#0x14]        ;529  ; ip_data
-0000bc  287f              CMP      r0,#0x7f              ;529
-0000be  d004              BEQ      |L1.202|
-0000c0  f04f0900          MOV      r9,#0                 ;534
-0000c4  4849              LDR      r0,|L1.492|
-0000c6  6804              LDR      r4,[r0,#0]            ;535  ; netif_list
-0000c8  e002              B        |L1.208|
-                  |L1.202|
-0000ca  2400              MOVS     r4,#0                 ;530
-0000cc  e005              B        |L1.218|
-                  |L1.206|
-0000ce  6824              LDR      r4,[r4,#0]            ;537
+0000b2  2c00              CMP      r4,#0                 ;555
+0000b4  d1f6              BNE      |L1.164|
+                  |L1.182|
+0000b6  b95c              CBNZ     r4,|L1.208|
+0000b8  7a68              LDRB     r0,[r5,#9]            ;581
+0000ba  2811              CMP      r0,#0x11              ;581
+0000bc  d108              BNE      |L1.208|
+0000be  eb050008          ADD      r0,r5,r8              ;582
+0000c2  8840              LDRH     r0,[r0,#2]            ;585
+0000c4  f5b04f88          CMP      r0,#0x4400            ;585
+0000c8  d102              BNE      |L1.208|
+0000ca  4634              MOV      r4,r6                 ;587
+0000cc  f04f0900          MOV      r9,#0                 ;588
                   |L1.208|
-0000d0  42bc              CMP      r4,r7                 ;539
-0000d2  d100              BNE      |L1.214|
-0000d4  6824              LDR      r4,[r4,#0]            ;540
-                  |L1.214|
-0000d6  2c00              CMP      r4,#0                 ;542
-0000d8  d1d2              BNE      |L1.128|
-                  |L1.218|
-0000da  b95c              CBNZ     r4,|L1.244|
-0000dc  7a68              LDRB     r0,[r5,#9]            ;557
-0000de  2811              CMP      r0,#0x11              ;557
-0000e0  d108              BNE      |L1.244|
-0000e2  eb050008          ADD      r0,r5,r8              ;558
-0000e6  8840              LDRH     r0,[r0,#2]            ;561
-0000e8  f5b04f88          CMP      r0,#0x4400            ;561
-0000ec  d102              BNE      |L1.244|
-0000ee  463c              MOV      r4,r7                 ;563
-0000f0  f04f0b00          MOV      r11,#0                ;564
-                  |L1.244|
-0000f4  f1bb0f00          CMP      r11,#0                ;572
-0000f8  d00c              BEQ      |L1.276|
-0000fa  f8da0010          LDR      r0,[r10,#0x10]        ;575  ; ip_data
-0000fe  b148              CBZ      r0,|L1.276|
-000100  4639              MOV      r1,r7                 ;580
-000102  f7fffffe          BL       ip4_addr_isbroadcast_u32
-000106  bb88              CBNZ     r0,|L1.364|
-000108  f89a0010          LDRB     r0,[r10,#0x10]        ;581  ; ip_data
-00010c  f3c01003          UBFX     r0,r0,#4,#4           ;581
-000110  280e              CMP      r0,#0xe               ;581
-000112  d02d              BEQ      |L1.368|
-                  |L1.276|
-000114  b35c              CBZ      r4,|L1.366|
-000116  88e8              LDRH     r0,[r5,#6]            ;613
-000118  f03000c0          BICS     r0,r0,#0xc0           ;613
-00011c  d005              BEQ      |L1.298|
-00011e  4630              MOV      r0,r6                 ;618
-000120  f7fffffe          BL       ip4_reass
-000124  4606              MOV      r6,r0                 ;618
-000126  b36e              CBZ      r6,|L1.388|
-000128  6875              LDR      r5,[r6,#4]            ;623
-                  |L1.298|
-00012a  f8ca4000          STR      r4,[r10,#0]           ;659  ; ip_data
-00012e  f8ca7004          STR      r7,[r10,#4]           ;660  ; ip_data
-000132  f8ca5008          STR      r5,[r10,#8]           ;661  ; ip_data
-000136  7828              LDRB     r0,[r5,#0]            ;662
-000138  0700              LSLS     r0,r0,#28             ;662
-00013a  0e80              LSRS     r0,r0,#26             ;662
-00013c  f8aa000c          STRH     r0,[r10,#0xc]         ;662
-000140  fa0ff888          SXTH     r8,r8                 ;669
-000144  f1c80000          RSB      r0,r8,#0              ;669
-000148  b201              SXTH     r1,r0                 ;669
-00014a  4630              MOV      r0,r6                 ;669
-00014c  f7fffffe          BL       pbuf_header
-000150  7a68              LDRB     r0,[r5,#9]            ;671
-000152  2801              CMP      r0,#1                 ;671
-000154  d022              BEQ      |L1.412|
-000156  2806              CMP      r0,#6                 ;671
-000158  d01b              BEQ      |L1.402|
-00015a  2811              CMP      r0,#0x11              ;671
-00015c  d014              BEQ      |L1.392|
-00015e  4621              MOV      r1,r4                 ;701
-000160  f8da0014          LDR      r0,[r10,#0x14]        ;701  ; ip_data
-000164  f7fffffe          BL       ip4_addr_isbroadcast_u32
-000168  b1e8              CBZ      r0,|L1.422|
-00016a  e02b              B        |L1.452|
+0000d0  f1b90f00          CMP      r9,#0                 ;596
+0000d4  d00c              BEQ      |L1.240|
+0000d6  f8da0010          LDR      r0,[r10,#0x10]        ;599  ; ip_data
+0000da  b148              CBZ      r0,|L1.240|
+0000dc  4631              MOV      r1,r6                 ;604
+0000de  f7fffffe          BL       ip4_addr_isbroadcast_u32
+0000e2  bb68              CBNZ     r0,|L1.320|
+0000e4  f89a0010          LDRB     r0,[r10,#0x10]        ;605  ; ip_data
+0000e8  f3c01003          UBFX     r0,r0,#4,#4           ;605
+0000ec  280e              CMP      r0,#0xe               ;605
+0000ee  d027              BEQ      |L1.320|
+                  |L1.240|
+0000f0  b35c              CBZ      r4,|L1.330|
+0000f2  88e8              LDRH     r0,[r5,#6]            ;637
+0000f4  f03000c0          BICS     r0,r0,#0xc0           ;637
+0000f8  d005              BEQ      |L1.262|
+0000fa  4638              MOV      r0,r7                 ;642
+0000fc  f7fffffe          BL       ip4_reass
+000100  4607              MOV      r7,r0                 ;642
+000102  b33f              CBZ      r7,|L1.340|
+000104  687d              LDR      r5,[r7,#4]            ;647
+                  |L1.262|
+000106  f8ca4000          STR      r4,[r10,#0]           ;683  ; ip_data
+00010a  f8ca6004          STR      r6,[r10,#4]           ;684  ; ip_data
+00010e  f8ca5008          STR      r5,[r10,#8]           ;685  ; ip_data
+000112  7828              LDRB     r0,[r5,#0]            ;686
+000114  0700              LSLS     r0,r0,#28             ;686
+000116  0e80              LSRS     r0,r0,#26             ;686
+000118  f8aa000c          STRH     r0,[r10,#0xc]         ;686
+00011c  4641              MOV      r1,r8                 ;694
+00011e  4638              MOV      r0,r7                 ;694
+000120  f7fffffe          BL       pbuf_remove_header
+000124  7a68              LDRB     r0,[r5,#9]            ;696
+000126  2801              CMP      r0,#1                 ;696
+000128  d020              BEQ      |L1.364|
+00012a  2806              CMP      r0,#6                 ;696
+00012c  d019              BEQ      |L1.354|
+00012e  2811              CMP      r0,#0x11              ;696
+000130  d012              BEQ      |L1.344|
+000132  4621              MOV      r1,r4                 ;732
+000134  f8da0014          LDR      r0,[r10,#0x14]        ;732  ; ip_data
+000138  f7fffffe          BL       ip4_addr_isbroadcast_u32
+00013c  b1d8              CBZ      r0,|L1.374|
+00013e  e029              B        |L1.404|
+                  |L1.320|
+000140  4638              MOV      r0,r7                 ;609
+000142  f7fffffe          BL       pbuf_free
+000146  2000              MOVS     r0,#0                 ;613
+000148  e76a              B        |L1.32|
+                  |L1.330|
+00014a  4638              MOV      r0,r7                 ;633
+00014c  f7fffffe          BL       pbuf_free
+000150  2000              MOVS     r0,#0                 ;634
+000152  e765              B        |L1.32|
+                  |L1.340|
+000154  2000              MOVS     r0,#0                 ;645
+000156  e763              B        |L1.32|
+                  |L1.344|
+000158  4631              MOV      r1,r6                 ;703
+00015a  4638              MOV      r0,r7                 ;703
+00015c  f7fffffe          BL       udp_input
+000160  e01b              B        |L1.410|
+                  |L1.354|
+000162  4631              MOV      r1,r6                 ;709
+000164  4638              MOV      r0,r7                 ;709
+000166  f7fffffe          BL       tcp_input
+00016a  e016              B        |L1.410|
                   |L1.364|
-00016c  e000              B        |L1.368|
-                  |L1.366|
-00016e  e004              B        |L1.378|
-                  |L1.368|
-000170  4630              MOV      r0,r6                 ;585
-000172  f7fffffe          BL       pbuf_free
-000176  2000              MOVS     r0,#0                 ;589
-000178  e752              B        |L1.32|
-                  |L1.378|
-00017a  4630              MOV      r0,r6                 ;609
-00017c  f7fffffe          BL       pbuf_free
-000180  2000              MOVS     r0,#0                 ;610
-000182  e74d              B        |L1.32|
-                  |L1.388|
-000184  2000              MOVS     r0,#0                 ;621
-000186  e74b              B        |L1.32|
-                  |L1.392|
-000188  4639              MOV      r1,r7                 ;678
-00018a  4630              MOV      r0,r6                 ;678
-00018c  f7fffffe          BL       udp_input
-000190  e01b              B        |L1.458|
-                  |L1.402|
-000192  4639              MOV      r1,r7                 ;684
-000194  4630              MOV      r0,r6                 ;684
-000196  f7fffffe          BL       tcp_input
-00019a  e016              B        |L1.458|
-                  |L1.412|
-00019c  4639              MOV      r1,r7                 ;690
-00019e  4630              MOV      r0,r6                 ;690
-0001a0  f7fffffe          BL       icmp_input
-0001a4  e011              B        |L1.458|
-                  |L1.422|
-0001a6  f89a0014          LDRB     r0,[r10,#0x14]        ;702  ; ip_data
-0001aa  f3c01003          UBFX     r0,r0,#4,#4           ;702
-0001ae  280e              CMP      r0,#0xe               ;702
-0001b0  d008              BEQ      |L1.452|
-0001b2  4641              MOV      r1,r8                 ;703
-0001b4  4630              MOV      r0,r6                 ;703
-0001b6  f7fffffe          BL       pbuf_header_force
-0001ba  6075              STR      r5,[r6,#4]            ;704
-0001bc  2102              MOVS     r1,#2                 ;705
-0001be  4630              MOV      r0,r6                 ;705
-0001c0  f7fffffe          BL       icmp_dest_unreach
-                  |L1.452|
-0001c4  4630              MOV      r0,r6                 ;708
-0001c6  f7fffffe          BL       pbuf_free
-                  |L1.458|
-0001ca  2000              MOVS     r0,#0                 ;719
-0001cc  f8ca0000          STR      r0,[r10,#0]           ;719  ; ip_data
-0001d0  f8ca0004          STR      r0,[r10,#4]           ;720  ; ip_data
-0001d4  f8ca0008          STR      r0,[r10,#8]           ;721  ; ip_data
-0001d8  f8aa000c          STRH     r0,[r10,#0xc]         ;722
-0001dc  f8ca0010          STR      r0,[r10,#0x10]        ;723  ; ip_data
-0001e0  f8ca0014          STR      r0,[r10,#0x14]        ;724  ; ip_data
-0001e4  e71c              B        |L1.32|
-;;;728    
+00016c  4631              MOV      r1,r6                 ;715
+00016e  4638              MOV      r0,r7                 ;715
+000170  f7fffffe          BL       icmp_input
+000174  e011              B        |L1.410|
+                  |L1.374|
+000176  f89a0014          LDRB     r0,[r10,#0x14]        ;733  ; ip_data
+00017a  f3c01003          UBFX     r0,r0,#4,#4           ;733
+00017e  280e              CMP      r0,#0xe               ;733
+000180  d008              BEQ      |L1.404|
+000182  fa0ff188          SXTH     r1,r8                 ;734
+000186  4638              MOV      r0,r7                 ;734
+000188  f7fffffe          BL       pbuf_header_force
+00018c  2102              MOVS     r1,#2                 ;735
+00018e  4638              MOV      r0,r7                 ;735
+000190  f7fffffe          BL       icmp_dest_unreach
+                  |L1.404|
+000194  4638              MOV      r0,r7                 ;745
+000196  f7fffffe          BL       pbuf_free
+                  |L1.410|
+00019a  2000              MOVS     r0,#0                 ;751
+00019c  f8ca0000          STR      r0,[r10,#0]           ;751  ; ip_data
+0001a0  f8ca0004          STR      r0,[r10,#4]           ;752  ; ip_data
+0001a4  f8ca0008          STR      r0,[r10,#8]           ;753  ; ip_data
+0001a8  f8aa000c          STRH     r0,[r10,#0xc]         ;754
+0001ac  f8ca0010          STR      r0,[r10,#0x10]        ;755  ; ip_data
+0001b0  f8ca0014          STR      r0,[r10,#0x14]        ;756  ; ip_data
+0001b4  e734              B        |L1.32|
+;;;760    
                           ENDP
 
-0001e6  0000              DCW      0x0000
-                  |L1.488|
+0001b6  0000              DCW      0x0000
+                  |L1.440|
                           DCD      ip_data
-                  |L1.492|
+                  |L1.444|
                           DCD      netif_list
+
+                          AREA ||i.ip4_input_accept||, CODE, READONLY, ALIGN=2
+
+                  ip4_input_accept PROC
+;;;373    static int
+;;;374    ip4_input_accept(struct netif *netif)
+000000  b510              PUSH     {r4,lr}
+;;;375    {
+;;;376      LWIP_DEBUGF(IP_DEBUG, ("ip_input: iphdr->dest 0x%"X32_F" netif->ip_addr 0x%"X32_F" (0x%"X32_F", 0x%"X32_F", 0x%"X32_F")\n",
+;;;377                             ip4_addr_get_u32(ip4_current_dest_addr()), ip4_addr_get_u32(netif_ip4_addr(netif)),
+;;;378                             ip4_addr_get_u32(ip4_current_dest_addr()) & ip4_addr_get_u32(netif_ip4_netmask(netif)),
+;;;379                             ip4_addr_get_u32(netif_ip4_addr(netif)) & ip4_addr_get_u32(netif_ip4_netmask(netif)),
+;;;380                             ip4_addr_get_u32(ip4_current_dest_addr()) & ~ip4_addr_get_u32(netif_ip4_netmask(netif))));
+;;;381    
+;;;382      /* interface is up and configured? */
+;;;383      if ((netif_is_up(netif)) && (!ip4_addr_isany_val(*netif_ip4_addr(netif)))) {
+000002  f8901035          LDRB     r1,[r0,#0x35]
+000006  07c9              LSLS     r1,r1,#31
+000008  d00c              BEQ      |L2.36|
+00000a  6841              LDR      r1,[r0,#4]
+00000c  b151              CBZ      r1,|L2.36|
+;;;384        /* unicast to this interface address? */
+;;;385        if (ip4_addr_cmp(ip4_current_dest_addr(), netif_ip4_addr(netif)) ||
+00000e  4a06              LDR      r2,|L2.40|
+000010  6952              LDR      r2,[r2,#0x14]  ; ip_data
+000012  428a              CMP      r2,r1
+000014  d004              BEQ      |L2.32|
+;;;386            /* or broadcast on this interface network address? */
+;;;387            ip4_addr_isbroadcast(ip4_current_dest_addr(), netif)
+000016  4601              MOV      r1,r0
+000018  4610              MOV      r0,r2
+00001a  f7fffffe          BL       ip4_addr_isbroadcast_u32
+00001e  b108              CBZ      r0,|L2.36|
+                  |L2.32|
+;;;388    #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
+;;;389            || (ip4_addr_get_u32(ip4_current_dest_addr()) == PP_HTONL(IPADDR_LOOPBACK))
+;;;390    #endif /* LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF */
+;;;391           ) {
+;;;392          LWIP_DEBUGF(IP_DEBUG, ("ip4_input: packet accepted on interface %c%c\n",
+;;;393                                 netif->name[0], netif->name[1]));
+;;;394          /* accept on this netif */
+;;;395          return 1;
+000020  2001              MOVS     r0,#1
+;;;396        }
+;;;397    #if LWIP_AUTOIP
+;;;398        /* connections to link-local addresses must persist after changing
+;;;399            the netif's address (RFC3927 ch. 1.9) */
+;;;400        if (autoip_accept_packet(netif, ip4_current_dest_addr())) {
+;;;401          LWIP_DEBUGF(IP_DEBUG, ("ip4_input: LLA packet accepted on interface %c%c\n",
+;;;402                                 netif->name[0], netif->name[1]));
+;;;403          /* accept on this netif */
+;;;404          return 1;
+;;;405        }
+;;;406    #endif /* LWIP_AUTOIP */
+;;;407      }
+;;;408      return 0;
+;;;409    }
+000022  bd10              POP      {r4,pc}
+                  |L2.36|
+000024  2000              MOVS     r0,#0                 ;408
+000026  bd10              POP      {r4,pc}
+;;;410    
+                          ENDP
+
+                  |L2.40|
+                          DCD      ip_data
 
                           AREA ||i.ip4_output||, CODE, READONLY, ALIGN=2
 
@@ -589,40 +614,40 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                   ip4_output PROC
-;;;981    err_t
-;;;982    ip4_output(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
+;;;1027   err_t
+;;;1028   ip4_output(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
 000000  e92d43fe          PUSH     {r1-r9,lr}
-;;;983              u8_t ttl, u8_t tos, u8_t proto)
-;;;984    {
+;;;1029              u8_t ttl, u8_t tos, u8_t proto)
+;;;1030   {
 000004  e9dd560a          LDRD     r5,r6,[sp,#0x28]
 000008  4604              MOV      r4,r0
 00000a  4688              MOV      r8,r1
 00000c  4617              MOV      r7,r2
 00000e  4699              MOV      r9,r3
-;;;985      struct netif *netif;
-;;;986    
-;;;987      LWIP_IP_CHECK_PBUF_REF_COUNT_FOR_TX(p);
-000010  89e0              LDRH     r0,[r4,#0xe]
+;;;1031     struct netif *netif;
+;;;1032   
+;;;1033     LWIP_IP_CHECK_PBUF_REF_COUNT_FOR_TX(p);
+000010  7ba0              LDRB     r0,[r4,#0xe]
 000012  2801              CMP      r0,#1
-000014  d006              BEQ      |L2.36|
-000016  a30c              ADR      r3,|L2.72|
-000018  f24032db          MOV      r2,#0x3db
-00001c  a117              ADR      r1,|L2.124|
-00001e  a01a              ADR      r0,|L2.136|
+000014  d006              BEQ      |L3.36|
+000016  a30c              ADR      r3,|L3.72|
+000018  f2404209          MOV      r2,#0x409
+00001c  a117              ADR      r1,|L3.124|
+00001e  a01a              ADR      r0,|L3.136|
 000020  f7fffffe          BL       __2printf
-                  |L2.36|
-;;;988    
-;;;989      if ((netif = ip4_route_src(dest, src)) == NULL) {
+                  |L3.36|
+;;;1034   
+;;;1035     if ((netif = ip4_route_src(src, dest)) == NULL) {
 000024  4638              MOV      r0,r7
 000026  f7fffffe          BL       ip4_route
-00002a  b150              CBZ      r0,|L2.66|
-;;;990        LWIP_DEBUGF(IP_DEBUG, ("ip4_output: No route to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-;;;991          ip4_addr1_16(dest), ip4_addr2_16(dest), ip4_addr3_16(dest), ip4_addr4_16(dest)));
-;;;992        IP_STATS_INC(ip.rterr);
-;;;993        return ERR_RTE;
-;;;994      }
-;;;995    
-;;;996      return ip4_output_if(p, src, dest, ttl, tos, proto, netif);
+00002a  b150              CBZ      r0,|L3.66|
+;;;1036       LWIP_DEBUGF(IP_DEBUG, ("ip4_output: No route to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+;;;1037                              ip4_addr1_16(dest), ip4_addr2_16(dest), ip4_addr3_16(dest), ip4_addr4_16(dest)));
+;;;1038       IP_STATS_INC(ip.rterr);
+;;;1039       return ERR_RTE;
+;;;1040     }
+;;;1041   
+;;;1042     return ip4_output_if(p, src, dest, ttl, tos, proto, netif);
 00002c  e9cd5600          STRD     r5,r6,[sp,#0]
 000030  9002              STR      r0,[sp,#8]
 000032  464b              MOV      r3,r9
@@ -630,16 +655,16 @@
 000036  4641              MOV      r1,r8
 000038  4620              MOV      r0,r4
 00003a  f7fffffe          BL       ip4_output_if
-                  |L2.62|
-;;;997    }
+                  |L3.62|
+;;;1043   }
 00003e  e8bd83fe          POP      {r1-r9,pc}
-                  |L2.66|
-000042  f06f0003          MVN      r0,#3                 ;993
-000046  e7fa              B        |L2.62|
-;;;998    
+                  |L3.66|
+000042  f06f0003          MVN      r0,#3                 ;1039
+000046  e7fa              B        |L3.62|
+;;;1044   
                           ENDP
 
-                  |L2.72|
+                  |L3.72|
 000048  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
 00004c  6964646c
 000050  65776172
@@ -653,11 +678,11 @@
 000070  5c697076
 000074  345c6970
 000078  342e6300          DCB      "4.c",0
-                  |L2.124|
+                  |L3.124|
 00007c  702d3e72          DCB      "p->ref == 1",0
 000080  6566203d
 000084  3d203100
-                  |L2.136|
+                  |L3.136|
 000088  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
 00008c  7274696f
 000090  6e202225
@@ -672,58 +697,58 @@
                           AREA ||i.ip4_output_if||, CODE, READONLY, ALIGN=1
 
                   ip4_output_if PROC
-;;;754    err_t
-;;;755    ip4_output_if(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
+;;;786    err_t
+;;;787    ip4_output_if(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
 000000  b5fe              PUSH     {r1-r7,lr}
-;;;756                 u8_t ttl, u8_t tos,
-;;;757                 u8_t proto, struct netif *netif)
-;;;758    {
+;;;788                  u8_t ttl, u8_t tos,
+;;;789                  u8_t proto, struct netif *netif)
+;;;790    {
 000002  e9dd6708          LDRD     r6,r7,[sp,#0x20]
 000006  9c0a              LDR      r4,[sp,#0x28]
-;;;759    #if IP_OPTIONS_SEND
-;;;760      return ip4_output_if_opt(p, src, dest, ttl, tos, proto, netif, NULL, 0);
-;;;761    }
-;;;762    
-;;;763    /**
-;;;764     * Same as ip_output_if() but with the possibility to include IP options:
-;;;765     *
-;;;766     * @ param ip_options pointer to the IP options, copied into the IP header
-;;;767     * @ param optlen length of ip_options
-;;;768     */
-;;;769    err_t
-;;;770    ip4_output_if_opt(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
-;;;771           u8_t ttl, u8_t tos, u8_t proto, struct netif *netif, void *ip_options,
-;;;772           u16_t optlen)
-;;;773    {
-;;;774    #endif /* IP_OPTIONS_SEND */
-;;;775      const ip4_addr_t *src_used = src;
-;;;776      if (dest != LWIP_IP_HDRINCL) {
+;;;791    #if IP_OPTIONS_SEND
+;;;792      return ip4_output_if_opt(p, src, dest, ttl, tos, proto, netif, NULL, 0);
+;;;793    }
+;;;794    
+;;;795    /**
+;;;796     * Same as ip_output_if() but with the possibility to include IP options:
+;;;797     *
+;;;798     * @ param ip_options pointer to the IP options, copied into the IP header
+;;;799     * @ param optlen length of ip_options
+;;;800     */
+;;;801    err_t
+;;;802    ip4_output_if_opt(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
+;;;803                      u8_t ttl, u8_t tos, u8_t proto, struct netif *netif, void *ip_options,
+;;;804                      u16_t optlen)
+;;;805    {
+;;;806    #endif /* IP_OPTIONS_SEND */
+;;;807      const ip4_addr_t *src_used = src;
+;;;808      if (dest != LWIP_IP_HDRINCL) {
 000008  2a00              CMP      r2,#0
-00000a  d004              BEQ      |L3.22|
-;;;777        if (ip4_addr_isany(src)) {
+00000a  d004              BEQ      |L4.22|
+;;;809        if (ip4_addr_isany(src)) {
 00000c  000d              MOVS     r5,r1
-00000e  d001              BEQ      |L3.20|
+00000e  d001              BEQ      |L4.20|
 000010  680d              LDR      r5,[r1,#0]
-000012  b905              CBNZ     r5,|L3.22|
-                  |L3.20|
-;;;778          src_used = netif_ip4_addr(netif);
+000012  b905              CBNZ     r5,|L4.22|
+                  |L4.20|
+;;;810          src_used = netif_ip4_addr(netif);
 000014  1d21              ADDS     r1,r4,#4
-                  |L3.22|
-;;;779        }
-;;;780      }
-;;;781    
-;;;782    #if IP_OPTIONS_SEND
-;;;783      return ip4_output_if_opt_src(p, src_used, dest, ttl, tos, proto, netif,
-;;;784        ip_options, optlen);
-;;;785    #else /* IP_OPTIONS_SEND */
-;;;786      return ip4_output_if_src(p, src_used, dest, ttl, tos, proto, netif);
+                  |L4.22|
+;;;811        }
+;;;812      }
+;;;813    
+;;;814    #if IP_OPTIONS_SEND
+;;;815      return ip4_output_if_opt_src(p, src_used, dest, ttl, tos, proto, netif,
+;;;816                                   ip_options, optlen);
+;;;817    #else /* IP_OPTIONS_SEND */
+;;;818      return ip4_output_if_src(p, src_used, dest, ttl, tos, proto, netif);
 000016  e9cd6700          STRD     r6,r7,[sp,#0]
 00001a  9402              STR      r4,[sp,#8]
 00001c  f7fffffe          BL       ip4_output_if_src
-;;;787    #endif /* IP_OPTIONS_SEND */
-;;;788    }
+;;;819    #endif /* IP_OPTIONS_SEND */
+;;;820    }
 000020  bdfe              POP      {r1-r7,pc}
-;;;789    
+;;;821    
                           ENDP
 
 
@@ -736,317 +761,338 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   ip4_output_if_src PROC
-;;;794    err_t
-;;;795    ip4_output_if_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
+;;;826    err_t
+;;;827    ip4_output_if_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
 000000  e92d4ff8          PUSH     {r3-r11,lr}
-;;;796                 u8_t ttl, u8_t tos,
-;;;797                 u8_t proto, struct netif *netif)
-;;;798    {
+;;;828                      u8_t ttl, u8_t tos,
+;;;829                      u8_t proto, struct netif *netif)
+;;;830    {
 000004  e9ddab0a          LDRD     r10,r11,[sp,#0x28]
 000008  f8dd8030          LDR      r8,[sp,#0x30]
 00000c  4605              MOV      r5,r0
 00000e  4689              MOV      r9,r1
 000010  4616              MOV      r6,r2
 000012  461f              MOV      r7,r3
-;;;799    #if IP_OPTIONS_SEND
-;;;800      return ip4_output_if_opt_src(p, src, dest, ttl, tos, proto, netif, NULL, 0);
-;;;801    }
-;;;802    
-;;;803    /**
-;;;804     * Same as ip_output_if_opt() but 'src' address is not replaced by netif address
-;;;805     * when it is 'any'.
-;;;806     */
-;;;807    err_t
-;;;808    ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
-;;;809           u8_t ttl, u8_t tos, u8_t proto, struct netif *netif, void *ip_options,
-;;;810           u16_t optlen)
-;;;811    {
-;;;812    #endif /* IP_OPTIONS_SEND */
-;;;813      struct ip_hdr *iphdr;
-;;;814      ip4_addr_t dest_addr;
-;;;815    #if CHECKSUM_GEN_IP_INLINE
-;;;816      u32_t chk_sum = 0;
-;;;817    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;818    
-;;;819      LWIP_IP_CHECK_PBUF_REF_COUNT_FOR_TX(p);
-000014  89e8              LDRH     r0,[r5,#0xe]
-000016  2801              CMP      r0,#1
-000018  d006              BEQ      |L4.40|
-00001a  a32d              ADR      r3,|L4.208|
-00001c  f2403233          MOV      r2,#0x333
-000020  a138              ADR      r1,|L4.260|
-000022  a03b              ADR      r0,|L4.272|
-000024  f7fffffe          BL       __2printf
-                  |L4.40|
-;;;820    
-;;;821      MIB2_STATS_INC(mib2.ipoutrequests);
-;;;822    
-;;;823      /* Should the IP header be generated or is it already included in p? */
-;;;824      if (dest != LWIP_IP_HDRINCL) {
-000028  2e00              CMP      r6,#0
-00002a  d039              BEQ      |L4.160|
-;;;825        u16_t ip_hlen = IP_HLEN;
-;;;826    #if IP_OPTIONS_SEND
-;;;827        u16_t optlen_aligned = 0;
-;;;828        if (optlen != 0) {
-;;;829    #if CHECKSUM_GEN_IP_INLINE
-;;;830          int i;
-;;;831    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;832          /* round up to a multiple of 4 */
-;;;833          optlen_aligned = ((optlen + 3) & ~3);
-;;;834          ip_hlen += optlen_aligned;
-;;;835          /* First write in the IP options */
-;;;836          if (pbuf_header(p, optlen_aligned)) {
-;;;837            LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: not enough room for IP options in pbuf\n"));
-;;;838            IP_STATS_INC(ip.err);
-;;;839            MIB2_STATS_INC(mib2.ipoutdiscards);
-;;;840            return ERR_BUF;
-;;;841          }
-;;;842          MEMCPY(p->payload, ip_options, optlen);
-;;;843          if (optlen < optlen_aligned) {
-;;;844            /* zero the remaining bytes */
-;;;845            memset(((char*)p->payload) + optlen, 0, optlen_aligned - optlen);
-;;;846          }
+;;;831    #if IP_OPTIONS_SEND
+;;;832      return ip4_output_if_opt_src(p, src, dest, ttl, tos, proto, netif, NULL, 0);
+;;;833    }
+;;;834    
+;;;835    /**
+;;;836     * Same as ip_output_if_opt() but 'src' address is not replaced by netif address
+;;;837     * when it is 'any'.
+;;;838     */
+;;;839    err_t
+;;;840    ip4_output_if_opt_src(struct pbuf *p, const ip4_addr_t *src, const ip4_addr_t *dest,
+;;;841                          u8_t ttl, u8_t tos, u8_t proto, struct netif *netif, void *ip_options,
+;;;842                          u16_t optlen)
+;;;843    {
+;;;844    #endif /* IP_OPTIONS_SEND */
+;;;845      struct ip_hdr *iphdr;
+;;;846      ip4_addr_t dest_addr;
 ;;;847    #if CHECKSUM_GEN_IP_INLINE
-;;;848          for (i = 0; i < optlen_aligned/2; i++) {
-;;;849            chk_sum += ((u16_t*)p->payload)[i];
-;;;850          }
-;;;851    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;852        }
-;;;853    #endif /* IP_OPTIONS_SEND */
-;;;854        /* generate IP header */
-;;;855        if (pbuf_header(p, IP_HLEN)) {
-00002c  2114              MOVS     r1,#0x14
-00002e  4628              MOV      r0,r5
-000030  f7fffffe          BL       pbuf_header
-000034  b118              CBZ      r0,|L4.62|
-;;;856          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output: not enough room for IP header in pbuf\n"));
-;;;857    
-;;;858          IP_STATS_INC(ip.err);
-;;;859          MIB2_STATS_INC(mib2.ipoutdiscards);
-;;;860          return ERR_BUF;
-000036  f06f0001          MVN      r0,#1
-                  |L4.58|
-;;;861        }
-;;;862    
-;;;863        iphdr = (struct ip_hdr *)p->payload;
-;;;864        LWIP_ASSERT("check that first pbuf can hold struct ip_hdr",
-;;;865                   (p->len >= sizeof(struct ip_hdr)));
-;;;866    
-;;;867        IPH_TTL_SET(iphdr, ttl);
-;;;868        IPH_PROTO_SET(iphdr, proto);
-;;;869    #if CHECKSUM_GEN_IP_INLINE
-;;;870        chk_sum += PP_NTOHS(proto | (ttl << 8));
-;;;871    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;872    
-;;;873        /* dest cannot be NULL here */
-;;;874        ip4_addr_copy(iphdr->dest, *dest);
-;;;875    #if CHECKSUM_GEN_IP_INLINE
-;;;876        chk_sum += ip4_addr_get_u32(&iphdr->dest) & 0xFFFF;
-;;;877        chk_sum += ip4_addr_get_u32(&iphdr->dest) >> 16;
-;;;878    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;879    
-;;;880        IPH_VHL_SET(iphdr, 4, ip_hlen / 4);
-;;;881        IPH_TOS_SET(iphdr, tos);
-;;;882    #if CHECKSUM_GEN_IP_INLINE
-;;;883        chk_sum += PP_NTOHS(tos | (iphdr->_v_hl << 8));
-;;;884    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;885        IPH_LEN_SET(iphdr, lwip_htons(p->tot_len));
-;;;886    #if CHECKSUM_GEN_IP_INLINE
-;;;887        chk_sum += iphdr->_len;
-;;;888    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;889        IPH_OFFSET_SET(iphdr, 0);
-;;;890        IPH_ID_SET(iphdr, lwip_htons(ip_id));
-;;;891    #if CHECKSUM_GEN_IP_INLINE
-;;;892        chk_sum += iphdr->_id;
-;;;893    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;894        ++ip_id;
-;;;895    
-;;;896        if (src == NULL) {
-;;;897          ip4_addr_copy(iphdr->src, *IP4_ADDR_ANY4);
-;;;898        } else {
-;;;899          /* src cannot be NULL here */
-;;;900          ip4_addr_copy(iphdr->src, *src);
+;;;848      u32_t chk_sum = 0;
+;;;849    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;850    
+;;;851      LWIP_ASSERT_CORE_LOCKED();
+;;;852      LWIP_IP_CHECK_PBUF_REF_COUNT_FOR_TX(p);
+000014  7ba8              LDRB     r0,[r5,#0xe]
+000016  2801              CMP      r0,#1
+000018  d006              BEQ      |L5.40|
+00001a  a330              ADR      r3,|L5.220|
+00001c  f44f7255          MOV      r2,#0x354
+000020  a13b              ADR      r1,|L5.272|
+000022  a03e              ADR      r0,|L5.284|
+000024  f7fffffe          BL       __2printf
+                  |L5.40|
+;;;853    
+;;;854      MIB2_STATS_INC(mib2.ipoutrequests);
+;;;855    
+;;;856      /* Should the IP header be generated or is it already included in p? */
+;;;857      if (dest != LWIP_IP_HDRINCL) {
+;;;858        u16_t ip_hlen = IP_HLEN;
+;;;859    #if IP_OPTIONS_SEND
+;;;860        u16_t optlen_aligned = 0;
+;;;861        if (optlen != 0) {
+;;;862    #if CHECKSUM_GEN_IP_INLINE
+;;;863          int i;
+;;;864    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;865          if (optlen > (IP_HLEN_MAX - IP_HLEN)) {
+;;;866            /* optlen too long */
+;;;867            LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: optlen too long\n"));
+;;;868            IP_STATS_INC(ip.err);
+;;;869            MIB2_STATS_INC(mib2.ipoutdiscards);
+;;;870            return ERR_VAL;
+;;;871          }
+;;;872          /* round up to a multiple of 4 */
+;;;873          optlen_aligned = (u16_t)((optlen + 3) & ~3);
+;;;874          ip_hlen = (u16_t)(ip_hlen + optlen_aligned);
+;;;875          /* First write in the IP options */
+;;;876          if (pbuf_add_header(p, optlen_aligned)) {
+;;;877            LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output_if_opt: not enough room for IP options in pbuf\n"));
+;;;878            IP_STATS_INC(ip.err);
+;;;879            MIB2_STATS_INC(mib2.ipoutdiscards);
+;;;880            return ERR_BUF;
+;;;881          }
+;;;882          MEMCPY(p->payload, ip_options, optlen);
+;;;883          if (optlen < optlen_aligned) {
+;;;884            /* zero the remaining bytes */
+;;;885            memset(((char *)p->payload) + optlen, 0, (size_t)(optlen_aligned - optlen));
+;;;886          }
+;;;887    #if CHECKSUM_GEN_IP_INLINE
+;;;888          for (i = 0; i < optlen_aligned / 2; i++) {
+;;;889            chk_sum += ((u16_t *)p->payload)[i];
+;;;890          }
+;;;891    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;892        }
+;;;893    #endif /* IP_OPTIONS_SEND */
+;;;894        /* generate IP header */
+;;;895        if (pbuf_add_header(p, IP_HLEN)) {
+;;;896          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output: not enough room for IP header in pbuf\n"));
+;;;897    
+;;;898          IP_STATS_INC(ip.err);
+;;;899          MIB2_STATS_INC(mib2.ipoutdiscards);
+;;;900          return ERR_BUF;
+000028  f06f0401          MVN      r4,#1
+00002c  2e00              CMP      r6,#0                 ;857
+00002e  d038              BEQ      |L5.162|
+000030  2114              MOVS     r1,#0x14              ;895
+000032  4628              MOV      r0,r5                 ;895
+000034  f7fffffe          BL       pbuf_add_header
+000038  b110              CBZ      r0,|L5.64|
+00003a  4620              MOV      r0,r4
+                  |L5.60|
 ;;;901        }
 ;;;902    
-;;;903    #if CHECKSUM_GEN_IP_INLINE
-;;;904        chk_sum += ip4_addr_get_u32(&iphdr->src) & 0xFFFF;
-;;;905        chk_sum += ip4_addr_get_u32(&iphdr->src) >> 16;
-;;;906        chk_sum = (chk_sum >> 16) + (chk_sum & 0xFFFF);
-;;;907        chk_sum = (chk_sum >> 16) + chk_sum;
-;;;908        chk_sum = ~chk_sum;
-;;;909        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
-;;;910          iphdr->_chksum = (u16_t)chk_sum; /* network order */
-;;;911        }
-;;;912    #if LWIP_CHECKSUM_CTRL_PER_NETIF
-;;;913        else {
-;;;914          IPH_CHKSUM_SET(iphdr, 0);
-;;;915        }
-;;;916    #endif /* LWIP_CHECKSUM_CTRL_PER_NETIF*/
-;;;917    #else /* CHECKSUM_GEN_IP_INLINE */
-;;;918        IPH_CHKSUM_SET(iphdr, 0);
-;;;919    #if CHECKSUM_GEN_IP
-;;;920        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
-;;;921          IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
-;;;922        }
-;;;923    #endif /* CHECKSUM_GEN_IP */
+;;;903        iphdr = (struct ip_hdr *)p->payload;
+;;;904        LWIP_ASSERT("check that first pbuf can hold struct ip_hdr",
+;;;905                    (p->len >= sizeof(struct ip_hdr)));
+;;;906    
+;;;907        IPH_TTL_SET(iphdr, ttl);
+;;;908        IPH_PROTO_SET(iphdr, proto);
+;;;909    #if CHECKSUM_GEN_IP_INLINE
+;;;910        chk_sum += PP_NTOHS(proto | (ttl << 8));
+;;;911    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;912    
+;;;913        /* dest cannot be NULL here */
+;;;914        ip4_addr_copy(iphdr->dest, *dest);
+;;;915    #if CHECKSUM_GEN_IP_INLINE
+;;;916        chk_sum += ip4_addr_get_u32(&iphdr->dest) & 0xFFFF;
+;;;917        chk_sum += ip4_addr_get_u32(&iphdr->dest) >> 16;
+;;;918    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;919    
+;;;920        IPH_VHL_SET(iphdr, 4, ip_hlen / 4);
+;;;921        IPH_TOS_SET(iphdr, tos);
+;;;922    #if CHECKSUM_GEN_IP_INLINE
+;;;923        chk_sum += PP_NTOHS(tos | (iphdr->_v_hl << 8));
 ;;;924    #endif /* CHECKSUM_GEN_IP_INLINE */
-;;;925      } else {
-;;;926        /* IP header already included in p */
-;;;927        iphdr = (struct ip_hdr *)p->payload;
-;;;928        ip4_addr_copy(dest_addr, iphdr->dest);
-;;;929        dest = &dest_addr;
-;;;930      }
-;;;931    
-;;;932      IP_STATS_INC(ip.xmit);
-;;;933    
-;;;934      LWIP_DEBUGF(IP_DEBUG, ("ip4_output_if: %c%c%"U16_F"\n", netif->name[0], netif->name[1], (u16_t)netif->num));
-;;;935      ip4_debug_print(p);
-;;;936    
-;;;937    #if ENABLE_LOOPBACK
-;;;938      if (ip4_addr_cmp(dest, netif_ip4_addr(netif))
-;;;939    #if !LWIP_HAVE_LOOPIF
-;;;940          || ip4_addr_isloopback(dest)
-;;;941    #endif /* !LWIP_HAVE_LOOPIF */
-;;;942          ) {
-;;;943        /* Packet to self, enqueue it for loopback */
-;;;944        LWIP_DEBUGF(IP_DEBUG, ("netif_loop_output()"));
-;;;945        return netif_loop_output(netif, p);
-;;;946      }
-;;;947    #if LWIP_MULTICAST_TX_OPTIONS
-;;;948      if ((p->flags & PBUF_FLAG_MCASTLOOP) != 0) {
-;;;949        netif_loop_output(netif, p);
-;;;950      }
-;;;951    #endif /* LWIP_MULTICAST_TX_OPTIONS */
-;;;952    #endif /* ENABLE_LOOPBACK */
-;;;953    #if IP_FRAG
-;;;954      /* don't fragment if interface has mtu set to 0 [loopif] */
-;;;955      if (netif->mtu && (p->tot_len > netif->mtu)) {
-;;;956        return ip4_frag(p, netif, dest);
-;;;957      }
-;;;958    #endif /* IP_FRAG */
-;;;959    
-;;;960      LWIP_DEBUGF(IP_DEBUG, ("ip4_output_if: call netif->output()\n"));
-;;;961      return netif->output(netif, p, dest);
-;;;962    }
-00003a  e8bd8ff8          POP      {r3-r11,pc}
-                  |L4.62|
-00003e  686c              LDR      r4,[r5,#4]            ;863
-000040  8968              LDRH     r0,[r5,#0xa]          ;864
-000042  2814              CMP      r0,#0x14              ;864
-000044  d206              BCS      |L4.84|
-000046  a322              ADR      r3,|L4.208|
-000048  f44f7258          MOV      r2,#0x360             ;864
-00004c  a13a              ADR      r1,|L4.312|
-00004e  a030              ADR      r0,|L4.272|
-000050  f7fffffe          BL       __2printf
-                  |L4.84|
-000054  7227              STRB     r7,[r4,#8]            ;867
-000056  f884b009          STRB     r11,[r4,#9]           ;868
-00005a  6830              LDR      r0,[r6,#0]            ;874
-00005c  6120              STR      r0,[r4,#0x10]         ;874
-00005e  2045              MOVS     r0,#0x45              ;880
-000060  7020              STRB     r0,[r4,#0]            ;880
-000062  f884a001          STRB     r10,[r4,#1]           ;881
-000066  8928              LDRH     r0,[r5,#8]            ;885
-000068  f7fffffe          BL       lwip_htons
-00006c  8060              STRH     r0,[r4,#2]            ;885
-00006e  f04f0a00          MOV      r10,#0                ;889
-000072  f8a4a006          STRH     r10,[r4,#6]           ;889
-000076  4f3c              LDR      r7,|L4.360|
-000078  8838              LDRH     r0,[r7,#0]            ;890  ; ip_id
-00007a  f7fffffe          BL       lwip_htons
-00007e  80a0              STRH     r0,[r4,#4]            ;890
-000080  8838              LDRH     r0,[r7,#0]            ;894  ; ip_id
-000082  1c40              ADDS     r0,r0,#1              ;894
-000084  8038              STRH     r0,[r7,#0]            ;894
-000086  f1b90f00          CMP      r9,#0                 ;896
-00008a  d005              BEQ      |L4.152|
-00008c  f8d90000          LDR      r0,[r9,#0]            ;900
-000090  60e0              STR      r0,[r4,#0xc]          ;900
-                  |L4.146|
-000092  f8a4a00a          STRH     r10,[r4,#0xa]         ;918
-000096  e007              B        |L4.168|
-                  |L4.152|
-000098  4834              LDR      r0,|L4.364|
-00009a  6800              LDR      r0,[r0,#0]            ;897  ; ip_addr_any
-00009c  60e0              STR      r0,[r4,#0xc]          ;897
-00009e  e7f8              B        |L4.146|
-                  |L4.160|
-0000a0  6868              LDR      r0,[r5,#4]            ;927
-0000a2  6900              LDR      r0,[r0,#0x10]         ;928
-0000a4  9000              STR      r0,[sp,#0]            ;928
-0000a6  466e              MOV      r6,sp                 ;929
-                  |L4.168|
-0000a8  f8b8002e          LDRH     r0,[r8,#0x2e]         ;955
-0000ac  b140              CBZ      r0,|L4.192|
-0000ae  8929              LDRH     r1,[r5,#8]            ;955
-0000b0  4281              CMP      r1,r0                 ;955
-0000b2  d905              BLS      |L4.192|
-0000b4  4632              MOV      r2,r6                 ;956
-0000b6  4641              MOV      r1,r8                 ;956
-0000b8  4628              MOV      r0,r5                 ;956
-0000ba  f7fffffe          BL       ip4_frag
-0000be  e7bc              B        |L4.58|
-                  |L4.192|
-0000c0  f8d83014          LDR      r3,[r8,#0x14]         ;961
-0000c4  4632              MOV      r2,r6                 ;961
-0000c6  4629              MOV      r1,r5                 ;961
-0000c8  4640              MOV      r0,r8                 ;961
-0000ca  4798              BLX      r3                    ;961
-0000cc  e7b5              B        |L4.58|
-;;;963    
+;;;925        IPH_LEN_SET(iphdr, lwip_htons(p->tot_len));
+;;;926    #if CHECKSUM_GEN_IP_INLINE
+;;;927        chk_sum += iphdr->_len;
+;;;928    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;929        IPH_OFFSET_SET(iphdr, 0);
+;;;930        IPH_ID_SET(iphdr, lwip_htons(ip_id));
+;;;931    #if CHECKSUM_GEN_IP_INLINE
+;;;932        chk_sum += iphdr->_id;
+;;;933    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;934        ++ip_id;
+;;;935    
+;;;936        if (src == NULL) {
+;;;937          ip4_addr_copy(iphdr->src, *IP4_ADDR_ANY4);
+;;;938        } else {
+;;;939          /* src cannot be NULL here */
+;;;940          ip4_addr_copy(iphdr->src, *src);
+;;;941        }
+;;;942    
+;;;943    #if CHECKSUM_GEN_IP_INLINE
+;;;944        chk_sum += ip4_addr_get_u32(&iphdr->src) & 0xFFFF;
+;;;945        chk_sum += ip4_addr_get_u32(&iphdr->src) >> 16;
+;;;946        chk_sum = (chk_sum >> 16) + (chk_sum & 0xFFFF);
+;;;947        chk_sum = (chk_sum >> 16) + chk_sum;
+;;;948        chk_sum = ~chk_sum;
+;;;949        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
+;;;950          iphdr->_chksum = (u16_t)chk_sum; /* network order */
+;;;951        }
+;;;952    #if LWIP_CHECKSUM_CTRL_PER_NETIF
+;;;953        else {
+;;;954          IPH_CHKSUM_SET(iphdr, 0);
+;;;955        }
+;;;956    #endif /* LWIP_CHECKSUM_CTRL_PER_NETIF*/
+;;;957    #else /* CHECKSUM_GEN_IP_INLINE */
+;;;958        IPH_CHKSUM_SET(iphdr, 0);
+;;;959    #if CHECKSUM_GEN_IP
+;;;960        IF__NETIF_CHECKSUM_ENABLED(netif, NETIF_CHECKSUM_GEN_IP) {
+;;;961          IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+;;;962        }
+;;;963    #endif /* CHECKSUM_GEN_IP */
+;;;964    #endif /* CHECKSUM_GEN_IP_INLINE */
+;;;965      } else {
+;;;966        /* IP header already included in p */
+;;;967        if (p->len < IP_HLEN) {
+;;;968          LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_output: LWIP_IP_HDRINCL but pbuf is too short\n"));
+;;;969          IP_STATS_INC(ip.err);
+;;;970          MIB2_STATS_INC(mib2.ipoutdiscards);
+;;;971          return ERR_BUF;
+;;;972        }
+;;;973        iphdr = (struct ip_hdr *)p->payload;
+;;;974        ip4_addr_copy(dest_addr, iphdr->dest);
+;;;975        dest = &dest_addr;
+;;;976      }
+;;;977    
+;;;978      IP_STATS_INC(ip.xmit);
+;;;979    
+;;;980      LWIP_DEBUGF(IP_DEBUG, ("ip4_output_if: %c%c%"U16_F"\n", netif->name[0], netif->name[1], (u16_t)netif->num));
+;;;981      ip4_debug_print(p);
+;;;982    
+;;;983    #if ENABLE_LOOPBACK
+;;;984      if (ip4_addr_cmp(dest, netif_ip4_addr(netif))
+;;;985    #if !LWIP_HAVE_LOOPIF
+;;;986          || ip4_addr_isloopback(dest)
+;;;987    #endif /* !LWIP_HAVE_LOOPIF */
+;;;988         ) {
+;;;989        /* Packet to self, enqueue it for loopback */
+;;;990        LWIP_DEBUGF(IP_DEBUG, ("netif_loop_output()"));
+;;;991        return netif_loop_output(netif, p);
+;;;992      }
+;;;993    #if LWIP_MULTICAST_TX_OPTIONS
+;;;994      if ((p->flags & PBUF_FLAG_MCASTLOOP) != 0) {
+;;;995        netif_loop_output(netif, p);
+;;;996      }
+;;;997    #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;998    #endif /* ENABLE_LOOPBACK */
+;;;999    #if IP_FRAG
+;;;1000     /* don't fragment if interface has mtu set to 0 [loopif] */
+;;;1001     if (netif->mtu && (p->tot_len > netif->mtu)) {
+;;;1002       return ip4_frag(p, netif, dest);
+;;;1003     }
+;;;1004   #endif /* IP_FRAG */
+;;;1005   
+;;;1006     LWIP_DEBUGF(IP_DEBUG, ("ip4_output_if: call netif->output()\n"));
+;;;1007     return netif->output(netif, p, dest);
+;;;1008   }
+00003c  e8bd8ff8          POP      {r3-r11,pc}
+                  |L5.64|
+000040  686c              LDR      r4,[r5,#4]            ;903
+000042  8968              LDRH     r0,[r5,#0xa]          ;904
+000044  2814              CMP      r0,#0x14              ;904
+000046  d206              BCS      |L5.86|
+000048  a324              ADR      r3,|L5.220|
+00004a  f44f7262          MOV      r2,#0x388             ;904
+00004e  a13d              ADR      r1,|L5.324|
+000050  a032              ADR      r0,|L5.284|
+000052  f7fffffe          BL       __2printf
+                  |L5.86|
+000056  7227              STRB     r7,[r4,#8]            ;907
+000058  f884b009          STRB     r11,[r4,#9]           ;908
+00005c  6830              LDR      r0,[r6,#0]            ;914
+00005e  6120              STR      r0,[r4,#0x10]         ;914
+000060  2045              MOVS     r0,#0x45              ;920
+000062  7020              STRB     r0,[r4,#0]            ;920
+000064  f884a001          STRB     r10,[r4,#1]           ;921
+000068  8928              LDRH     r0,[r5,#8]            ;925
+00006a  f7fffffe          BL       lwip_htons
+00006e  8060              STRH     r0,[r4,#2]            ;925
+000070  f04f0a00          MOV      r10,#0                ;929
+000074  f8a4a006          STRH     r10,[r4,#6]           ;929
+000078  4f3e              LDR      r7,|L5.372|
+00007a  8838              LDRH     r0,[r7,#0]            ;930  ; ip_id
+00007c  f7fffffe          BL       lwip_htons
+000080  80a0              STRH     r0,[r4,#4]            ;930
+000082  8838              LDRH     r0,[r7,#0]            ;934  ; ip_id
+000084  1c40              ADDS     r0,r0,#1              ;934
+000086  8038              STRH     r0,[r7,#0]            ;934
+000088  f1b90f00          CMP      r9,#0                 ;936
+00008c  d005              BEQ      |L5.154|
+00008e  f8d90000          LDR      r0,[r9,#0]            ;940
+000092  60e0              STR      r0,[r4,#0xc]          ;940
+                  |L5.148|
+000094  f8a4a00a          STRH     r10,[r4,#0xa]         ;958
+000098  e00c              B        |L5.180|
+                  |L5.154|
+00009a  4837              LDR      r0,|L5.376|
+00009c  6800              LDR      r0,[r0,#0]            ;937  ; ip_addr_any
+00009e  60e0              STR      r0,[r4,#0xc]          ;937
+0000a0  e7f8              B        |L5.148|
+                  |L5.162|
+0000a2  8968              LDRH     r0,[r5,#0xa]          ;967
+0000a4  2814              CMP      r0,#0x14              ;967
+0000a6  d201              BCS      |L5.172|
+0000a8  4620              MOV      r0,r4                 ;971
+0000aa  e7c7              B        |L5.60|
+                  |L5.172|
+0000ac  6868              LDR      r0,[r5,#4]            ;973
+0000ae  6900              LDR      r0,[r0,#0x10]         ;974
+0000b0  9000              STR      r0,[sp,#0]            ;974
+0000b2  466e              MOV      r6,sp                 ;975
+                  |L5.180|
+0000b4  f8b8002c          LDRH     r0,[r8,#0x2c]         ;1001
+0000b8  b140              CBZ      r0,|L5.204|
+0000ba  8929              LDRH     r1,[r5,#8]            ;1001
+0000bc  4281              CMP      r1,r0                 ;1001
+0000be  d905              BLS      |L5.204|
+0000c0  4632              MOV      r2,r6                 ;1002
+0000c2  4641              MOV      r1,r8                 ;1002
+0000c4  4628              MOV      r0,r5                 ;1002
+0000c6  f7fffffe          BL       ip4_frag
+0000ca  e7b7              B        |L5.60|
+                  |L5.204|
+0000cc  f8d83014          LDR      r3,[r8,#0x14]         ;1007
+0000d0  4632              MOV      r2,r6                 ;1007
+0000d2  4629              MOV      r1,r5                 ;1007
+0000d4  4640              MOV      r0,r8                 ;1007
+0000d6  4798              BLX      r3                    ;1007
+0000d8  e7b0              B        |L5.60|
+;;;1009   
                           ENDP
 
-0000ce  0000              DCW      0x0000
-                  |L4.208|
-0000d0  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
-0000d4  6964646c
-0000d8  65776172
-0000dc  65735c54
-0000e0  68697264
-0000e4  5f506172
-0000e8  74795c4c
-0000ec  7749505c
-0000f0  7372635c
-0000f4  636f7265
-0000f8  5c697076
-0000fc  345c6970
-000100  342e6300          DCB      "4.c",0
-                  |L4.260|
-000104  702d3e72          DCB      "p->ref == 1",0
-000108  6566203d
-00010c  3d203100
-                  |L4.272|
-000110  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000114  7274696f
-000118  6e202225
-00011c  73222066
-000120  61696c65
-000124  64206174
-000128  206c696e
-00012c  65202564
-000130  20696e20
-000134  25730a00
-                  |L4.312|
-000138  63686563          DCB      "check that first pbuf can hold struct ip_hdr",0
-00013c  6b207468
-000140  61742066
-000144  69727374
-000148  20706275
-00014c  66206361
-000150  6e20686f
-000154  6c642073
-000158  74727563
-00015c  74206970
-000160  5f686472
-000164  00      
-000165  00                DCB      0
-000166  00                DCB      0
-000167  00                DCB      0
-                  |L4.360|
+0000da  0000              DCW      0x0000
+                  |L5.220|
+0000dc  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\ipv4\\ip"
+0000e0  6964646c
+0000e4  65776172
+0000e8  65735c54
+0000ec  68697264
+0000f0  5f506172
+0000f4  74795c4c
+0000f8  7749505c
+0000fc  7372635c
+000100  636f7265
+000104  5c697076
+000108  345c6970
+00010c  342e6300          DCB      "4.c",0
+                  |L5.272|
+000110  702d3e72          DCB      "p->ref == 1",0
+000114  6566203d
+000118  3d203100
+                  |L5.284|
+00011c  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000120  7274696f
+000124  6e202225
+000128  73222066
+00012c  61696c65
+000130  64206174
+000134  206c696e
+000138  65202564
+00013c  20696e20
+000140  25730a00
+                  |L5.324|
+000144  63686563          DCB      "check that first pbuf can hold struct ip_hdr",0
+000148  6b207468
+00014c  61742066
+000150  69727374
+000154  20706275
+000158  66206361
+00015c  6e20686f
+000160  6c642073
+000164  74727563
+000168  74206970
+00016c  5f686472
+000170  00      
+000171  00                DCB      0
+000172  00                DCB      0
+000173  00                DCB      0
+                  |L5.372|
                           DCD      ||.data||
-                  |L4.364|
+                  |L5.376|
                           DCD      ip_addr_any
 
                           AREA ||i.ip4_route||, CODE, READONLY, ALIGN=2
@@ -1057,122 +1103,131 @@
 000000  b570              PUSH     {r4-r6,lr}
 ;;;153    {
 000002  4606              MOV      r6,r0
-;;;154      struct netif *netif;
-;;;155    
-;;;156    #if LWIP_MULTICAST_TX_OPTIONS
-;;;157      /* Use administratively selected interface for multicast by default */
-;;;158      if (ip4_addr_ismulticast(dest) && ip4_default_multicast_netif) {
-;;;159        return ip4_default_multicast_netif;
-;;;160      }
-;;;161    #endif /* LWIP_MULTICAST_TX_OPTIONS */
-;;;162    
-;;;163      /* iterate through netifs */
-;;;164      for (netif = netif_list; netif != NULL; netif = netif->next) {
-000004  4813              LDR      r0,|L5.84|
+;;;154    #if !LWIP_SINGLE_NETIF
+;;;155      struct netif *netif;
+;;;156    
+;;;157      LWIP_ASSERT_CORE_LOCKED();
+;;;158    
+;;;159    #if LWIP_MULTICAST_TX_OPTIONS
+;;;160      /* Use administratively selected interface for multicast by default */
+;;;161      if (ip4_addr_ismulticast(dest) && ip4_default_multicast_netif) {
+;;;162        return ip4_default_multicast_netif;
+;;;163      }
+;;;164    #endif /* LWIP_MULTICAST_TX_OPTIONS */
+;;;165    
+;;;166      /* bug #54569: in case LWIP_SINGLE_NETIF=1 and LWIP_DEBUGF() disabled, the following loop is optimized away */
+;;;167      LWIP_UNUSED_ARG(dest);
+;;;168    
+;;;169      /* iterate through netifs */
+;;;170      NETIF_FOREACH(netif) {
+000004  4814              LDR      r0,|L6.88|
 000006  6800              LDR      r0,[r0,#0]  ; netif_list
-000008  e014              B        |L5.52|
-                  |L5.10|
-;;;165        /* is the netif up, does it have a link and a valid address? */
-;;;166        if (netif_is_up(netif) && netif_is_link_up(netif) && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
-00000a  f8901037          LDRB     r1,[r0,#0x37]
+000008  e014              B        |L6.52|
+                  |L6.10|
+;;;171        /* is the netif up, does it have a link and a valid address? */
+;;;172        if (netif_is_up(netif) && netif_is_link_up(netif) && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+00000a  f8901035          LDRB     r1,[r0,#0x35]
 00000e  07ca              LSLS     r2,r1,#31
-000010  d00f              BEQ      |L5.50|
+000010  d00f              BEQ      |L6.50|
 000012  074a              LSLS     r2,r1,#29
-000014  d50d              BPL      |L5.50|
+000014  d50d              BPL      |L6.50|
 000016  6843              LDR      r3,[r0,#4]
-000018  b15b              CBZ      r3,|L5.50|
-;;;167          /* network mask matches? */
-;;;168          if (ip4_addr_netcmp(dest, netif_ip4_addr(netif), netif_ip4_netmask(netif))) {
+000018  b15b              CBZ      r3,|L6.50|
+;;;173          /* network mask matches? */
+;;;174          if (ip4_addr_netcmp(dest, netif_ip4_addr(netif), netif_ip4_netmask(netif))) {
 00001a  6884              LDR      r4,[r0,#8]
 00001c  6832              LDR      r2,[r6,#0]
 00001e  4023              ANDS     r3,r3,r4
 000020  ea020504          AND      r5,r2,r4
 000024  429d              CMP      r5,r3
-000026  d014              BEQ      |L5.82|
-;;;169            /* return netif on which to forward IP packet */
-;;;170            return netif;
-;;;171          }
-;;;172          /* gateway matches on a non broadcast interface? (i.e. peer in a point to point interface) */
-;;;173          if (((netif->flags & NETIF_FLAG_BROADCAST) == 0) && ip4_addr_cmp(dest, netif_ip4_gw(netif))) {
+000026  d016              BEQ      |L6.86|
+;;;175            /* return netif on which to forward IP packet */
+;;;176            return netif;
+;;;177          }
+;;;178          /* gateway matches on a non broadcast interface? (i.e. peer in a point to point interface) */
+;;;179          if (((netif->flags & NETIF_FLAG_BROADCAST) == 0) && ip4_addr_cmp(dest, netif_ip4_gw(netif))) {
 000028  0789              LSLS     r1,r1,#30
-00002a  d402              BMI      |L5.50|
+00002a  d402              BMI      |L6.50|
 00002c  68c1              LDR      r1,[r0,#0xc]
 00002e  428a              CMP      r2,r1
-000030  d00f              BEQ      |L5.82|
-                  |L5.50|
-000032  6800              LDR      r0,[r0,#0]            ;164
-                  |L5.52|
-000034  2800              CMP      r0,#0                 ;164
-000036  d1e8              BNE      |L5.10|
-;;;174            /* return netif on which to forward IP packet */
-;;;175            return netif;
-;;;176          }
-;;;177        }
-;;;178      }
-;;;179    
-;;;180    #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
-;;;181      /* loopif is disabled, looopback traffic is passed through any netif */
-;;;182      if (ip4_addr_isloopback(dest)) {
-;;;183        /* don't check for link on loopback traffic */
-;;;184        if (netif_default != NULL && netif_is_up(netif_default)) {
-;;;185          return netif_default;
-;;;186        }
-;;;187        /* default netif is not up, just use any netif for loopback traffic */
-;;;188        for (netif = netif_list; netif != NULL; netif = netif->next) {
-;;;189          if (netif_is_up(netif)) {
-;;;190            return netif;
-;;;191          }
+000030  d011              BEQ      |L6.86|
+                  |L6.50|
+000032  6800              LDR      r0,[r0,#0]            ;170
+                  |L6.52|
+000034  2800              CMP      r0,#0                 ;170
+000036  d1e8              BNE      |L6.10|
+;;;180            /* return netif on which to forward IP packet */
+;;;181            return netif;
+;;;182          }
+;;;183        }
+;;;184      }
+;;;185    
+;;;186    #if LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF
+;;;187      /* loopif is disabled, looopback traffic is passed through any netif */
+;;;188      if (ip4_addr_isloopback(dest)) {
+;;;189        /* don't check for link on loopback traffic */
+;;;190        if (netif_default != NULL && netif_is_up(netif_default)) {
+;;;191          return netif_default;
 ;;;192        }
-;;;193        return NULL;
-;;;194      }
-;;;195    #endif /* LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF */
-;;;196    
-;;;197    #ifdef LWIP_HOOK_IP4_ROUTE_SRC
-;;;198      netif = LWIP_HOOK_IP4_ROUTE_SRC(dest, NULL);
-;;;199      if (netif != NULL) {
-;;;200        return netif;
-;;;201      }
-;;;202    #elif defined(LWIP_HOOK_IP4_ROUTE)
-;;;203      netif = LWIP_HOOK_IP4_ROUTE(dest);
-;;;204      if (netif != NULL) {
-;;;205        return netif;
-;;;206      }
-;;;207    #endif
-;;;208    
-;;;209      if ((netif_default == NULL) || !netif_is_up(netif_default) || !netif_is_link_up(netif_default) ||
-000038  4807              LDR      r0,|L5.88|
+;;;193        /* default netif is not up, just use any netif for loopback traffic */
+;;;194        NETIF_FOREACH(netif) {
+;;;195          if (netif_is_up(netif)) {
+;;;196            return netif;
+;;;197          }
+;;;198        }
+;;;199        return NULL;
+;;;200      }
+;;;201    #endif /* LWIP_NETIF_LOOPBACK && !LWIP_HAVE_LOOPIF */
+;;;202    
+;;;203    #ifdef LWIP_HOOK_IP4_ROUTE_SRC
+;;;204      netif = LWIP_HOOK_IP4_ROUTE_SRC(NULL, dest);
+;;;205      if (netif != NULL) {
+;;;206        return netif;
+;;;207      }
+;;;208    #elif defined(LWIP_HOOK_IP4_ROUTE)
+;;;209      netif = LWIP_HOOK_IP4_ROUTE(dest);
+;;;210      if (netif != NULL) {
+;;;211        return netif;
+;;;212      }
+;;;213    #endif
+;;;214    #endif /* !LWIP_SINGLE_NETIF */
+;;;215    
+;;;216      if ((netif_default == NULL) || !netif_is_up(netif_default) || !netif_is_link_up(netif_default) ||
+000038  4808              LDR      r0,|L6.92|
 00003a  6800              LDR      r0,[r0,#0]  ; netif_default
-00003c  b140              CBZ      r0,|L5.80|
-00003e  f8901037          LDRB     r1,[r0,#0x37]
+00003c  b150              CBZ      r0,|L6.84|
+00003e  f8901035          LDRB     r1,[r0,#0x35]
 000042  07ca              LSLS     r2,r1,#31
-000044  d004              BEQ      |L5.80|
+000044  d006              BEQ      |L6.84|
 000046  0749              LSLS     r1,r1,#29
-000048  d502              BPL      |L5.80|
-;;;210          ip4_addr_isany_val(*netif_ip4_addr(netif_default))) {
+000048  d504              BPL      |L6.84|
+;;;217          ip4_addr_isany_val(*netif_ip4_addr(netif_default)) || ip4_addr_isloopback(dest)) {
 00004a  6841              LDR      r1,[r0,#4]
-00004c  2900              CMP      r1,#0
-00004e  d100              BNE      |L5.82|
-                  |L5.80|
-;;;211        /* No matching netif found and default netif is not usable.
-;;;212           If this is not good enough for you, use LWIP_HOOK_IP4_ROUTE() */
-;;;213        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_route: No route to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-;;;214          ip4_addr1_16(dest), ip4_addr2_16(dest), ip4_addr3_16(dest), ip4_addr4_16(dest)));
-;;;215        IP_STATS_INC(ip.rterr);
-;;;216        MIB2_STATS_INC(mib2.ipoutnoroutes);
-;;;217        return NULL;
-000050  2000              MOVS     r0,#0
-                  |L5.82|
-;;;218      }
-;;;219    
-;;;220      return netif_default;
-;;;221    }
-000052  bd70              POP      {r4-r6,pc}
-;;;222    
+00004c  b111              CBZ      r1,|L6.84|
+00004e  7831              LDRB     r1,[r6,#0]
+000050  297f              CMP      r1,#0x7f
+000052  d100              BNE      |L6.86|
+                  |L6.84|
+;;;218        /* No matching netif found and default netif is not usable.
+;;;219           If this is not good enough for you, use LWIP_HOOK_IP4_ROUTE() */
+;;;220        LWIP_DEBUGF(IP_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("ip4_route: No route to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+;;;221                    ip4_addr1_16(dest), ip4_addr2_16(dest), ip4_addr3_16(dest), ip4_addr4_16(dest)));
+;;;222        IP_STATS_INC(ip.rterr);
+;;;223        MIB2_STATS_INC(mib2.ipoutnoroutes);
+;;;224        return NULL;
+000054  2000              MOVS     r0,#0
+                  |L6.86|
+;;;225      }
+;;;226    
+;;;227      return netif_default;
+;;;228    }
+000056  bd70              POP      {r4-r6,pc}
+;;;229    
                           ENDP
 
-                  |L5.84|
+                  |L6.88|
                           DCD      netif_list
-                  |L5.88|
+                  |L6.92|
                           DCD      netif_default
 
                           AREA ||.data||, DATA, ALIGN=1

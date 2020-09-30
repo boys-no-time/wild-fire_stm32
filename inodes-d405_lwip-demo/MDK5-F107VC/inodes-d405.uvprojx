@@ -624,11 +624,6 @@
               <FilePath>..\Middlewares\Third_Party\LwIP\src\core\ip.c</FilePath>
             </File>
             <File>
-              <FileName>mem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Middlewares\Third_Party\LwIP\src\core\mem.c</FilePath>
-            </File>
-            <File>
               <FileName>memp.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Middlewares\Third_Party\LwIP\src\core\memp.c</FilePath>
@@ -722,6 +717,11 @@
               <FileName>ip4_frag.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Middlewares\Third_Party\LwIP\src\core\ipv4\ip4_frag.c</FilePath>
+            </File>
+            <File>
+              <FileName>mem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Middlewares\Third_Party\LwIP\src\core\mem.c</FilePath>
             </File>
           </Files>
         </Group>

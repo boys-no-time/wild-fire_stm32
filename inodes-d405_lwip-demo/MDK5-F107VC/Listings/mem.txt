@@ -5,33 +5,43 @@
                           AREA ||i.mem_calloc||, CODE, READONLY, ALIGN=1
 
                   mem_calloc PROC
-;;;764    void *
-;;;765    mem_calloc(mem_size_t count, mem_size_t size)
+;;;998    void *
+;;;999    mem_calloc(mem_size_t count, mem_size_t size)
 000000  b570              PUSH     {r4-r6,lr}
-;;;766    {
-;;;767      void *p;
-;;;768    
-;;;769      /* allocate 'count' objects of size 'size' */
-;;;770      p = mem_malloc(count * size);
-000002  4348              MULS     r0,r1,r0
-000004  4605              MOV      r5,r0
-000006  b280              UXTH     r0,r0
-000008  f7fffffe          BL       mem_malloc
-00000c  4604              MOV      r4,r0
-;;;771      if (p) {
-00000e  b11c              CBZ      r4,|L1.24|
-;;;772        /* zero the memory */
-;;;773        memset(p, 0, (size_t)count * (size_t)size);
-000010  4629              MOV      r1,r5
-000012  4620              MOV      r0,r4
-000014  f7fffffe          BL       __aeabi_memclr
-                  |L1.24|
-;;;774      }
-;;;775      return p;
-000018  4620              MOV      r0,r4
-;;;776    }
-00001a  bd70              POP      {r4-r6,pc}
-;;;777    #endif /* MEM_LIBC_MALLOC && (!LWIP_STATS || !MEM_STATS) */
+;;;1000   {
+;;;1001     void *p;
+;;;1002     size_t alloc_size = (size_t)count * (size_t)size;
+000002  fb00f401          MUL      r4,r0,r1
+;;;1003   
+;;;1004     if ((size_t)(mem_size_t)alloc_size != alloc_size) {
+000006  0c20              LSRS     r0,r4,#16
+000008  d001              BEQ      |L1.14|
+;;;1005       LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("mem_calloc: could not allocate %"SZT_F" bytes\n", alloc_size));
+;;;1006       return NULL;
+00000a  2000              MOVS     r0,#0
+;;;1007     }
+;;;1008   
+;;;1009     /* allocate 'count' objects of size 'size' */
+;;;1010     p = mem_malloc((mem_size_t)alloc_size);
+;;;1011     if (p) {
+;;;1012       /* zero the memory */
+;;;1013       memset(p, 0, alloc_size);
+;;;1014     }
+;;;1015     return p;
+;;;1016   }
+00000c  bd70              POP      {r4-r6,pc}
+                  |L1.14|
+00000e  b2a0              UXTH     r0,r4                 ;1010
+000010  f7fffffe          BL       mem_malloc
+000014  4605              MOV      r5,r0                 ;1010
+000016  b11d              CBZ      r5,|L1.32|
+000018  4621              MOV      r1,r4                 ;1013
+00001a  4628              MOV      r0,r5                 ;1013
+00001c  f7fffffe          BL       __aeabi_memclr
+                  |L1.32|
+000020  4628              MOV      r0,r5                 ;1015
+000022  bd70              POP      {r4-r6,pc}
+;;;1017   #endif /* MEM_LIBC_MALLOC && (!LWIP_STATS || !MEM_STATS) */
                           ENDP
 
 
@@ -44,225 +54,346 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
                   mem_free PROC
-;;;418    void
-;;;419    mem_free(void *rmem)
+;;;616    void
+;;;617    mem_free(void *rmem)
 000000  b570              PUSH     {r4-r6,lr}
-;;;420    {
-000002  4604              MOV      r4,r0
-;;;421      struct mem *mem;
-;;;422      LWIP_MEM_FREE_DECL_PROTECT();
-;;;423    
-;;;424      if (rmem == NULL) {
-000004  2c00              CMP      r4,#0
-000006  d031              BEQ      |L2.108|
-;;;425        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("mem_free(p == NULL) was called.\n"));
-;;;426        return;
-;;;427      }
-;;;428      LWIP_ASSERT("mem_free: sanity check alignment", (((mem_ptr_t)rmem) & (MEM_ALIGNMENT-1)) == 0);
-000008  07a0              LSLS     r0,r4,#30
-00000a  d006              BEQ      |L2.26|
-00000c  a318              ADR      r3,|L2.112|
-00000e  f44f72d6          MOV      r2,#0x1ac
-000012  a123              ADR      r1,|L2.160|
-000014  a02b              ADR      r0,|L2.196|
-000016  f7fffffe          BL       __2printf
-                  |L2.26|
-;;;429    
-;;;430      LWIP_ASSERT("mem_free: legal memory", (u8_t *)rmem >= (u8_t *)ram &&
-00001a  4d34              LDR      r5,|L2.236|
-00001c  6828              LDR      r0,[r5,#0]  ; ram
-00001e  4284              CMP      r4,r0
-000020  d302              BCC      |L2.40|
-000022  6868              LDR      r0,[r5,#4]  ; ram_end
-000024  4284              CMP      r4,r0
-000026  d306              BCC      |L2.54|
-                  |L2.40|
-000028  a311              ADR      r3,|L2.112|
-00002a  f44f72d7          MOV      r2,#0x1ae
-00002e  a130              ADR      r1,|L2.240|
-000030  a024              ADR      r0,|L2.196|
-000032  f7fffffe          BL       __2printf
-                  |L2.54|
-;;;431        (u8_t *)rmem < (u8_t *)ram_end);
-;;;432    
-;;;433      if ((u8_t *)rmem < (u8_t *)ram || (u8_t *)rmem >= (u8_t *)ram_end) {
-000036  6828              LDR      r0,[r5,#0]  ; ram
-000038  4284              CMP      r4,r0
-00003a  d317              BCC      |L2.108|
-00003c  6868              LDR      r0,[r5,#4]  ; ram_end
-00003e  4284              CMP      r4,r0
-000040  d214              BCS      |L2.108|
-;;;434        SYS_ARCH_DECL_PROTECT(lev);
-;;;435        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_free: illegal memory\n"));
-;;;436        /* protect mem stats from concurrent access */
-;;;437        SYS_ARCH_PROTECT(lev);
-;;;438        MEM_STATS_INC(illegal);
-;;;439        SYS_ARCH_UNPROTECT(lev);
-;;;440        return;
-;;;441      }
-;;;442      /* protect the heap from concurrent access */
-;;;443      LWIP_MEM_FREE_PROTECT();
-;;;444      /* Get the corresponding struct mem ... */
-;;;445      /* cast through void* to get rid of alignment warnings */
-;;;446      mem = (struct mem *)(void *)((u8_t *)rmem - SIZEOF_STRUCT_MEM);
-000042  3c08              SUBS     r4,r4,#8
-;;;447      /* ... which has to be in a used state ... */
-;;;448      LWIP_ASSERT("mem_free: mem->used", mem->used);
-000044  7920              LDRB     r0,[r4,#4]
-000046  b930              CBNZ     r0,|L2.86|
-000048  a309              ADR      r3,|L2.112|
-00004a  f44f72e0          MOV      r2,#0x1c0
-00004e  a12e              ADR      r1,|L2.264|
-000050  a01c              ADR      r0,|L2.196|
-000052  f7fffffe          BL       __2printf
-                  |L2.86|
-;;;449      /* ... and is now unused. */
-;;;450      mem->used = 0;
-000056  2000              MOVS     r0,#0
-000058  7120              STRB     r0,[r4,#4]
-;;;451    
-;;;452      if (mem < lfree) {
-00005a  68a8              LDR      r0,[r5,#8]  ; lfree
-00005c  4284              CMP      r4,r0
-00005e  d200              BCS      |L2.98|
-;;;453        /* the newly freed struct is now the lowest */
-;;;454        lfree = mem;
-000060  60ac              STR      r4,[r5,#8]  ; lfree
-                  |L2.98|
-;;;455      }
-;;;456    
-;;;457      MEM_STATS_DEC_USED(used, mem->next - (mem_size_t)(((u8_t *)mem - ram)));
-;;;458    
-;;;459      /* finally, see if prev or next are free also */
-;;;460      plug_holes(mem);
-000062  4620              MOV      r0,r4
-000064  e8bd4070          POP      {r4-r6,lr}
-000068  f7ffbffe          B.W      plug_holes
-                  |L2.108|
-;;;461    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;462      mem_free_count = 1;
-;;;463    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;464      LWIP_MEM_FREE_UNPROTECT();
-;;;465    }
-00006c  bd70              POP      {r4-r6,pc}
-;;;466    
+;;;618    {
+;;;619      struct mem *mem;
+;;;620      LWIP_MEM_FREE_DECL_PROTECT();
+;;;621    
+;;;622      if (rmem == NULL) {
+000002  2800              CMP      r0,#0
+000004  d041              BEQ      |L2.138|
+;;;623        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("mem_free(p == NULL) was called.\n"));
+;;;624        return;
+;;;625      }
+;;;626      if ((((mem_ptr_t)rmem) & (MEM_ALIGNMENT - 1)) != 0) {
+000006  0781              LSLS     r1,r0,#30
+000008  d008              BEQ      |L2.28|
+;;;627        LWIP_MEM_ILLEGAL_FREE("mem_free: sanity check alignment");
+00000a  e8bd4070          POP      {r4-r6,lr}
+00000e  a31f              ADR      r3,|L2.140|
+000010  f2402273          MOV      r2,#0x273
+000014  a129              ADR      r1,|L2.188|
+000016  a032              ADR      r0,|L2.224|
+000018  f7ffbffe          B.W      __2printf
+                  |L2.28|
+;;;628        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_free: sanity check alignment\n"));
+;;;629        /* protect mem stats from concurrent access */
+;;;630        MEM_STATS_INC_LOCKED(illegal);
+;;;631        return;
+;;;632      }
+;;;633    
+;;;634      /* Get the corresponding struct mem: */
+;;;635      /* cast through void* to get rid of alignment warnings */
+;;;636      mem = (struct mem *)(void *)((u8_t *)rmem - (SIZEOF_STRUCT_MEM + MEM_SANITY_OFFSET));
+00001c  f1a00408          SUB      r4,r0,#8
+;;;637    
+;;;638      if ((u8_t *)mem < ram || (u8_t *)rmem + MIN_SIZE_ALIGNED > (u8_t *)ram_end) {
+000020  4d39              LDR      r5,|L2.264|
+000022  6829              LDR      r1,[r5,#0]  ; ram
+000024  428c              CMP      r4,r1
+000026  d303              BCC      |L2.48|
+000028  6869              LDR      r1,[r5,#4]  ; ram_end
+00002a  300c              ADDS     r0,r0,#0xc
+00002c  4288              CMP      r0,r1
+00002e  d908              BLS      |L2.66|
+                  |L2.48|
+;;;639        LWIP_MEM_ILLEGAL_FREE("mem_free: illegal memory");
+000030  e8bd4070          POP      {r4-r6,lr}
+000034  a315              ADR      r3,|L2.140|
+000036  f240227f          MOV      r2,#0x27f
+00003a  a134              ADR      r1,|L2.268|
+00003c  a028              ADR      r0,|L2.224|
+00003e  f7ffbffe          B.W      __2printf
+                  |L2.66|
+;;;640        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_free: illegal memory\n"));
+;;;641        /* protect mem stats from concurrent access */
+;;;642        MEM_STATS_INC_LOCKED(illegal);
+;;;643        return;
+;;;644      }
+;;;645    #if MEM_OVERFLOW_CHECK
+;;;646      mem_overflow_check_element(mem);
+;;;647    #endif
+;;;648      /* protect the heap from concurrent access */
+;;;649      LWIP_MEM_FREE_PROTECT();
+;;;650      /* mem has to be in a used state */
+;;;651      if (!mem->used) {
+000042  7920              LDRB     r0,[r4,#4]
+000044  b178              CBZ      r0,|L2.102|
+;;;652        LWIP_MEM_ILLEGAL_FREE("mem_free: illegal memory: double free");
+;;;653        LWIP_MEM_FREE_UNPROTECT();
+;;;654        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_free: illegal memory: double free?\n"));
+;;;655        /* protect mem stats from concurrent access */
+;;;656        MEM_STATS_INC_LOCKED(illegal);
+;;;657        return;
+;;;658      }
+;;;659    
+;;;660      if (!mem_link_valid(mem)) {
+000046  4620              MOV      r0,r4
+000048  f7fffffe          BL       mem_link_valid
+00004c  2800              CMP      r0,#0
+00004e  d013              BEQ      |L2.120|
+;;;661        LWIP_MEM_ILLEGAL_FREE("mem_free: illegal memory: non-linked: double free");
+;;;662        LWIP_MEM_FREE_UNPROTECT();
+;;;663        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_free: illegal memory: non-linked: double free?\n"));
+;;;664        /* protect mem stats from concurrent access */
+;;;665        MEM_STATS_INC_LOCKED(illegal);
+;;;666        return;
+;;;667      }
+;;;668    
+;;;669      /* mem is now unused. */
+;;;670      mem->used = 0;
+000050  2000              MOVS     r0,#0
+000052  7120              STRB     r0,[r4,#4]
+;;;671    
+;;;672      if (mem < lfree) {
+000054  68a8              LDR      r0,[r5,#8]  ; lfree
+000056  4284              CMP      r4,r0
+000058  d200              BCS      |L2.92|
+;;;673        /* the newly freed struct is now the lowest */
+;;;674        lfree = mem;
+00005a  60ac              STR      r4,[r5,#8]  ; lfree
+                  |L2.92|
+;;;675      }
+;;;676    
+;;;677      MEM_STATS_DEC_USED(used, mem->next - (mem_size_t)(((u8_t *)mem - ram)));
+;;;678    
+;;;679      /* finally, see if prev or next are free also */
+;;;680      plug_holes(mem);
+00005c  4620              MOV      r0,r4
+00005e  e8bd4070          POP      {r4-r6,lr}
+000062  f7ffbffe          B.W      plug_holes
+                  |L2.102|
+000066  e8bd4070          POP      {r4-r6,lr}            ;652
+00006a  a308              ADR      r3,|L2.140|
+00006c  f44f7223          MOV      r2,#0x28c             ;652
+000070  a12d              ADR      r1,|L2.296|
+000072  a01b              ADR      r0,|L2.224|
+000074  f7ffbffe          B.W      __2printf
+                  |L2.120|
+000078  e8bd4070          POP      {r4-r6,lr}            ;661
+00007c  a303              ADR      r3,|L2.140|
+00007e  f2402295          MOV      r2,#0x295             ;661
+000082  a133              ADR      r1,|L2.336|
+000084  a016              ADR      r0,|L2.224|
+000086  f7ffbffe          B.W      __2printf
+                  |L2.138|
+;;;681      MEM_SANITY();
+;;;682    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;683      mem_free_count = 1;
+;;;684    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;685      LWIP_MEM_FREE_UNPROTECT();
+;;;686    }
+00008a  bd70              POP      {r4-r6,pc}
+;;;687    
                           ENDP
 
-00006e  0000              DCW      0x0000
-                  |L2.112|
-000070  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
-000074  6964646c
-000078  65776172
-00007c  65735c54
-000080  68697264
-000084  5f506172
-000088  74795c4c
-00008c  7749505c
-000090  7372635c
-000094  636f7265
-000098  5c6d656d
-00009c  2e6300  
-00009f  00                DCB      0
-                  |L2.160|
-0000a0  6d656d5f          DCB      "mem_free: sanity check alignment",0
-0000a4  66726565
-0000a8  3a207361
-0000ac  6e697479
-0000b0  20636865
-0000b4  636b2061
-0000b8  6c69676e
-0000bc  6d656e74
-0000c0  00      
-0000c1  00                DCB      0
-0000c2  00                DCB      0
-0000c3  00                DCB      0
-                  |L2.196|
-0000c4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0000c8  7274696f
-0000cc  6e202225
-0000d0  73222066
-0000d4  61696c65
-0000d8  64206174
-0000dc  206c696e
-0000e0  65202564
-0000e4  20696e20
-0000e8  25730a00
-                  |L2.236|
-                          DCD      ||.data||
-                  |L2.240|
-0000f0  6d656d5f          DCB      "mem_free: legal memory",0
-0000f4  66726565
-0000f8  3a206c65
-0000fc  67616c20
-000100  6d656d6f
-000104  727900  
-000107  00                DCB      0
+                  |L2.140|
+00008c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
+000090  6964646c
+000094  65776172
+000098  65735c54
+00009c  68697264
+0000a0  5f506172
+0000a4  74795c4c
+0000a8  7749505c
+0000ac  7372635c
+0000b0  636f7265
+0000b4  5c6d656d
+0000b8  2e6300  
+0000bb  00                DCB      0
+                  |L2.188|
+0000bc  6d656d5f          DCB      "mem_free: sanity check alignment",0
+0000c0  66726565
+0000c4  3a207361
+0000c8  6e697479
+0000cc  20636865
+0000d0  636b2061
+0000d4  6c69676e
+0000d8  6d656e74
+0000dc  00      
+0000dd  00                DCB      0
+0000de  00                DCB      0
+0000df  00                DCB      0
+                  |L2.224|
+0000e0  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000e4  7274696f
+0000e8  6e202225
+0000ec  73222066
+0000f0  61696c65
+0000f4  64206174
+0000f8  206c696e
+0000fc  65202564
+000100  20696e20
+000104  25730a00
                   |L2.264|
-000108  6d656d5f          DCB      "mem_free: mem->used",0
-00010c  66726565
-000110  3a206d65
-000114  6d2d3e75
-000118  73656400
+                          DCD      ||.data||
+                  |L2.268|
+00010c  6d656d5f          DCB      "mem_free: illegal memory",0
+000110  66726565
+000114  3a20696c
+000118  6c656761
+00011c  6c206d65
+000120  6d6f7279
+000124  00      
+000125  00                DCB      0
+000126  00                DCB      0
+000127  00                DCB      0
+                  |L2.296|
+000128  6d656d5f          DCB      "mem_free: illegal memory: double free",0
+00012c  66726565
+000130  3a20696c
+000134  6c656761
+000138  6c206d65
+00013c  6d6f7279
+000140  3a20646f
+000144  75626c65
+000148  20667265
+00014c  6500    
+00014e  00                DCB      0
+00014f  00                DCB      0
+                  |L2.336|
+000150  6d656d5f          DCB      "mem_free: illegal memory: non-linked: double free",0
+000154  66726565
+000158  3a20696c
+00015c  6c656761
+000160  6c206d65
+000164  6d6f7279
+000168  3a206e6f
+00016c  6e2d6c69
+000170  6e6b6564
+000174  3a20646f
+000178  75626c65
+00017c  20667265
+000180  6500    
+000182  00                DCB      0
+000183  00                DCB      0
 
                           AREA ||i.mem_init||, CODE, READONLY, ALIGN=2
 
                   mem_init PROC
-;;;381    void
-;;;382    mem_init(void)
-000000  b510              PUSH     {r4,lr}
-;;;383    {
-;;;384      struct mem *mem;
-;;;385    
-;;;386      LWIP_ASSERT("Sanity check alignment",
-;;;387        (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT-1)) == 0);
-;;;388    
-;;;389      /* align the heap */
-;;;390      ram = (u8_t *)LWIP_MEM_ALIGN(LWIP_RAM_HEAP_POINTER);
-000002  480a              LDR      r0,|L3.44|
-000004  4a0a              LDR      r2,|L3.48|
+;;;515    void
+;;;516    mem_init(void)
+000000  b570              PUSH     {r4-r6,lr}
+;;;517    {
+;;;518      struct mem *mem;
+;;;519    
+;;;520      LWIP_ASSERT("Sanity check alignment",
+;;;521                  (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT - 1)) == 0);
+;;;522    
+;;;523      /* align the heap */
+;;;524      ram = (u8_t *)LWIP_MEM_ALIGN(LWIP_RAM_HEAP_POINTER);
+000002  480b              LDR      r0,|L3.48|
+000004  4c0b              LDR      r4,|L3.52|
 000006  f0200003          BIC      r0,r0,#3
-00000a  6010              STR      r0,[r2,#0]  ; ram
-;;;391      /* initialize the start of the heap */
-;;;392      mem = (struct mem *)(void *)ram;
-;;;393      mem->next = MEM_SIZE_ALIGNED;
-00000c  f44f63c8          MOV      r3,#0x640
-000010  8003              STRH     r3,[r0,#0]
-;;;394      mem->prev = 0;
+00000a  6020              STR      r0,[r4,#0]  ; ram
+;;;525      /* initialize the start of the heap */
+;;;526      mem = (struct mem *)(void *)ram;
+;;;527      mem->next = MEM_SIZE_ALIGNED;
+00000c  f44f65c8          MOV      r5,#0x640
+000010  8005              STRH     r5,[r0,#0]
+;;;528      mem->prev = 0;
 000012  2100              MOVS     r1,#0
 000014  8041              STRH     r1,[r0,#2]
-;;;395      mem->used = 0;
+;;;529      mem->used = 0;
 000016  7101              STRB     r1,[r0,#4]
-;;;396      /* initialize the end of the heap */
-;;;397      ram_end = (struct mem *)(void *)&ram[MEM_SIZE_ALIGNED];
-000018  f50061c8          ADD      r1,r0,#0x640
-00001c  6051              STR      r1,[r2,#4]  ; ram_end
-;;;398      ram_end->used = 1;
-00001e  2401              MOVS     r4,#1
-000020  710c              STRB     r4,[r1,#4]
-;;;399      ram_end->next = MEM_SIZE_ALIGNED;
-000022  800b              STRH     r3,[r1,#0]
-;;;400      ram_end->prev = MEM_SIZE_ALIGNED;
-000024  804b              STRH     r3,[r1,#2]
-;;;401    
-;;;402      /* initialize the lowest-free pointer to the start of the heap */
-;;;403      lfree = (struct mem *)(void *)ram;
-000026  6090              STR      r0,[r2,#8]  ; lfree
-;;;404    
-;;;405      MEM_STATS_AVAIL(avail, MEM_SIZE_ALIGNED);
-;;;406    
-;;;407      if (sys_mutex_new(&mem_mutex) != ERR_OK) {
-;;;408        LWIP_ASSERT("failed to create mem_mutex", 0);
-;;;409      }
-;;;410    }
-000028  bd10              POP      {r4,pc}
-;;;411    
+;;;530      /* initialize the end of the heap */
+;;;531      ram_end = ptr_to_mem(MEM_SIZE_ALIGNED);
+000018  4628              MOV      r0,r5
+00001a  f7fffffe          BL       ptr_to_mem
+00001e  6060              STR      r0,[r4,#4]  ; ram_end
+;;;532      ram_end->used = 1;
+000020  2101              MOVS     r1,#1
+000022  7101              STRB     r1,[r0,#4]
+;;;533      ram_end->next = MEM_SIZE_ALIGNED;
+000024  8005              STRH     r5,[r0,#0]
+;;;534      ram_end->prev = MEM_SIZE_ALIGNED;
+000026  8045              STRH     r5,[r0,#2]
+;;;535      MEM_SANITY();
+;;;536    
+;;;537      /* initialize the lowest-free pointer to the start of the heap */
+;;;538      lfree = (struct mem *)(void *)ram;
+000028  6820              LDR      r0,[r4,#0]  ; ram
+00002a  60a0              STR      r0,[r4,#8]  ; lfree
+;;;539    
+;;;540      MEM_STATS_AVAIL(avail, MEM_SIZE_ALIGNED);
+;;;541    
+;;;542      if (sys_mutex_new(&mem_mutex) != ERR_OK) {
+;;;543        LWIP_ASSERT("failed to create mem_mutex", 0);
+;;;544      }
+;;;545    }
+00002c  bd70              POP      {r4-r6,pc}
+;;;546    
                           ENDP
 
-00002a  0000              DCW      0x0000
-                  |L3.44|
-                          DCD      ||.bss||+0x3
+00002e  0000              DCW      0x0000
                   |L3.48|
+                          DCD      ||.bss||+0x3
+                  |L3.52|
+                          DCD      ||.data||
+
+                          AREA ||i.mem_link_valid||, CODE, READONLY, ALIGN=2
+
+                  mem_link_valid PROC
+;;;550    static int
+;;;551    mem_link_valid(struct mem *mem)
+000000  b570              PUSH     {r4-r6,lr}
+;;;552    {
+000002  4604              MOV      r4,r0
+;;;553      struct mem *nmem, *pmem;
+;;;554      mem_size_t rmem_idx;
+;;;555      rmem_idx = mem_to_ptr(mem);
+000004  4620              MOV      r0,r4
+000006  f7fffffe          BL       mem_to_ptr
+00000a  4605              MOV      r5,r0
+;;;556      nmem = ptr_to_mem(mem->next);
+00000c  8820              LDRH     r0,[r4,#0]
+00000e  f7fffffe          BL       ptr_to_mem
+000012  4606              MOV      r6,r0
+;;;557      pmem = ptr_to_mem(mem->prev);
+000014  8860              LDRH     r0,[r4,#2]
+000016  f7fffffe          BL       ptr_to_mem
+00001a  4601              MOV      r1,r0
+;;;558      if ((mem->next > MEM_SIZE_ALIGNED) || (mem->prev > MEM_SIZE_ALIGNED) ||
+00001c  8820              LDRH     r0,[r4,#0]
+00001e  f44f62c8          MOV      r2,#0x640
+000022  4290              CMP      r0,r2
+000024  d80e              BHI      |L4.68|
+000026  8860              LDRH     r0,[r4,#2]
+000028  4290              CMP      r0,r2
+00002a  d80b              BHI      |L4.68|
+;;;559          ((mem->prev != rmem_idx) && (pmem->next != rmem_idx)) ||
+00002c  42a8              CMP      r0,r5
+00002e  d002              BEQ      |L4.54|
+000030  8808              LDRH     r0,[r1,#0]
+000032  42a8              CMP      r0,r5
+000034  d106              BNE      |L4.68|
+                  |L4.54|
+;;;560          ((nmem != ram_end) && (nmem->prev != rmem_idx))) {
+000036  4805              LDR      r0,|L4.76|
+000038  6840              LDR      r0,[r0,#4]  ; ram_end
+00003a  4286              CMP      r6,r0
+00003c  d004              BEQ      |L4.72|
+00003e  8870              LDRH     r0,[r6,#2]
+000040  42a8              CMP      r0,r5
+000042  d001              BEQ      |L4.72|
+                  |L4.68|
+;;;561        return 0;
+000044  2000              MOVS     r0,#0
+;;;562      }
+;;;563      return 1;
+;;;564    }
+000046  bd70              POP      {r4-r6,pc}
+                  |L4.72|
+000048  2001              MOVS     r0,#1                 ;563
+00004a  bd70              POP      {r4-r6,pc}
+;;;565    
+                          ENDP
+
+                  |L4.76|
                           DCD      ||.data||
 
                           AREA ||i.mem_malloc||, CODE, READONLY, ALIGN=2
@@ -275,352 +406,406 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
                   mem_malloc PROC
-;;;602    void *
-;;;603    mem_malloc(mem_size_t size)
+;;;830    void *
+;;;831    mem_malloc(mem_size_t size_in)
 000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;604    {
-;;;605      mem_size_t ptr, ptr2;
-;;;606      struct mem *mem, *mem2;
-;;;607    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;608      u8_t local_mem_free_count = 0;
-;;;609    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;610      LWIP_MEM_ALLOC_DECL_PROTECT();
-;;;611    
-;;;612      if (size == 0) {
+;;;832    {
+;;;833      mem_size_t ptr, ptr2, size;
+;;;834      struct mem *mem, *mem2;
+;;;835    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;836      u8_t local_mem_free_count = 0;
+;;;837    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;838      LWIP_MEM_ALLOC_DECL_PROTECT();
+;;;839    
+;;;840      if (size_in == 0) {
 000004  2800              CMP      r0,#0
-000006  d00e              BEQ      |L4.38|
-;;;613        return NULL;
-;;;614      }
-;;;615    
-;;;616      /* Expand the size of the allocated memory region so that we can
-;;;617         adjust for alignment. */
-;;;618      size = LWIP_MEM_ALIGN_SIZE(size);
-000008  1cc0              ADDS     r0,r0,#3
+000006  d00f              BEQ      |L5.40|
+;;;841        return NULL;
+;;;842      }
+;;;843    
+;;;844      /* Expand the size of the allocated memory region so that we can
+;;;845         adjust for alignment. */
+;;;846      size = (mem_size_t)LWIP_MEM_ALIGN_SIZE(size_in);
+000008  1cc5              ADDS     r5,r0,#3
 00000a  f64f71fc          MOV      r1,#0xfffc
-00000e  ea000501          AND      r5,r0,r1
-;;;619    
-;;;620      if (size < MIN_SIZE_ALIGNED) {
-000012  2d0c              CMP      r5,#0xc
-000014  d200              BCS      |L4.24|
-;;;621        /* every data block must be at least MIN_SIZE_ALIGNED long */
-;;;622        size = MIN_SIZE_ALIGNED;
-000016  250c              MOVS     r5,#0xc
-                  |L4.24|
-;;;623      }
-;;;624    
-;;;625      if (size > MEM_SIZE_ALIGNED) {
-000018  f44f6cc8          MOV      r12,#0x640
-00001c  4565              CMP      r5,r12
-00001e  d904              BLS      |L4.42|
-;;;626        return NULL;
-000020  2000              MOVS     r0,#0
-                  |L4.34|
-;;;627      }
-;;;628    
-;;;629      /* protect the heap from concurrent access */
-;;;630      sys_mutex_lock(&mem_mutex);
-;;;631      LWIP_MEM_ALLOC_PROTECT();
-;;;632    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;633      /* run as long as a mem_free disturbed mem_malloc or mem_trim */
-;;;634      do {
-;;;635        local_mem_free_count = 0;
-;;;636    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;637    
-;;;638        /* Scan through the heap searching for a free block that is big enough,
-;;;639         * beginning with the lowest free block.
-;;;640         */
-;;;641        for (ptr = (mem_size_t)((u8_t *)lfree - ram); ptr < MEM_SIZE_ALIGNED - size;
-;;;642             ptr = ((struct mem *)(void *)&ram[ptr])->next) {
-;;;643          mem = (struct mem *)(void *)&ram[ptr];
-;;;644    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;645          mem_free_count = 0;
-;;;646          LWIP_MEM_ALLOC_UNPROTECT();
-;;;647          /* allow mem_free or mem_trim to run */
-;;;648          LWIP_MEM_ALLOC_PROTECT();
-;;;649          if (mem_free_count != 0) {
-;;;650            /* If mem_free or mem_trim have run, we have to restart since they
-;;;651               could have altered our current struct mem. */
-;;;652            local_mem_free_count = 1;
-;;;653            break;
-;;;654          }
-;;;655    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;656    
-;;;657          if ((!mem->used) &&
-;;;658              (mem->next - (ptr + SIZEOF_STRUCT_MEM)) >= size) {
-;;;659            /* mem is not used and at least perfect fit is possible:
-;;;660             * mem->next - (ptr + SIZEOF_STRUCT_MEM) gives us the 'user data size' of mem */
-;;;661    
-;;;662            if (mem->next - (ptr + SIZEOF_STRUCT_MEM) >= (size + SIZEOF_STRUCT_MEM + MIN_SIZE_ALIGNED)) {
-;;;663              /* (in addition to the above, we test if another struct mem (SIZEOF_STRUCT_MEM) containing
-;;;664               * at least MIN_SIZE_ALIGNED of data also fits in the 'user data space' of 'mem')
-;;;665               * -> split large block, create empty remainder,
-;;;666               * remainder must be large enough to contain MIN_SIZE_ALIGNED data: if
-;;;667               * mem->next - (ptr + (2*SIZEOF_STRUCT_MEM)) == size,
-;;;668               * struct mem would fit in but no data between mem2 and mem2->next
-;;;669               * @todo we could leave out MIN_SIZE_ALIGNED. We would create an empty
-;;;670               *       region that couldn't hold data, but when mem->next gets freed,
-;;;671               *       the 2 regions would be combined, resulting in more free memory
-;;;672               */
-;;;673              ptr2 = ptr + SIZEOF_STRUCT_MEM + size;
-;;;674              /* create mem2 struct */
-;;;675              mem2 = (struct mem *)(void *)&ram[ptr2];
-;;;676              mem2->used = 0;
-;;;677              mem2->next = mem->next;
-;;;678              mem2->prev = ptr;
-;;;679              /* and insert it between mem and mem->next */
-;;;680              mem->next = ptr2;
-;;;681              mem->used = 1;
-;;;682    
-;;;683              if (mem2->next != MEM_SIZE_ALIGNED) {
-;;;684                ((struct mem *)(void *)&ram[mem2->next])->prev = ptr2;
-;;;685              }
-;;;686              MEM_STATS_INC_USED(used, (size + SIZEOF_STRUCT_MEM));
-;;;687            } else {
-;;;688              /* (a mem2 struct does no fit into the user data space of mem and mem->next will always
-;;;689               * be used at this point: if not we have 2 unused structs in a row, plug_holes should have
-;;;690               * take care of this).
-;;;691               * -> near fit or exact fit: do not split, no mem2 creation
-;;;692               * also can't move mem->next directly behind mem, since mem->next
-;;;693               * will always be used at this point!
-;;;694               */
-;;;695              mem->used = 1;
-;;;696              MEM_STATS_INC_USED(used, mem->next - (mem_size_t)((u8_t *)mem - ram));
-;;;697            }
-;;;698    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;699    mem_malloc_adjust_lfree:
-;;;700    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;701            if (mem == lfree) {
-;;;702              struct mem *cur = lfree;
-;;;703              /* Find next free block after mem and update lowest free pointer */
-;;;704              while (cur->used && cur != ram_end) {
-;;;705    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;706                mem_free_count = 0;
-;;;707                LWIP_MEM_ALLOC_UNPROTECT();
-;;;708                /* prevent high interrupt latency... */
-;;;709                LWIP_MEM_ALLOC_PROTECT();
-;;;710                if (mem_free_count != 0) {
-;;;711                  /* If mem_free or mem_trim have run, we have to restart since they
-;;;712                     could have altered our current struct mem or lfree. */
-;;;713                  goto mem_malloc_adjust_lfree;
-;;;714                }
-;;;715    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;716                cur = (struct mem *)(void *)&ram[cur->next];
-;;;717              }
-;;;718              lfree = cur;
-;;;719              LWIP_ASSERT("mem_malloc: !lfree->used", ((lfree == ram_end) || (!lfree->used)));
-;;;720            }
-;;;721            LWIP_MEM_ALLOC_UNPROTECT();
-;;;722            sys_mutex_unlock(&mem_mutex);
-;;;723            LWIP_ASSERT("mem_malloc: allocated memory not above ram_end.",
-;;;724             (mem_ptr_t)mem + SIZEOF_STRUCT_MEM + size <= (mem_ptr_t)ram_end);
-;;;725            LWIP_ASSERT("mem_malloc: allocated memory properly aligned.",
-;;;726             ((mem_ptr_t)mem + SIZEOF_STRUCT_MEM) % MEM_ALIGNMENT == 0);
-;;;727            LWIP_ASSERT("mem_malloc: sanity check alignment",
-;;;728              (((mem_ptr_t)mem) & (MEM_ALIGNMENT-1)) == 0);
-;;;729    
-;;;730            return (u8_t *)mem + SIZEOF_STRUCT_MEM;
-;;;731          }
-;;;732        }
-;;;733    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;734        /* if we got interrupted by a mem_free, try again */
-;;;735      } while (local_mem_free_count != 0);
-;;;736    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;737      LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("mem_malloc: could not allocate %"S16_F" bytes\n", (s16_t)size));
-;;;738      MEM_STATS_INC(err);
-;;;739      LWIP_MEM_ALLOC_UNPROTECT();
-;;;740      sys_mutex_unlock(&mem_mutex);
-;;;741      return NULL;
-;;;742    }
-000022  e8bd87f0          POP      {r4-r10,pc}
-                  |L4.38|
-000026  2000              MOVS     r0,#0                 ;613
-000028  e7fb              B        |L4.34|
-                  |L4.42|
-00002a  4f37              LDR      r7,|L4.264|
-00002c  683a              LDR      r2,[r7,#0]            ;641  ; ram
-00002e  68b9              LDR      r1,[r7,#8]            ;641  ; lfree
-000030  1a88              SUBS     r0,r1,r2              ;641
-000032  b280              UXTH     r0,r0                 ;641
-000034  f5c566c8          RSB      r6,r5,#0x640          ;641
-000038  e062              B        |L4.256|
-                  |L4.58|
-00003a  1814              ADDS     r4,r2,r0              ;643
-00003c  7923              LDRB     r3,[r4,#4]            ;657
-00003e  2b00              CMP      r3,#0                 ;657
-000040  d15d              BNE      |L4.254|
-000042  8823              LDRH     r3,[r4,#0]            ;658
-000044  1a1b              SUBS     r3,r3,r0              ;658
-000046  3b08              SUBS     r3,r3,#8              ;658
-000048  42ab              CMP      r3,r5                 ;658
-00004a  d358              BCC      |L4.254|
-00004c  8823              LDRH     r3,[r4,#0]            ;662
-00004e  f1050614          ADD      r6,r5,#0x14           ;662
-000052  1a1b              SUBS     r3,r3,r0              ;662
-000054  3b08              SUBS     r3,r3,#8              ;662
-000056  f04f0801          MOV      r8,#1                 ;681
-00005a  42b3              CMP      r3,r6                 ;662
-00005c  d315              BCC      |L4.138|
-00005e  1943              ADDS     r3,r0,r5              ;673
-000060  3308              ADDS     r3,r3,#8              ;673
-000062  b29e              UXTH     r6,r3                 ;673
-000064  1993              ADDS     r3,r2,r6              ;675
-000066  f04f0900          MOV      r9,#0                 ;676
-00006a  f8839004          STRB     r9,[r3,#4]            ;676
-00006e  f8b49000          LDRH     r9,[r4,#0]            ;677
-000072  f8a39000          STRH     r9,[r3,#0]            ;677
-000076  8058              STRH     r0,[r3,#2]            ;678
-000078  8026              STRH     r6,[r4,#0]            ;680
-00007a  f8848004          STRB     r8,[r4,#4]            ;681
-00007e  8818              LDRH     r0,[r3,#0]            ;683
-000080  4560              CMP      r0,r12                ;683
-000082  d004              BEQ      |L4.142|
-000084  1c93              ADDS     r3,r2,#2              ;684
-000086  52c6              STRH     r6,[r0,r3]            ;684
-000088  e001              B        |L4.142|
-                  |L4.138|
-00008a  f8848004          STRB     r8,[r4,#4]            ;695
-                  |L4.142|
-00008e  428c              CMP      r4,r1                 ;701
-000090  d113              BNE      |L4.186|
-000092  6878              LDR      r0,[r7,#4]            ;704
-000094  e001              B        |L4.154|
-                  |L4.150|
-000096  8809              LDRH     r1,[r1,#0]            ;716
-000098  4411              ADD      r1,r1,r2              ;716
-                  |L4.154|
-00009a  790b              LDRB     r3,[r1,#4]            ;704
-00009c  b10b              CBZ      r3,|L4.162|
-00009e  4281              CMP      r1,r0                 ;704
-0000a0  d1f9              BNE      |L4.150|
-                  |L4.162|
-0000a2  60b9              STR      r1,[r7,#8]            ;718  ; lfree
-0000a4  4281              CMP      r1,r0                 ;719
-0000a6  d008              BEQ      |L4.186|
-0000a8  7908              LDRB     r0,[r1,#4]            ;719
-0000aa  b130              CBZ      r0,|L4.186|
-0000ac  a317              ADR      r3,|L4.268|
-0000ae  f24022cf          MOV      r2,#0x2cf             ;719
-0000b2  a122              ADR      r1,|L4.316|
-0000b4  a028              ADR      r0,|L4.344|
-0000b6  f7fffffe          BL       __2printf
-                  |L4.186|
-0000ba  1960              ADDS     r0,r4,r5              ;723
-0000bc  6879              LDR      r1,[r7,#4]            ;723  ; ram_end
-0000be  3008              ADDS     r0,r0,#8              ;723
-0000c0  4288              CMP      r0,r1                 ;723
-0000c2  d906              BLS      |L4.210|
-0000c4  a311              ADR      r3,|L4.268|
-0000c6  f24022d3          MOV      r2,#0x2d3             ;723
-0000ca  a12d              ADR      r1,|L4.384|
-0000cc  a022              ADR      r0,|L4.344|
-0000ce  f7fffffe          BL       __2printf
-                  |L4.210|
-0000d2  f1040508          ADD      r5,r4,#8              ;725
-0000d6  07a9              LSLS     r1,r5,#30             ;725
-0000d8  d006              BEQ      |L4.232|
-0000da  a30c              ADR      r3,|L4.268|
-0000dc  f24022d5          MOV      r2,#0x2d5             ;725
-0000e0  a133              ADR      r1,|L4.432|
-0000e2  a01d              ADR      r0,|L4.344|
-0000e4  f7fffffe          BL       __2printf
-                  |L4.232|
-0000e8  07a1              LSLS     r1,r4,#30             ;727
-0000ea  d006              BEQ      |L4.250|
-0000ec  a307              ADR      r3,|L4.268|
-0000ee  f24022d7          MOV      r2,#0x2d7             ;727
-0000f2  a13b              ADR      r1,|L4.480|
-0000f4  a018              ADR      r0,|L4.344|
-0000f6  f7fffffe          BL       __2printf
-                  |L4.250|
-0000fa  4628              MOV      r0,r5                 ;730
-0000fc  e791              B        |L4.34|
-                  |L4.254|
-0000fe  5a10              LDRH     r0,[r2,r0]            ;642
-                  |L4.256|
-000100  4286              CMP      r6,r0                 ;641
-000102  d89a              BHI      |L4.58|
-000104  2000              MOVS     r0,#0                 ;741
-000106  e78c              B        |L4.34|
-;;;743    
+00000e  400d              ANDS     r5,r5,r1
+;;;847      if (size < MIN_SIZE_ALIGNED) {
+000010  2d0c              CMP      r5,#0xc
+000012  d200              BCS      |L5.22|
+;;;848        /* every data block must be at least MIN_SIZE_ALIGNED long */
+;;;849        size = MIN_SIZE_ALIGNED;
+000014  250c              MOVS     r5,#0xc
+                  |L5.22|
+;;;850      }
+;;;851    #if MEM_OVERFLOW_CHECK
+;;;852      size += MEM_SANITY_REGION_BEFORE_ALIGNED + MEM_SANITY_REGION_AFTER_ALIGNED;
+;;;853    #endif
+;;;854      if ((size > MEM_SIZE_ALIGNED) || (size < size_in)) {
+000016  f44f69c8          MOV      r9,#0x640
+00001a  454d              CMP      r5,r9
+00001c  d801              BHI      |L5.34|
+00001e  4285              CMP      r5,r0
+000020  d204              BCS      |L5.44|
+                  |L5.34|
+;;;855        return NULL;
+000022  2000              MOVS     r0,#0
+                  |L5.36|
+;;;856      }
+;;;857    
+;;;858      /* protect the heap from concurrent access */
+;;;859      sys_mutex_lock(&mem_mutex);
+;;;860      LWIP_MEM_ALLOC_PROTECT();
+;;;861    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;862      /* run as long as a mem_free disturbed mem_malloc or mem_trim */
+;;;863      do {
+;;;864        local_mem_free_count = 0;
+;;;865    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;866    
+;;;867        /* Scan through the heap searching for a free block that is big enough,
+;;;868         * beginning with the lowest free block.
+;;;869         */
+;;;870        for (ptr = mem_to_ptr(lfree); ptr < MEM_SIZE_ALIGNED - size;
+;;;871             ptr = ptr_to_mem(ptr)->next) {
+;;;872          mem = ptr_to_mem(ptr);
+;;;873    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;874          mem_free_count = 0;
+;;;875          LWIP_MEM_ALLOC_UNPROTECT();
+;;;876          /* allow mem_free or mem_trim to run */
+;;;877          LWIP_MEM_ALLOC_PROTECT();
+;;;878          if (mem_free_count != 0) {
+;;;879            /* If mem_free or mem_trim have run, we have to restart since they
+;;;880               could have altered our current struct mem. */
+;;;881            local_mem_free_count = 1;
+;;;882            break;
+;;;883          }
+;;;884    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;885    
+;;;886          if ((!mem->used) &&
+;;;887              (mem->next - (ptr + SIZEOF_STRUCT_MEM)) >= size) {
+;;;888            /* mem is not used and at least perfect fit is possible:
+;;;889             * mem->next - (ptr + SIZEOF_STRUCT_MEM) gives us the 'user data size' of mem */
+;;;890    
+;;;891            if (mem->next - (ptr + SIZEOF_STRUCT_MEM) >= (size + SIZEOF_STRUCT_MEM + MIN_SIZE_ALIGNED)) {
+;;;892              /* (in addition to the above, we test if another struct mem (SIZEOF_STRUCT_MEM) containing
+;;;893               * at least MIN_SIZE_ALIGNED of data also fits in the 'user data space' of 'mem')
+;;;894               * -> split large block, create empty remainder,
+;;;895               * remainder must be large enough to contain MIN_SIZE_ALIGNED data: if
+;;;896               * mem->next - (ptr + (2*SIZEOF_STRUCT_MEM)) == size,
+;;;897               * struct mem would fit in but no data between mem2 and mem2->next
+;;;898               * @todo we could leave out MIN_SIZE_ALIGNED. We would create an empty
+;;;899               *       region that couldn't hold data, but when mem->next gets freed,
+;;;900               *       the 2 regions would be combined, resulting in more free memory
+;;;901               */
+;;;902              ptr2 = (mem_size_t)(ptr + SIZEOF_STRUCT_MEM + size);
+;;;903              LWIP_ASSERT("invalid next ptr",ptr2 != MEM_SIZE_ALIGNED);
+;;;904              /* create mem2 struct */
+;;;905              mem2 = ptr_to_mem(ptr2);
+;;;906              mem2->used = 0;
+;;;907              mem2->next = mem->next;
+;;;908              mem2->prev = ptr;
+;;;909              /* and insert it between mem and mem->next */
+;;;910              mem->next = ptr2;
+;;;911              mem->used = 1;
+;;;912    
+;;;913              if (mem2->next != MEM_SIZE_ALIGNED) {
+;;;914                ptr_to_mem(mem2->next)->prev = ptr2;
+;;;915              }
+;;;916              MEM_STATS_INC_USED(used, (size + SIZEOF_STRUCT_MEM));
+;;;917            } else {
+;;;918              /* (a mem2 struct does no fit into the user data space of mem and mem->next will always
+;;;919               * be used at this point: if not we have 2 unused structs in a row, plug_holes should have
+;;;920               * take care of this).
+;;;921               * -> near fit or exact fit: do not split, no mem2 creation
+;;;922               * also can't move mem->next directly behind mem, since mem->next
+;;;923               * will always be used at this point!
+;;;924               */
+;;;925              mem->used = 1;
+;;;926              MEM_STATS_INC_USED(used, mem->next - mem_to_ptr(mem));
+;;;927            }
+;;;928    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;929    mem_malloc_adjust_lfree:
+;;;930    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;931            if (mem == lfree) {
+;;;932              struct mem *cur = lfree;
+;;;933              /* Find next free block after mem and update lowest free pointer */
+;;;934              while (cur->used && cur != ram_end) {
+;;;935    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;936                mem_free_count = 0;
+;;;937                LWIP_MEM_ALLOC_UNPROTECT();
+;;;938                /* prevent high interrupt latency... */
+;;;939                LWIP_MEM_ALLOC_PROTECT();
+;;;940                if (mem_free_count != 0) {
+;;;941                  /* If mem_free or mem_trim have run, we have to restart since they
+;;;942                     could have altered our current struct mem or lfree. */
+;;;943                  goto mem_malloc_adjust_lfree;
+;;;944                }
+;;;945    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;946                cur = ptr_to_mem(cur->next);
+;;;947              }
+;;;948              lfree = cur;
+;;;949              LWIP_ASSERT("mem_malloc: !lfree->used", ((lfree == ram_end) || (!lfree->used)));
+;;;950            }
+;;;951            LWIP_MEM_ALLOC_UNPROTECT();
+;;;952            sys_mutex_unlock(&mem_mutex);
+;;;953            LWIP_ASSERT("mem_malloc: allocated memory not above ram_end.",
+;;;954                        (mem_ptr_t)mem + SIZEOF_STRUCT_MEM + size <= (mem_ptr_t)ram_end);
+;;;955            LWIP_ASSERT("mem_malloc: allocated memory properly aligned.",
+;;;956                        ((mem_ptr_t)mem + SIZEOF_STRUCT_MEM) % MEM_ALIGNMENT == 0);
+;;;957            LWIP_ASSERT("mem_malloc: sanity check alignment",
+;;;958                        (((mem_ptr_t)mem) & (MEM_ALIGNMENT - 1)) == 0);
+;;;959    
+;;;960    #if MEM_OVERFLOW_CHECK
+;;;961            mem_overflow_init_element(mem, size_in);
+;;;962    #endif
+;;;963            MEM_SANITY();
+;;;964            return (u8_t *)mem + SIZEOF_STRUCT_MEM + MEM_SANITY_OFFSET;
+;;;965          }
+;;;966        }
+;;;967    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;968        /* if we got interrupted by a mem_free, try again */
+;;;969      } while (local_mem_free_count != 0);
+;;;970    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;971      MEM_STATS_INC(err);
+;;;972      LWIP_MEM_ALLOC_UNPROTECT();
+;;;973      sys_mutex_unlock(&mem_mutex);
+;;;974      LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SERIOUS, ("mem_malloc: could not allocate %"S16_F" bytes\n", (s16_t)size));
+;;;975      return NULL;
+;;;976    }
+000024  e8bd87f0          POP      {r4-r10,pc}
+                  |L5.40|
+000028  2000              MOVS     r0,#0                 ;841
+00002a  e7fb              B        |L5.36|
+                  |L5.44|
+00002c  f8df810c          LDR      r8,|L5.316|
+000030  f8d80008          LDR      r0,[r8,#8]            ;870  ; lfree
+000034  f7fffffe          BL       mem_to_ptr
+000038  4606              MOV      r6,r0                 ;870
+00003a  f5c567c8          RSB      r7,r5,#0x640          ;870
+00003e  e078              B        |L5.306|
+                  |L5.64|
+000040  4630              MOV      r0,r6                 ;872
+000042  f7fffffe          BL       ptr_to_mem
+000046  4604              MOV      r4,r0                 ;872
+000048  7920              LDRB     r0,[r4,#4]            ;886
+00004a  2800              CMP      r0,#0                 ;886
+00004c  d16d              BNE      |L5.298|
+00004e  8820              LDRH     r0,[r4,#0]            ;887
+000050  1b80              SUBS     r0,r0,r6              ;887
+000052  3808              SUBS     r0,r0,#8              ;887
+000054  42a8              CMP      r0,r5                 ;887
+000056  d368              BCC      |L5.298|
+000058  8820              LDRH     r0,[r4,#0]            ;891
+00005a  f1050114          ADD      r1,r5,#0x14           ;891
+00005e  1b80              SUBS     r0,r0,r6              ;891
+000060  3808              SUBS     r0,r0,#8              ;891
+000062  f04f0a01          MOV      r10,#1                ;911
+000066  4288              CMP      r0,r1                 ;891
+000068  d31d              BCC      |L5.166|
+00006a  1970              ADDS     r0,r6,r5              ;902
+00006c  3008              ADDS     r0,r0,#8              ;902
+00006e  b287              UXTH     r7,r0                 ;902
+000070  454f              CMP      r7,r9                 ;903
+000072  d106              BNE      |L5.130|
+000074  a332              ADR      r3,|L5.320|
+000076  f2403287          MOV      r2,#0x387             ;903
+00007a  a13d              ADR      r1,|L5.368|
+00007c  a041              ADR      r0,|L5.388|
+00007e  f7fffffe          BL       __2printf
+                  |L5.130|
+000082  4638              MOV      r0,r7                 ;905
+000084  f7fffffe          BL       ptr_to_mem
+000088  2100              MOVS     r1,#0                 ;906
+00008a  7101              STRB     r1,[r0,#4]            ;906
+00008c  8821              LDRH     r1,[r4,#0]            ;907
+00008e  8001              STRH     r1,[r0,#0]            ;907
+000090  8046              STRH     r6,[r0,#2]            ;908
+000092  8027              STRH     r7,[r4,#0]            ;910
+000094  f884a004          STRB     r10,[r4,#4]           ;911
+000098  8800              LDRH     r0,[r0,#0]            ;913
+00009a  4548              CMP      r0,r9                 ;913
+00009c  d005              BEQ      |L5.170|
+00009e  f7fffffe          BL       ptr_to_mem
+0000a2  8047              STRH     r7,[r0,#2]            ;914
+0000a4  e001              B        |L5.170|
+                  |L5.166|
+0000a6  f884a004          STRB     r10,[r4,#4]           ;925
+                  |L5.170|
+0000aa  f8d80008          LDR      r0,[r8,#8]            ;931  ; lfree
+0000ae  4284              CMP      r4,r0                 ;931
+0000b0  d003              BEQ      |L5.186|
+0000b2  e017              B        |L5.228|
+                  |L5.180|
+0000b4  8800              LDRH     r0,[r0,#0]            ;946
+0000b6  f7fffffe          BL       ptr_to_mem
+                  |L5.186|
+0000ba  7901              LDRB     r1,[r0,#4]            ;934
+0000bc  b119              CBZ      r1,|L5.198|
+0000be  f8d81004          LDR      r1,[r8,#4]            ;934  ; ram_end
+0000c2  4288              CMP      r0,r1                 ;934
+0000c4  d1f6              BNE      |L5.180|
+                  |L5.198|
+0000c6  f8c80008          STR      r0,[r8,#8]            ;948  ; lfree
+0000ca  f8d81004          LDR      r1,[r8,#4]            ;949  ; ram_end
+0000ce  4288              CMP      r0,r1                 ;949
+0000d0  d008              BEQ      |L5.228|
+0000d2  7900              LDRB     r0,[r0,#4]            ;949
+0000d4  b130              CBZ      r0,|L5.228|
+0000d6  a31a              ADR      r3,|L5.320|
+0000d8  f24032b5          MOV      r2,#0x3b5             ;949
+0000dc  a133              ADR      r1,|L5.428|
+0000de  a029              ADR      r0,|L5.388|
+0000e0  f7fffffe          BL       __2printf
+                  |L5.228|
+0000e4  1960              ADDS     r0,r4,r5              ;953
+0000e6  f8d81004          LDR      r1,[r8,#4]            ;953  ; ram_end
+0000ea  3008              ADDS     r0,r0,#8              ;953
+0000ec  4288              CMP      r0,r1                 ;953
+0000ee  d906              BLS      |L5.254|
+0000f0  a313              ADR      r3,|L5.320|
+0000f2  f24032b9          MOV      r2,#0x3b9             ;953
+0000f6  a134              ADR      r1,|L5.456|
+0000f8  a022              ADR      r0,|L5.388|
+0000fa  f7fffffe          BL       __2printf
+                  |L5.254|
+0000fe  f1040508          ADD      r5,r4,#8              ;955
+000102  07a8              LSLS     r0,r5,#30             ;955
+000104  d006              BEQ      |L5.276|
+000106  a30e              ADR      r3,|L5.320|
+000108  f24032bb          MOV      r2,#0x3bb             ;955
+00010c  a13a              ADR      r1,|L5.504|
+00010e  a01d              ADR      r0,|L5.388|
+000110  f7fffffe          BL       __2printf
+                  |L5.276|
+000114  07a0              LSLS     r0,r4,#30             ;957
+000116  d006              BEQ      |L5.294|
+000118  a309              ADR      r3,|L5.320|
+00011a  f24032bd          MOV      r2,#0x3bd             ;957
+00011e  a142              ADR      r1,|L5.552|
+000120  a018              ADR      r0,|L5.388|
+000122  f7fffffe          BL       __2printf
+                  |L5.294|
+000126  4628              MOV      r0,r5                 ;964
+000128  e77c              B        |L5.36|
+                  |L5.298|
+00012a  4630              MOV      r0,r6                 ;871
+00012c  f7fffffe          BL       ptr_to_mem
+000130  8806              LDRH     r6,[r0,#0]            ;871
+                  |L5.306|
+000132  42b7              CMP      r7,r6                 ;870
+000134  d884              BHI      |L5.64|
+000136  2000              MOVS     r0,#0                 ;975
+000138  e774              B        |L5.36|
+;;;977    
                           ENDP
 
-                  |L4.264|
+00013a  0000              DCW      0x0000
+                  |L5.316|
                           DCD      ||.data||
-                  |L4.268|
-00010c  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
-000110  6964646c
-000114  65776172
-000118  65735c54
-00011c  68697264
-000120  5f506172
-000124  74795c4c
-000128  7749505c
-00012c  7372635c
-000130  636f7265
-000134  5c6d656d
-000138  2e6300  
-00013b  00                DCB      0
-                  |L4.316|
-00013c  6d656d5f          DCB      "mem_malloc: !lfree->used",0
-000140  6d616c6c
-000144  6f633a20
-000148  216c6672
-00014c  65652d3e
-000150  75736564
-000154  00      
-000155  00                DCB      0
-000156  00                DCB      0
-000157  00                DCB      0
-                  |L4.344|
-000158  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-00015c  7274696f
-000160  6e202225
-000164  73222066
-000168  61696c65
-00016c  64206174
-000170  206c696e
-000174  65202564
-000178  20696e20
-00017c  25730a00
-                  |L4.384|
-000180  6d656d5f          DCB      "mem_malloc: allocated memory not above ram_end.",0
-000184  6d616c6c
-000188  6f633a20
-00018c  616c6c6f
-000190  63617465
-000194  64206d65
-000198  6d6f7279
-00019c  206e6f74
-0001a0  2061626f
-0001a4  76652072
-0001a8  616d5f65
-0001ac  6e642e00
-                  |L4.432|
-0001b0  6d656d5f          DCB      "mem_malloc: allocated memory properly aligned.",0
-0001b4  6d616c6c
-0001b8  6f633a20
-0001bc  616c6c6f
-0001c0  63617465
-0001c4  64206d65
-0001c8  6d6f7279
-0001cc  2070726f
-0001d0  7065726c
-0001d4  7920616c
-0001d8  69676e65
-0001dc  642e00  
-0001df  00                DCB      0
-                  |L4.480|
-0001e0  6d656d5f          DCB      "mem_malloc: sanity check alignment",0
-0001e4  6d616c6c
-0001e8  6f633a20
-0001ec  73616e69
-0001f0  74792063
-0001f4  6865636b
-0001f8  20616c69
-0001fc  676e6d65
-000200  6e7400  
-000203  00                DCB      0
+                  |L5.320|
+000140  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
+000144  6964646c
+000148  65776172
+00014c  65735c54
+000150  68697264
+000154  5f506172
+000158  74795c4c
+00015c  7749505c
+000160  7372635c
+000164  636f7265
+000168  5c6d656d
+00016c  2e6300  
+00016f  00                DCB      0
+                  |L5.368|
+000170  696e7661          DCB      "invalid next ptr",0
+000174  6c696420
+000178  6e657874
+00017c  20707472
+000180  00      
+000181  00                DCB      0
+000182  00                DCB      0
+000183  00                DCB      0
+                  |L5.388|
+000184  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000188  7274696f
+00018c  6e202225
+000190  73222066
+000194  61696c65
+000198  64206174
+00019c  206c696e
+0001a0  65202564
+0001a4  20696e20
+0001a8  25730a00
+                  |L5.428|
+0001ac  6d656d5f          DCB      "mem_malloc: !lfree->used",0
+0001b0  6d616c6c
+0001b4  6f633a20
+0001b8  216c6672
+0001bc  65652d3e
+0001c0  75736564
+0001c4  00      
+0001c5  00                DCB      0
+0001c6  00                DCB      0
+0001c7  00                DCB      0
+                  |L5.456|
+0001c8  6d656d5f          DCB      "mem_malloc: allocated memory not above ram_end.",0
+0001cc  6d616c6c
+0001d0  6f633a20
+0001d4  616c6c6f
+0001d8  63617465
+0001dc  64206d65
+0001e0  6d6f7279
+0001e4  206e6f74
+0001e8  2061626f
+0001ec  76652072
+0001f0  616d5f65
+0001f4  6e642e00
+                  |L5.504|
+0001f8  6d656d5f          DCB      "mem_malloc: allocated memory properly aligned.",0
+0001fc  6d616c6c
+000200  6f633a20
+000204  616c6c6f
+000208  63617465
+00020c  64206d65
+000210  6d6f7279
+000214  2070726f
+000218  7065726c
+00021c  7920616c
+000220  69676e65
+000224  642e00  
+000227  00                DCB      0
+                  |L5.552|
+000228  6d656d5f          DCB      "mem_malloc: sanity check alignment",0
+00022c  6d616c6c
+000230  6f633a20
+000234  73616e69
+000238  74792063
+00023c  6865636b
+000240  20616c69
+000244  676e6d65
+000248  6e7400  
+00024b  00                DCB      0
+
+                          AREA ||i.mem_to_ptr||, CODE, READONLY, ALIGN=2
+
+                  mem_to_ptr PROC
+;;;456    static mem_size_t
+;;;457    mem_to_ptr(void *mem)
+000000  4902              LDR      r1,|L6.12|
+;;;458    {
+;;;459      return (mem_size_t)((u8_t *)mem - ram);
+000002  8809              LDRH     r1,[r1,#0]  ; ram
+000004  1a40              SUBS     r0,r0,r1
+000006  b280              UXTH     r0,r0
+;;;460    }
+000008  4770              BX       lr
+;;;461    
+                          ENDP
+
+00000a  0000              DCW      0x0000
+                  |L6.12|
+                          DCD      ||.data||
 
                           AREA ||i.mem_trim||, CODE, READONLY, ALIGN=2
 
@@ -630,287 +815,332 @@
                           REQUIRE _printf_int_dec
                           REQUIRE _printf_str
                           REQUIRE _printf_str
+                          REQUIRE _printf_str
+                          REQUIRE _printf_str
                   mem_trim PROC
-;;;477    void *
-;;;478    mem_trim(void *rmem, mem_size_t newsize)
-000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;479    {
+;;;698    void *
+;;;699    mem_trim(void *rmem, mem_size_t new_size)
+000000  e92d5ff0          PUSH     {r4-r12,lr}
+;;;700    {
 000004  4607              MOV      r7,r0
-;;;480      mem_size_t size;
-;;;481      mem_size_t ptr, ptr2;
-;;;482      struct mem *mem, *mem2;
-;;;483      /* use the FREE_PROTECT here: it protects with sem OR SYS_ARCH_PROTECT */
-;;;484      LWIP_MEM_FREE_DECL_PROTECT();
-;;;485    
-;;;486      /* Expand the size of the allocated memory region so that we can
-;;;487         adjust for alignment. */
-;;;488      newsize = LWIP_MEM_ALIGN_SIZE(newsize);
-000006  1cc9              ADDS     r1,r1,#3
+;;;701      mem_size_t size, newsize;
+;;;702      mem_size_t ptr, ptr2;
+;;;703      struct mem *mem, *mem2;
+;;;704      /* use the FREE_PROTECT here: it protects with sem OR SYS_ARCH_PROTECT */
+;;;705      LWIP_MEM_FREE_DECL_PROTECT();
+;;;706    
+;;;707      /* Expand the size of the allocated memory region so that we can
+;;;708         adjust for alignment. */
+;;;709      newsize = (mem_size_t)LWIP_MEM_ALIGN_SIZE(new_size);
+000006  1ccc              ADDS     r4,r1,#3
 000008  f64f70fc          MOV      r0,#0xfffc
-00000c  ea010400          AND      r4,r1,r0
-;;;489    
-;;;490      if (newsize < MIN_SIZE_ALIGNED) {
-000010  2c0c              CMP      r4,#0xc
-000012  d200              BCS      |L5.22|
-;;;491        /* every data block must be at least MIN_SIZE_ALIGNED long */
-;;;492        newsize = MIN_SIZE_ALIGNED;
-000014  240c              MOVS     r4,#0xc
-                  |L5.22|
-;;;493      }
-;;;494    
-;;;495      if (newsize > MEM_SIZE_ALIGNED) {
-000016  f44f69c8          MOV      r9,#0x640
-00001a  454c              CMP      r4,r9
-00001c  d902              BLS      |L5.36|
-;;;496        return NULL;
-00001e  2000              MOVS     r0,#0
-                  |L5.32|
-;;;497      }
-;;;498    
-;;;499      LWIP_ASSERT("mem_trim: legal memory", (u8_t *)rmem >= (u8_t *)ram &&
-;;;500       (u8_t *)rmem < (u8_t *)ram_end);
-;;;501    
-;;;502      if ((u8_t *)rmem < (u8_t *)ram || (u8_t *)rmem >= (u8_t *)ram_end) {
-;;;503        SYS_ARCH_DECL_PROTECT(lev);
-;;;504        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_trim: illegal memory\n"));
-;;;505        /* protect mem stats from concurrent access */
-;;;506        SYS_ARCH_PROTECT(lev);
-;;;507        MEM_STATS_INC(illegal);
-;;;508        SYS_ARCH_UNPROTECT(lev);
-;;;509        return rmem;
-;;;510      }
-;;;511      /* Get the corresponding struct mem ... */
-;;;512      /* cast through void* to get rid of alignment warnings */
-;;;513      mem = (struct mem *)(void *)((u8_t *)rmem - SIZEOF_STRUCT_MEM);
-;;;514      /* ... and its offset pointer */
-;;;515      ptr = (mem_size_t)((u8_t *)mem - ram);
-;;;516    
-;;;517      size = mem->next - ptr - SIZEOF_STRUCT_MEM;
-;;;518      LWIP_ASSERT("mem_trim can only shrink memory", newsize <= size);
-;;;519      if (newsize > size) {
-;;;520        /* not supported */
-;;;521        return NULL;
-;;;522      }
-;;;523      if (newsize == size) {
-;;;524        /* No change in size, simply return */
-;;;525        return rmem;
-;;;526      }
-;;;527    
-;;;528      /* protect the heap from concurrent access */
-;;;529      LWIP_MEM_FREE_PROTECT();
-;;;530    
-;;;531      mem2 = (struct mem *)(void *)&ram[mem->next];
-;;;532      if (mem2->used == 0) {
-;;;533        /* The next struct is unused, we can simply move it at little */
-;;;534        mem_size_t next;
-;;;535        /* remember the old next pointer */
-;;;536        next = mem2->next;
-;;;537        /* create new struct mem which is moved directly after the shrinked mem */
-;;;538        ptr2 = ptr + SIZEOF_STRUCT_MEM + newsize;
-;;;539        if (lfree == mem2) {
-;;;540          lfree = (struct mem *)(void *)&ram[ptr2];
-;;;541        }
-;;;542        mem2 = (struct mem *)(void *)&ram[ptr2];
-;;;543        mem2->used = 0;
-;;;544        /* restore the next pointer */
-;;;545        mem2->next = next;
-;;;546        /* link it back to mem */
-;;;547        mem2->prev = ptr;
-;;;548        /* link mem to it */
-;;;549        mem->next = ptr2;
-;;;550        /* last thing to restore linked list: as we have moved mem2,
-;;;551         * let 'mem2->next->prev' point to mem2 again. but only if mem2->next is not
-;;;552         * the end of the heap */
-;;;553        if (mem2->next != MEM_SIZE_ALIGNED) {
-;;;554          ((struct mem *)(void *)&ram[mem2->next])->prev = ptr2;
-;;;555        }
-;;;556        MEM_STATS_DEC_USED(used, (size - newsize));
-;;;557        /* no need to plug holes, we've already done that */
-;;;558      } else if (newsize + SIZEOF_STRUCT_MEM + MIN_SIZE_ALIGNED <= size) {
-;;;559        /* Next struct is used but there's room for another struct mem with
-;;;560         * at least MIN_SIZE_ALIGNED of data.
-;;;561         * Old size ('size') must be big enough to contain at least 'newsize' plus a struct mem
-;;;562         * ('SIZEOF_STRUCT_MEM') with some data ('MIN_SIZE_ALIGNED').
-;;;563         * @todo we could leave out MIN_SIZE_ALIGNED. We would create an empty
-;;;564         *       region that couldn't hold data, but when mem->next gets freed,
-;;;565         *       the 2 regions would be combined, resulting in more free memory */
-;;;566        ptr2 = ptr + SIZEOF_STRUCT_MEM + newsize;
-;;;567        mem2 = (struct mem *)(void *)&ram[ptr2];
-;;;568        if (mem2 < lfree) {
-;;;569          lfree = mem2;
-;;;570        }
-;;;571        mem2->used = 0;
-;;;572        mem2->next = mem->next;
-;;;573        mem2->prev = ptr;
-;;;574        mem->next = ptr2;
-;;;575        if (mem2->next != MEM_SIZE_ALIGNED) {
-;;;576          ((struct mem *)(void *)&ram[mem2->next])->prev = ptr2;
-;;;577        }
-;;;578        MEM_STATS_DEC_USED(used, (size - newsize));
-;;;579        /* the original mem->next is used, so no need to plug holes! */
-;;;580      }
-;;;581      /* else {
-;;;582        next struct mem is used but size between mem and mem2 is not big enough
-;;;583        to create another struct mem
-;;;584        -> don't do anyhting.
-;;;585        -> the remaining space stays unused since it is too small
-;;;586      } */
-;;;587    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
-;;;588      mem_free_count = 1;
-;;;589    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
-;;;590      LWIP_MEM_FREE_UNPROTECT();
-;;;591      return rmem;
-;;;592    }
-000020  e8bd87f0          POP      {r4-r10,pc}
-                  |L5.36|
-000024  f8df80dc          LDR      r8,|L5.260|
-000028  f8d80000          LDR      r0,[r8,#0]            ;499  ; ram
-00002c  4287              CMP      r7,r0                 ;499
-00002e  d303              BCC      |L5.56|
-000030  f8d80004          LDR      r0,[r8,#4]            ;499  ; ram_end
-000034  4287              CMP      r7,r0                 ;499
-000036  d306              BCC      |L5.70|
-                  |L5.56|
-000038  a333              ADR      r3,|L5.264|
-00003a  f24012f3          MOV      r2,#0x1f3             ;499
-00003e  a13e              ADR      r1,|L5.312|
-000040  a043              ADR      r0,|L5.336|
-000042  f7fffffe          BL       __2printf
-                  |L5.70|
-000046  f8d80000          LDR      r0,[r8,#0]            ;502  ; ram
-00004a  4287              CMP      r7,r0                 ;502
-00004c  d303              BCC      |L5.86|
-00004e  f8d81004          LDR      r1,[r8,#4]            ;502  ; ram_end
-000052  428f              CMP      r7,r1                 ;502
-000054  d301              BCC      |L5.90|
-                  |L5.86|
-000056  4638              MOV      r0,r7                 ;509
-000058  e7e2              B        |L5.32|
-                  |L5.90|
-00005a  f1a70508          SUB      r5,r7,#8              ;513
-00005e  1a28              SUBS     r0,r5,r0              ;515
-000060  b286              UXTH     r6,r0                 ;515
-000062  8828              LDRH     r0,[r5,#0]            ;517
-000064  1b80              SUBS     r0,r0,r6              ;517
-000066  3808              SUBS     r0,r0,#8              ;517
-000068  fa1ffa80          UXTH     r10,r0                ;517
-00006c  4554              CMP      r4,r10                ;518
-00006e  d906              BLS      |L5.126|
-000070  a325              ADR      r3,|L5.264|
-000072  f2402206          MOV      r2,#0x206             ;518
-000076  a140              ADR      r1,|L5.376|
-000078  a035              ADR      r0,|L5.336|
-00007a  f7fffffe          BL       __2printf
-                  |L5.126|
-00007e  4554              CMP      r4,r10                ;519
-000080  d902              BLS      |L5.136|
-000082  f04f0000          MOV      r0,#0                 ;521
-000086  e7cb              B        |L5.32|
-                  |L5.136|
-000088  d101              BNE      |L5.142|
-00008a  4638              MOV      r0,r7                 ;525
-00008c  e7c8              B        |L5.32|
-                  |L5.142|
-00008e  8828              LDRH     r0,[r5,#0]            ;531
-000090  f8d82000          LDR      r2,[r8,#0]            ;531  ; ram
-000094  eb000102          ADD      r1,r0,r2              ;531
-000098  f04f0300          MOV      r3,#0                 ;532
-00009c  7908              LDRB     r0,[r1,#4]            ;532
-00009e  b1c8              CBZ      r0,|L5.212|
-0000a0  f1040014          ADD      r0,r4,#0x14           ;558
-0000a4  4550              CMP      r0,r10                ;558
-0000a6  d813              BHI      |L5.208|
-0000a8  1930              ADDS     r0,r6,r4              ;566
-0000aa  3008              ADDS     r0,r0,#8              ;566
-0000ac  b280              UXTH     r0,r0                 ;566
-0000ae  1811              ADDS     r1,r2,r0              ;567
-0000b0  f8d84008          LDR      r4,[r8,#8]            ;568  ; lfree
-0000b4  42a1              CMP      r1,r4                 ;568
-0000b6  d201              BCS      |L5.188|
-0000b8  f8c81008          STR      r1,[r8,#8]            ;569  ; lfree
-                  |L5.188|
-0000bc  710b              STRB     r3,[r1,#4]            ;571
-0000be  882b              LDRH     r3,[r5,#0]            ;572
-0000c0  800b              STRH     r3,[r1,#0]            ;572
-0000c2  804e              STRH     r6,[r1,#2]            ;573
-0000c4  8028              STRH     r0,[r5,#0]            ;574
-0000c6  8809              LDRH     r1,[r1,#0]            ;575
-0000c8  4549              CMP      r1,r9                 ;575
-0000ca  d001              BEQ      |L5.208|
-0000cc  1c92              ADDS     r2,r2,#2              ;576
-0000ce  5288              STRH     r0,[r1,r2]            ;576
-                  |L5.208|
-0000d0  4638              MOV      r0,r7                 ;591
-0000d2  e7a5              B        |L5.32|
-                  |L5.212|
-0000d4  f8b1c000          LDRH     r12,[r1,#0]           ;536
-0000d8  1930              ADDS     r0,r6,r4              ;538
-0000da  3008              ADDS     r0,r0,#8              ;538
-0000dc  b280              UXTH     r0,r0                 ;538
-0000de  f8d84008          LDR      r4,[r8,#8]            ;539  ; lfree
-0000e2  428c              CMP      r4,r1                 ;539
-0000e4  d102              BNE      |L5.236|
-0000e6  1811              ADDS     r1,r2,r0              ;540
-0000e8  f8c81008          STR      r1,[r8,#8]            ;540  ; lfree
-                  |L5.236|
-0000ec  1811              ADDS     r1,r2,r0              ;542
-0000ee  710b              STRB     r3,[r1,#4]            ;543
-0000f0  f8a1c000          STRH     r12,[r1,#0]           ;545
-0000f4  804e              STRH     r6,[r1,#2]            ;547
-0000f6  8028              STRH     r0,[r5,#0]            ;549
-0000f8  8809              LDRH     r1,[r1,#0]            ;553
-0000fa  4549              CMP      r1,r9                 ;553
-0000fc  d0e8              BEQ      |L5.208|
-0000fe  1c92              ADDS     r2,r2,#2              ;554
-000100  5288              STRH     r0,[r1,r2]            ;554
-000102  e7e5              B        |L5.208|
-;;;593    
+00000c  4004              ANDS     r4,r4,r0
+;;;710      if (newsize < MIN_SIZE_ALIGNED) {
+00000e  2c0c              CMP      r4,#0xc
+000010  d200              BCS      |L7.20|
+;;;711        /* every data block must be at least MIN_SIZE_ALIGNED long */
+;;;712        newsize = MIN_SIZE_ALIGNED;
+000012  240c              MOVS     r4,#0xc
+                  |L7.20|
+;;;713      }
+;;;714    #if MEM_OVERFLOW_CHECK
+;;;715      newsize += MEM_SANITY_REGION_BEFORE_ALIGNED + MEM_SANITY_REGION_AFTER_ALIGNED;
+;;;716    #endif
+;;;717      if ((newsize > MEM_SIZE_ALIGNED) || (newsize < new_size)) {
+000014  f44f6ac8          MOV      r10,#0x640
+000018  4554              CMP      r4,r10
+00001a  d801              BHI      |L7.32|
+00001c  428c              CMP      r4,r1
+00001e  d202              BCS      |L7.38|
+                  |L7.32|
+;;;718        return NULL;
+000020  2000              MOVS     r0,#0
+                  |L7.34|
+;;;719      }
+;;;720    
+;;;721      LWIP_ASSERT("mem_trim: legal memory", (u8_t *)rmem >= (u8_t *)ram &&
+;;;722                  (u8_t *)rmem < (u8_t *)ram_end);
+;;;723    
+;;;724      if ((u8_t *)rmem < (u8_t *)ram || (u8_t *)rmem >= (u8_t *)ram_end) {
+;;;725        LWIP_DEBUGF(MEM_DEBUG | LWIP_DBG_LEVEL_SEVERE, ("mem_trim: illegal memory\n"));
+;;;726        /* protect mem stats from concurrent access */
+;;;727        MEM_STATS_INC_LOCKED(illegal);
+;;;728        return rmem;
+;;;729      }
+;;;730      /* Get the corresponding struct mem ... */
+;;;731      /* cast through void* to get rid of alignment warnings */
+;;;732      mem = (struct mem *)(void *)((u8_t *)rmem - (SIZEOF_STRUCT_MEM + MEM_SANITY_OFFSET));
+;;;733    #if MEM_OVERFLOW_CHECK
+;;;734      mem_overflow_check_element(mem);
+;;;735    #endif
+;;;736      /* ... and its offset pointer */
+;;;737      ptr = mem_to_ptr(mem);
+;;;738    
+;;;739      size = (mem_size_t)((mem_size_t)(mem->next - ptr) - (SIZEOF_STRUCT_MEM + MEM_SANITY_OVERHEAD));
+;;;740      LWIP_ASSERT("mem_trim can only shrink memory", newsize <= size);
+;;;741      if (newsize > size) {
+;;;742        /* not supported */
+;;;743        return NULL;
+;;;744      }
+;;;745      if (newsize == size) {
+;;;746        /* No change in size, simply return */
+;;;747        return rmem;
+;;;748      }
+;;;749    
+;;;750      /* protect the heap from concurrent access */
+;;;751      LWIP_MEM_FREE_PROTECT();
+;;;752    
+;;;753      mem2 = ptr_to_mem(mem->next);
+;;;754      if (mem2->used == 0) {
+;;;755        /* The next struct is unused, we can simply move it at little */
+;;;756        mem_size_t next;
+;;;757        LWIP_ASSERT("invalid next ptr", mem->next != MEM_SIZE_ALIGNED);
+;;;758        /* remember the old next pointer */
+;;;759        next = mem2->next;
+;;;760        /* create new struct mem which is moved directly after the shrinked mem */
+;;;761        ptr2 = (mem_size_t)(ptr + SIZEOF_STRUCT_MEM + newsize);
+;;;762        if (lfree == mem2) {
+;;;763          lfree = ptr_to_mem(ptr2);
+;;;764        }
+;;;765        mem2 = ptr_to_mem(ptr2);
+;;;766        mem2->used = 0;
+;;;767        /* restore the next pointer */
+;;;768        mem2->next = next;
+;;;769        /* link it back to mem */
+;;;770        mem2->prev = ptr;
+;;;771        /* link mem to it */
+;;;772        mem->next = ptr2;
+;;;773        /* last thing to restore linked list: as we have moved mem2,
+;;;774         * let 'mem2->next->prev' point to mem2 again. but only if mem2->next is not
+;;;775         * the end of the heap */
+;;;776        if (mem2->next != MEM_SIZE_ALIGNED) {
+;;;777          ptr_to_mem(mem2->next)->prev = ptr2;
+;;;778        }
+;;;779        MEM_STATS_DEC_USED(used, (size - newsize));
+;;;780        /* no need to plug holes, we've already done that */
+;;;781      } else if (newsize + SIZEOF_STRUCT_MEM + MIN_SIZE_ALIGNED <= size) {
+;;;782        /* Next struct is used but there's room for another struct mem with
+;;;783         * at least MIN_SIZE_ALIGNED of data.
+;;;784         * Old size ('size') must be big enough to contain at least 'newsize' plus a struct mem
+;;;785         * ('SIZEOF_STRUCT_MEM') with some data ('MIN_SIZE_ALIGNED').
+;;;786         * @todo we could leave out MIN_SIZE_ALIGNED. We would create an empty
+;;;787         *       region that couldn't hold data, but when mem->next gets freed,
+;;;788         *       the 2 regions would be combined, resulting in more free memory */
+;;;789        ptr2 = (mem_size_t)(ptr + SIZEOF_STRUCT_MEM + newsize);
+;;;790        LWIP_ASSERT("invalid next ptr", mem->next != MEM_SIZE_ALIGNED);
+;;;791        mem2 = ptr_to_mem(ptr2);
+;;;792        if (mem2 < lfree) {
+;;;793          lfree = mem2;
+;;;794        }
+;;;795        mem2->used = 0;
+;;;796        mem2->next = mem->next;
+;;;797        mem2->prev = ptr;
+;;;798        mem->next = ptr2;
+;;;799        if (mem2->next != MEM_SIZE_ALIGNED) {
+;;;800          ptr_to_mem(mem2->next)->prev = ptr2;
+;;;801        }
+;;;802        MEM_STATS_DEC_USED(used, (size - newsize));
+;;;803        /* the original mem->next is used, so no need to plug holes! */
+;;;804      }
+;;;805      /* else {
+;;;806        next struct mem is used but size between mem and mem2 is not big enough
+;;;807        to create another struct mem
+;;;808        -> don't do anyhting.
+;;;809        -> the remaining space stays unused since it is too small
+;;;810      } */
+;;;811    #if MEM_OVERFLOW_CHECK
+;;;812      mem_overflow_init_element(mem, new_size);
+;;;813    #endif
+;;;814      MEM_SANITY();
+;;;815    #if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+;;;816      mem_free_count = 1;
+;;;817    #endif /* LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT */
+;;;818      LWIP_MEM_FREE_UNPROTECT();
+;;;819      return rmem;
+;;;820    }
+000022  e8bd9ff0          POP      {r4-r12,pc}
+                  |L7.38|
+000026  f8df911c          LDR      r9,|L7.324|
+00002a  f8d90000          LDR      r0,[r9,#0]            ;721  ; ram
+00002e  4287              CMP      r7,r0                 ;721
+000030  d303              BCC      |L7.58|
+000032  f8d90004          LDR      r0,[r9,#4]            ;721  ; ram_end
+000036  4287              CMP      r7,r0                 ;721
+000038  d306              BCC      |L7.72|
+                  |L7.58|
+00003a  a343              ADR      r3,|L7.328|
+00003c  f24022d1          MOV      r2,#0x2d1             ;721
+000040  a14d              ADR      r1,|L7.376|
+000042  a053              ADR      r0,|L7.400|
+000044  f7fffffe          BL       __2printf
+                  |L7.72|
+000048  f8d90000          LDR      r0,[r9,#0]            ;724  ; ram
+00004c  4287              CMP      r7,r0                 ;724
+00004e  d303              BCC      |L7.88|
+000050  f8d90004          LDR      r0,[r9,#4]            ;724  ; ram_end
+000054  4287              CMP      r7,r0                 ;724
+000056  d301              BCC      |L7.92|
+                  |L7.88|
+000058  4638              MOV      r0,r7                 ;728
+00005a  e7e2              B        |L7.34|
+                  |L7.92|
+00005c  f1a70508          SUB      r5,r7,#8              ;732
+000060  4628              MOV      r0,r5                 ;737
+000062  f7fffffe          BL       mem_to_ptr
+000066  4606              MOV      r6,r0                 ;737
+000068  8829              LDRH     r1,[r5,#0]            ;739
+00006a  1b88              SUBS     r0,r1,r6              ;739
+00006c  3808              SUBS     r0,r0,#8              ;739
+00006e  fa1ffb80          UXTH     r11,r0                ;739
+000072  455c              CMP      r4,r11                ;740
+000074  d906              BLS      |L7.132|
+000076  a334              ADR      r3,|L7.328|
+000078  f44f7239          MOV      r2,#0x2e4             ;740
+00007c  a14e              ADR      r1,|L7.440|
+00007e  a044              ADR      r0,|L7.400|
+000080  f7fffffe          BL       __2printf
+                  |L7.132|
+000084  455c              CMP      r4,r11                ;741
+000086  d902              BLS      |L7.142|
+000088  f04f0000          MOV      r0,#0                 ;743
+00008c  e7c9              B        |L7.34|
+                  |L7.142|
+00008e  d101              BNE      |L7.148|
+000090  4638              MOV      r0,r7                 ;747
+000092  e7c6              B        |L7.34|
+                  |L7.148|
+000094  8828              LDRH     r0,[r5,#0]            ;753
+000096  f7fffffe          BL       ptr_to_mem
+00009a  4680              MOV      r8,r0                 ;753
+00009c  f8980004          LDRB     r0,[r8,#4]            ;754
+0000a0  2800              CMP      r0,#0                 ;754
+0000a2  d027              BEQ      |L7.244|
+0000a4  f1040014          ADD      r0,r4,#0x14           ;781
+0000a8  4558              CMP      r0,r11                ;781
+0000aa  d821              BHI      |L7.240|
+0000ac  1930              ADDS     r0,r6,r4              ;789
+0000ae  3008              ADDS     r0,r0,#8              ;789
+0000b0  b284              UXTH     r4,r0                 ;789
+0000b2  8828              LDRH     r0,[r5,#0]            ;790
+0000b4  4550              CMP      r0,r10                ;790
+0000b6  d106              BNE      |L7.198|
+0000b8  a323              ADR      r3,|L7.328|
+0000ba  f2403216          MOV      r2,#0x316             ;790
+0000be  a146              ADR      r1,|L7.472|
+0000c0  a033              ADR      r0,|L7.400|
+0000c2  f7fffffe          BL       __2printf
+                  |L7.198|
+0000c6  4620              MOV      r0,r4                 ;791
+0000c8  f7fffffe          BL       ptr_to_mem
+0000cc  f8d91008          LDR      r1,[r9,#8]            ;792  ; lfree
+0000d0  4288              CMP      r0,r1                 ;792
+0000d2  d201              BCS      |L7.216|
+0000d4  f8c90008          STR      r0,[r9,#8]            ;793  ; lfree
+                  |L7.216|
+0000d8  2100              MOVS     r1,#0                 ;795
+0000da  7101              STRB     r1,[r0,#4]            ;795
+0000dc  8829              LDRH     r1,[r5,#0]            ;796
+0000de  8001              STRH     r1,[r0,#0]            ;796
+0000e0  8046              STRH     r6,[r0,#2]            ;797
+0000e2  802c              STRH     r4,[r5,#0]            ;798
+0000e4  8800              LDRH     r0,[r0,#0]            ;799
+0000e6  4550              CMP      r0,r10                ;799
+0000e8  d002              BEQ      |L7.240|
+0000ea  f7fffffe          BL       ptr_to_mem
+0000ee  8044              STRH     r4,[r0,#2]            ;800
+                  |L7.240|
+0000f0  4638              MOV      r0,r7                 ;819
+0000f2  e796              B        |L7.34|
+                  |L7.244|
+0000f4  8828              LDRH     r0,[r5,#0]            ;757
+0000f6  4550              CMP      r0,r10                ;757
+0000f8  d106              BNE      |L7.264|
+0000fa  a313              ADR      r3,|L7.328|
+0000fc  f24022f5          MOV      r2,#0x2f5             ;757
+000100  a135              ADR      r1,|L7.472|
+000102  a023              ADR      r0,|L7.400|
+000104  f7fffffe          BL       __2printf
+                  |L7.264|
+000108  f8b8b000          LDRH     r11,[r8,#0]           ;759
+00010c  1930              ADDS     r0,r6,r4              ;761
+00010e  3008              ADDS     r0,r0,#8              ;761
+000110  b284              UXTH     r4,r0                 ;761
+000112  f8d90008          LDR      r0,[r9,#8]            ;762  ; lfree
+000116  4540              CMP      r0,r8                 ;762
+000118  d104              BNE      |L7.292|
+00011a  4620              MOV      r0,r4                 ;763
+00011c  f7fffffe          BL       ptr_to_mem
+000120  f8c90008          STR      r0,[r9,#8]            ;763  ; lfree
+                  |L7.292|
+000124  4620              MOV      r0,r4                 ;765
+000126  f7fffffe          BL       ptr_to_mem
+00012a  2100              MOVS     r1,#0                 ;766
+00012c  7101              STRB     r1,[r0,#4]            ;766
+00012e  f8a0b000          STRH     r11,[r0,#0]           ;768
+000132  8046              STRH     r6,[r0,#2]            ;770
+000134  802c              STRH     r4,[r5,#0]            ;772
+000136  8800              LDRH     r0,[r0,#0]            ;776
+000138  4550              CMP      r0,r10                ;776
+00013a  d0d9              BEQ      |L7.240|
+00013c  f7fffffe          BL       ptr_to_mem
+000140  8044              STRH     r4,[r0,#2]            ;777
+000142  e7d5              B        |L7.240|
+;;;821    
                           ENDP
 
-                  |L5.260|
+                  |L7.324|
                           DCD      ||.data||
-                  |L5.264|
-000108  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
-00010c  6964646c
-000110  65776172
-000114  65735c54
-000118  68697264
-00011c  5f506172
-000120  74795c4c
-000124  7749505c
-000128  7372635c
-00012c  636f7265
-000130  5c6d656d
-000134  2e6300  
-000137  00                DCB      0
-                  |L5.312|
-000138  6d656d5f          DCB      "mem_trim: legal memory",0
-00013c  7472696d
-000140  3a206c65
-000144  67616c20
-000148  6d656d6f
-00014c  727900  
-00014f  00                DCB      0
-                  |L5.336|
-000150  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-000154  7274696f
-000158  6e202225
-00015c  73222066
-000160  61696c65
-000164  64206174
-000168  206c696e
-00016c  65202564
-000170  20696e20
-000174  25730a00
-                  |L5.376|
-000178  6d656d5f          DCB      "mem_trim can only shrink memory",0
+                  |L7.328|
+000148  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
+00014c  6964646c
+000150  65776172
+000154  65735c54
+000158  68697264
+00015c  5f506172
+000160  74795c4c
+000164  7749505c
+000168  7372635c
+00016c  636f7265
+000170  5c6d656d
+000174  2e6300  
+000177  00                DCB      0
+                  |L7.376|
+000178  6d656d5f          DCB      "mem_trim: legal memory",0
 00017c  7472696d
-000180  2063616e
-000184  206f6e6c
-000188  79207368
-00018c  72696e6b
-000190  206d656d
-000194  6f727900
+000180  3a206c65
+000184  67616c20
+000188  6d656d6f
+00018c  727900  
+00018f  00                DCB      0
+                  |L7.400|
+000190  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000194  7274696f
+000198  6e202225
+00019c  73222066
+0001a0  61696c65
+0001a4  64206174
+0001a8  206c696e
+0001ac  65202564
+0001b0  20696e20
+0001b4  25730a00
+                  |L7.440|
+0001b8  6d656d5f          DCB      "mem_trim can only shrink memory",0
+0001bc  7472696d
+0001c0  2063616e
+0001c4  206f6e6c
+0001c8  79207368
+0001cc  72696e6b
+0001d0  206d656d
+0001d4  6f727900
+                  |L7.472|
+0001d8  696e7661          DCB      "invalid next ptr",0
+0001dc  6c696420
+0001e0  6e657874
+0001e4  20707472
+0001e8  00      
+0001e9  00                DCB      0
+0001ea  00                DCB      0
+0001eb  00                DCB      0
 
                           AREA ||i.plug_holes||, CODE, READONLY, ALIGN=2
 
@@ -923,192 +1153,223 @@
                           REQUIRE _printf_str
                           REQUIRE _printf_str
                   plug_holes PROC
-;;;343    static void
-;;;344    plug_holes(struct mem *mem)
-000000  b570              PUSH     {r4-r6,lr}
-;;;345    {
-000002  4604              MOV      r4,r0
-;;;346      struct mem *nmem;
-;;;347      struct mem *pmem;
-;;;348    
-;;;349      LWIP_ASSERT("plug_holes: mem >= ram", (u8_t *)mem >= ram);
-000004  4d27              LDR      r5,|L6.164|
-000006  6828              LDR      r0,[r5,#0]  ; ram
-000008  4284              CMP      r4,r0
-00000a  d206              BCS      |L6.26|
-00000c  a326              ADR      r3,|L6.168|
-00000e  f240125d          MOV      r2,#0x15d
-000012  a131              ADR      r1,|L6.216|
-000014  a036              ADR      r0,|L6.240|
-000016  f7fffffe          BL       __2printf
-                  |L6.26|
-;;;350      LWIP_ASSERT("plug_holes: mem < ram_end", (u8_t *)mem < (u8_t *)ram_end);
-00001a  6868              LDR      r0,[r5,#4]  ; ram_end
-00001c  4284              CMP      r4,r0
-00001e  d306              BCC      |L6.46|
-000020  a321              ADR      r3,|L6.168|
-000022  f44f72af          MOV      r2,#0x15e
-000026  a13c              ADR      r1,|L6.280|
-000028  a031              ADR      r0,|L6.240|
-00002a  f7fffffe          BL       __2printf
-                  |L6.46|
-;;;351      LWIP_ASSERT("plug_holes: mem->used == 0", mem->used == 0);
-00002e  7920              LDRB     r0,[r4,#4]
-000030  b130              CBZ      r0,|L6.64|
-000032  a31d              ADR      r3,|L6.168|
-000034  f240125f          MOV      r2,#0x15f
-000038  a13e              ADR      r1,|L6.308|
-00003a  a02d              ADR      r0,|L6.240|
-00003c  f7fffffe          BL       __2printf
-                  |L6.64|
-;;;352    
-;;;353      /* plug hole forward */
-;;;354      LWIP_ASSERT("plug_holes: mem->next <= MEM_SIZE_ALIGNED", mem->next <= MEM_SIZE_ALIGNED);
-000040  8820              LDRH     r0,[r4,#0]
-000042  f5b06fc8          CMP      r0,#0x640
-000046  d906              BLS      |L6.86|
-000048  a317              ADR      r3,|L6.168|
-00004a  f44f72b1          MOV      r2,#0x162
-00004e  a140              ADR      r1,|L6.336|
-000050  a027              ADR      r0,|L6.240|
-000052  f7fffffe          BL       __2printf
-                  |L6.86|
-;;;355    
-;;;356      nmem = (struct mem *)(void *)&ram[mem->next];
-000056  8820              LDRH     r0,[r4,#0]
-000058  6829              LDR      r1,[r5,#0]  ; ram
-00005a  4408              ADD      r0,r0,r1
-;;;357      if (mem != nmem && nmem->used == 0 && (u8_t *)nmem != (u8_t *)ram_end) {
-00005c  4284              CMP      r4,r0
-00005e  d00e              BEQ      |L6.126|
-000060  7902              LDRB     r2,[r0,#4]
-000062  b962              CBNZ     r2,|L6.126|
-000064  686a              LDR      r2,[r5,#4]  ; ram_end
-000066  4290              CMP      r0,r2
-000068  d009              BEQ      |L6.126|
-;;;358        /* if mem->next is unused and not end of ram, combine mem and mem->next */
-;;;359        if (lfree == nmem) {
-00006a  68aa              LDR      r2,[r5,#8]  ; lfree
-00006c  4282              CMP      r2,r0
-00006e  d100              BNE      |L6.114|
-;;;360          lfree = mem;
-000070  60ac              STR      r4,[r5,#8]  ; lfree
-                  |L6.114|
-;;;361        }
-;;;362        mem->next = nmem->next;
-000072  8802              LDRH     r2,[r0,#0]
-000074  8022              STRH     r2,[r4,#0]
-;;;363        ((struct mem *)(void *)&ram[nmem->next])->prev = (mem_size_t)((u8_t *)mem - ram);
-000076  8803              LDRH     r3,[r0,#0]
-000078  1a62              SUBS     r2,r4,r1
-00007a  1c88              ADDS     r0,r1,#2
-00007c  521a              STRH     r2,[r3,r0]
-                  |L6.126|
-;;;364      }
-;;;365    
-;;;366      /* plug hole backward */
-;;;367      pmem = (struct mem *)(void *)&ram[mem->prev];
-00007e  8860              LDRH     r0,[r4,#2]
-000080  4408              ADD      r0,r0,r1
-;;;368      if (pmem != mem && pmem->used == 0) {
-000082  42a0              CMP      r0,r4
-000084  d00c              BEQ      |L6.160|
-000086  7902              LDRB     r2,[r0,#4]
-000088  2a00              CMP      r2,#0
-00008a  d109              BNE      |L6.160|
-;;;369        /* if mem->prev is unused, combine mem and mem->prev */
-;;;370        if (lfree == mem) {
-00008c  68aa              LDR      r2,[r5,#8]  ; lfree
-00008e  42a2              CMP      r2,r4
-000090  d100              BNE      |L6.148|
-;;;371          lfree = pmem;
-000092  60a8              STR      r0,[r5,#8]  ; lfree
-                  |L6.148|
-;;;372        }
-;;;373        pmem->next = mem->next;
-000094  8822              LDRH     r2,[r4,#0]
-000096  8002              STRH     r2,[r0,#0]
-;;;374        ((struct mem *)(void *)&ram[mem->next])->prev = (mem_size_t)((u8_t *)pmem - ram);
-000098  8822              LDRH     r2,[r4,#0]
-00009a  1a40              SUBS     r0,r0,r1
-00009c  1c89              ADDS     r1,r1,#2
-00009e  5250              STRH     r0,[r2,r1]
-                  |L6.160|
-;;;375      }
-;;;376    }
-0000a0  bd70              POP      {r4-r6,pc}
-;;;377    
+;;;473    static void
+;;;474    plug_holes(struct mem *mem)
+000000  e92d41f0          PUSH     {r4-r8,lr}
+;;;475    {
+000004  4604              MOV      r4,r0
+;;;476      struct mem *nmem;
+;;;477      struct mem *pmem;
+;;;478    
+;;;479      LWIP_ASSERT("plug_holes: mem >= ram", (u8_t *)mem >= ram);
+000006  4e30              LDR      r6,|L8.200|
+000008  6830              LDR      r0,[r6,#0]  ; ram
+00000a  4284              CMP      r4,r0
+00000c  d206              BCS      |L8.28|
+00000e  a32f              ADR      r3,|L8.204|
+000010  f24012df          MOV      r2,#0x1df
+000014  a139              ADR      r1,|L8.252|
+000016  a03f              ADR      r0,|L8.276|
+000018  f7fffffe          BL       __2printf
+                  |L8.28|
+;;;480      LWIP_ASSERT("plug_holes: mem < ram_end", (u8_t *)mem < (u8_t *)ram_end);
+00001c  6870              LDR      r0,[r6,#4]  ; ram_end
+00001e  4284              CMP      r4,r0
+000020  d306              BCC      |L8.48|
+000022  a32a              ADR      r3,|L8.204|
+000024  f44f72f0          MOV      r2,#0x1e0
+000028  a144              ADR      r1,|L8.316|
+00002a  a03a              ADR      r0,|L8.276|
+00002c  f7fffffe          BL       __2printf
+                  |L8.48|
+;;;481      LWIP_ASSERT("plug_holes: mem->used == 0", mem->used == 0);
+000030  7920              LDRB     r0,[r4,#4]
+000032  b130              CBZ      r0,|L8.66|
+000034  a325              ADR      r3,|L8.204|
+000036  f24012e1          MOV      r2,#0x1e1
+00003a  a147              ADR      r1,|L8.344|
+00003c  a035              ADR      r0,|L8.276|
+00003e  f7fffffe          BL       __2printf
+                  |L8.66|
+;;;482    
+;;;483      /* plug hole forward */
+;;;484      LWIP_ASSERT("plug_holes: mem->next <= MEM_SIZE_ALIGNED", mem->next <= MEM_SIZE_ALIGNED);
+000042  8820              LDRH     r0,[r4,#0]
+000044  f44f67c8          MOV      r7,#0x640
+000048  42b8              CMP      r0,r7
+00004a  d906              BLS      |L8.90|
+00004c  a31f              ADR      r3,|L8.204|
+00004e  f44f72f2          MOV      r2,#0x1e4
+000052  a148              ADR      r1,|L8.372|
+000054  a02f              ADR      r0,|L8.276|
+000056  f7fffffe          BL       __2printf
+                  |L8.90|
+;;;485    
+;;;486      nmem = ptr_to_mem(mem->next);
+00005a  8820              LDRH     r0,[r4,#0]
+00005c  f7fffffe          BL       ptr_to_mem
+000060  4605              MOV      r5,r0
+;;;487      if (mem != nmem && nmem->used == 0 && (u8_t *)nmem != (u8_t *)ram_end) {
+000062  42ac              CMP      r4,r5
+000064  d016              BEQ      |L8.148|
+000066  7928              LDRB     r0,[r5,#4]
+000068  b9a0              CBNZ     r0,|L8.148|
+00006a  6870              LDR      r0,[r6,#4]  ; ram_end
+00006c  4285              CMP      r5,r0
+00006e  d011              BEQ      |L8.148|
+;;;488        /* if mem->next is unused and not end of ram, combine mem and mem->next */
+;;;489        if (lfree == nmem) {
+000070  68b0              LDR      r0,[r6,#8]  ; lfree
+000072  42a8              CMP      r0,r5
+000074  d100              BNE      |L8.120|
+;;;490          lfree = mem;
+000076  60b4              STR      r4,[r6,#8]  ; lfree
+                  |L8.120|
+;;;491        }
+;;;492        mem->next = nmem->next;
+000078  8828              LDRH     r0,[r5,#0]
+00007a  8020              STRH     r0,[r4,#0]
+;;;493        if (nmem->next != MEM_SIZE_ALIGNED) {
+00007c  8828              LDRH     r0,[r5,#0]
+00007e  42b8              CMP      r0,r7
+000080  d008              BEQ      |L8.148|
+;;;494          ptr_to_mem(nmem->next)->prev = mem_to_ptr(mem);
+000082  4620              MOV      r0,r4
+000084  f7fffffe          BL       mem_to_ptr
+000088  4680              MOV      r8,r0
+00008a  8828              LDRH     r0,[r5,#0]
+00008c  f7fffffe          BL       ptr_to_mem
+000090  f8a08002          STRH     r8,[r0,#2]
+                  |L8.148|
+;;;495        }
+;;;496      }
+;;;497    
+;;;498      /* plug hole backward */
+;;;499      pmem = ptr_to_mem(mem->prev);
+000094  8860              LDRH     r0,[r4,#2]
+000096  f7fffffe          BL       ptr_to_mem
+;;;500      if (pmem != mem && pmem->used == 0) {
+00009a  42a0              CMP      r0,r4
+00009c  d012              BEQ      |L8.196|
+00009e  7901              LDRB     r1,[r0,#4]
+0000a0  2900              CMP      r1,#0
+0000a2  d10f              BNE      |L8.196|
+;;;501        /* if mem->prev is unused, combine mem and mem->prev */
+;;;502        if (lfree == mem) {
+0000a4  68b1              LDR      r1,[r6,#8]  ; lfree
+0000a6  42a1              CMP      r1,r4
+0000a8  d100              BNE      |L8.172|
+;;;503          lfree = pmem;
+0000aa  60b0              STR      r0,[r6,#8]  ; lfree
+                  |L8.172|
+;;;504        }
+;;;505        pmem->next = mem->next;
+0000ac  8821              LDRH     r1,[r4,#0]
+0000ae  8001              STRH     r1,[r0,#0]
+;;;506        if (mem->next != MEM_SIZE_ALIGNED) {
+0000b0  8821              LDRH     r1,[r4,#0]
+0000b2  42b9              CMP      r1,r7
+0000b4  d006              BEQ      |L8.196|
+;;;507          ptr_to_mem(mem->next)->prev = mem_to_ptr(pmem);
+0000b6  f7fffffe          BL       mem_to_ptr
+0000ba  4605              MOV      r5,r0
+0000bc  8820              LDRH     r0,[r4,#0]
+0000be  f7fffffe          BL       ptr_to_mem
+0000c2  8045              STRH     r5,[r0,#2]
+                  |L8.196|
+;;;508        }
+;;;509      }
+;;;510    }
+0000c4  e8bd81f0          POP      {r4-r8,pc}
+;;;511    
                           ENDP
 
-0000a2  0000              DCW      0x0000
-                  |L6.164|
+                  |L8.200|
                           DCD      ||.data||
-                  |L6.168|
-0000a8  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
-0000ac  6964646c
-0000b0  65776172
-0000b4  65735c54
-0000b8  68697264
-0000bc  5f506172
-0000c0  74795c4c
-0000c4  7749505c
-0000c8  7372635c
-0000cc  636f7265
-0000d0  5c6d656d
-0000d4  2e6300  
-0000d7  00                DCB      0
-                  |L6.216|
-0000d8  706c7567          DCB      "plug_holes: mem >= ram",0
-0000dc  5f686f6c
-0000e0  65733a20
-0000e4  6d656d20
-0000e8  3e3d2072
-0000ec  616d00  
-0000ef  00                DCB      0
-                  |L6.240|
-0000f0  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0000f4  7274696f
-0000f8  6e202225
-0000fc  73222066
-000100  61696c65
-000104  64206174
-000108  206c696e
-00010c  65202564
-000110  20696e20
-000114  25730a00
-                  |L6.280|
-000118  706c7567          DCB      "plug_holes: mem < ram_end",0
-00011c  5f686f6c
-000120  65733a20
-000124  6d656d20
-000128  3c207261
-00012c  6d5f656e
-000130  6400    
-000132  00                DCB      0
-000133  00                DCB      0
-                  |L6.308|
-000134  706c7567          DCB      "plug_holes: mem->used == 0",0
-000138  5f686f6c
-00013c  65733a20
-000140  6d656d2d
-000144  3e757365
-000148  64203d3d
-00014c  203000  
-00014f  00                DCB      0
-                  |L6.336|
-000150  706c7567          DCB      "plug_holes: mem->next <= MEM_SIZE_ALIGNED",0
-000154  5f686f6c
-000158  65733a20
-00015c  6d656d2d
-000160  3e6e6578
-000164  74203c3d
-000168  204d454d
-00016c  5f53495a
-000170  455f414c
-000174  49474e45
-000178  4400    
-00017a  00                DCB      0
-00017b  00                DCB      0
+                  |L8.204|
+0000cc  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\mem.c",0
+0000d0  6964646c
+0000d4  65776172
+0000d8  65735c54
+0000dc  68697264
+0000e0  5f506172
+0000e4  74795c4c
+0000e8  7749505c
+0000ec  7372635c
+0000f0  636f7265
+0000f4  5c6d656d
+0000f8  2e6300  
+0000fb  00                DCB      0
+                  |L8.252|
+0000fc  706c7567          DCB      "plug_holes: mem >= ram",0
+000100  5f686f6c
+000104  65733a20
+000108  6d656d20
+00010c  3e3d2072
+000110  616d00  
+000113  00                DCB      0
+                  |L8.276|
+000114  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+000118  7274696f
+00011c  6e202225
+000120  73222066
+000124  61696c65
+000128  64206174
+00012c  206c696e
+000130  65202564
+000134  20696e20
+000138  25730a00
+                  |L8.316|
+00013c  706c7567          DCB      "plug_holes: mem < ram_end",0
+000140  5f686f6c
+000144  65733a20
+000148  6d656d20
+00014c  3c207261
+000150  6d5f656e
+000154  6400    
+000156  00                DCB      0
+000157  00                DCB      0
+                  |L8.344|
+000158  706c7567          DCB      "plug_holes: mem->used == 0",0
+00015c  5f686f6c
+000160  65733a20
+000164  6d656d2d
+000168  3e757365
+00016c  64203d3d
+000170  203000  
+000173  00                DCB      0
+                  |L8.372|
+000174  706c7567          DCB      "plug_holes: mem->next <= MEM_SIZE_ALIGNED",0
+000178  5f686f6c
+00017c  65733a20
+000180  6d656d2d
+000184  3e6e6578
+000188  74203c3d
+00018c  204d454d
+000190  5f53495a
+000194  455f414c
+000198  49474e45
+00019c  4400    
+00019e  00                DCB      0
+00019f  00                DCB      0
+
+                          AREA ||i.ptr_to_mem||, CODE, READONLY, ALIGN=2
+
+                  ptr_to_mem PROC
+;;;450    static struct mem *
+;;;451    ptr_to_mem(mem_size_t ptr)
+000000  4901              LDR      r1,|L9.8|
+;;;452    {
+;;;453      return (struct mem *)(void *)&ram[ptr];
+000002  6809              LDR      r1,[r1,#0]  ; ram
+000004  4408              ADD      r0,r0,r1
+;;;454    }
+000006  4770              BX       lr
+;;;455    
+                          ENDP
+
+                  |L9.8|
+                          DCD      ||.data||
 
                           AREA ||.bss||, DATA, NOINIT, ALIGN=0
 

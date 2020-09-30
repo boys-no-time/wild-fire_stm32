@@ -51,7 +51,7 @@
 ;;;78     
 ;;;79       if (netif_is_link_up(&gnetif))
 00003e  4813              LDR      r0,|L1.140|
-000040  f8900037          LDRB     r0,[r0,#0x37]  ; gnetif
+000040  f8900035          LDRB     r0,[r0,#0x35]  ; gnetif
 000044  0740              LSLS     r0,r0,#29
 000046  d503              BPL      |L1.80|
 ;;;80       {

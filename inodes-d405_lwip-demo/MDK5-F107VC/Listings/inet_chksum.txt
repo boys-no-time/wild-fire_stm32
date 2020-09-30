@@ -29,56 +29,59 @@
 000002  4605              MOV      r5,r0
 ;;;570      u32_t acc;
 ;;;571      struct pbuf *q;
-;;;572      u8_t swapped;
+;;;572      int swapped = 0;
+000004  2600              MOVS     r6,#0
 ;;;573    
 ;;;574      acc = 0;
-000004  2400              MOVS     r4,#0
-;;;575      swapped = 0;
-000006  2600              MOVS     r6,#0
-000008  e013              B        |L2.50|
+000006  2400              MOVS     r4,#0
+000008  e012              B        |L2.48|
                   |L2.10|
-;;;576      for (q = p; q != NULL; q = q->next) {
-;;;577        acc += LWIP_CHKSUM(q->payload, q->len);
+;;;575      for (q = p; q != NULL; q = q->next) {
+;;;576        acc += LWIP_CHKSUM(q->payload, q->len);
 00000a  8969              LDRH     r1,[r5,#0xa]
 00000c  6868              LDR      r0,[r5,#4]
 00000e  f7fffffe          BL       lwip_standard_chksum
 000012  4420              ADD      r0,r0,r4
-;;;578        acc = FOLD_U32T(acc);
+;;;577        acc = FOLD_U32T(acc);
 000014  b281              UXTH     r1,r0
 000016  eb014410          ADD      r4,r1,r0,LSR #16
-;;;579        if (q->len % 2 != 0) {
+;;;578        if (q->len % 2 != 0) {
 00001a  7aa8              LDRB     r0,[r5,#0xa]
 00001c  07c0              LSLS     r0,r0,#31
-00001e  d007              BEQ      |L2.48|
-;;;580          swapped = 1 - swapped;
-000020  f1c60001          RSB      r0,r6,#1
-000024  b2c6              UXTB     r6,r0
-;;;581          acc = SWAP_BYTES_IN_WORD(acc);
-000026  b2e0              UXTB     r0,r4
-000028  f3c42107          UBFX     r1,r4,#8,#8
-00002c  ea412400          ORR      r4,r1,r0,LSL #8
+00001e  d006              BEQ      |L2.46|
+;;;579          swapped = !swapped;
+000020  b18e              CBZ      r6,|L2.70|
+000022  2600              MOVS     r6,#0
+                  |L2.36|
+;;;580          acc = SWAP_BYTES_IN_WORD(acc);
+000024  b2e0              UXTB     r0,r4
+000026  f3c42107          UBFX     r1,r4,#8,#8
+00002a  ea412400          ORR      r4,r1,r0,LSL #8
+                  |L2.46|
+00002e  682d              LDR      r5,[r5,#0]            ;575
                   |L2.48|
-000030  682d              LDR      r5,[r5,#0]            ;576
-                  |L2.50|
-000032  2d00              CMP      r5,#0                 ;576
-000034  d1e9              BNE      |L2.10|
-;;;582        }
-;;;583      }
-;;;584    
-;;;585      if (swapped) {
-000036  b126              CBZ      r6,|L2.66|
-;;;586        acc = SWAP_BYTES_IN_WORD(acc);
-000038  b2e0              UXTB     r0,r4
-00003a  f3c42107          UBFX     r1,r4,#8,#8
-00003e  ea412400          ORR      r4,r1,r0,LSL #8
-                  |L2.66|
-;;;587      }
-;;;588      return (u16_t)~(acc & 0xffffUL);
-000042  43e0              MVNS     r0,r4
-000044  b280              UXTH     r0,r0
-;;;589    }
-000046  bd70              POP      {r4-r6,pc}
-;;;590    
+000030  2d00              CMP      r5,#0                 ;575
+000032  d1ea              BNE      |L2.10|
+;;;581        }
+;;;582      }
+;;;583    
+;;;584      if (swapped) {
+000034  b126              CBZ      r6,|L2.64|
+;;;585        acc = SWAP_BYTES_IN_WORD(acc);
+000036  b2e0              UXTB     r0,r4
+000038  f3c42107          UBFX     r1,r4,#8,#8
+00003c  ea412400          ORR      r4,r1,r0,LSL #8
+                  |L2.64|
+;;;586      }
+;;;587      return (u16_t)~(acc & 0xffffUL);
+000040  43e0              MVNS     r0,r4
+000042  b280              UXTH     r0,r0
+;;;588    }
+000044  bd70              POP      {r4-r6,pc}
+                  |L2.70|
+000046  2601              MOVS     r6,#1                 ;579
+000048  e7ec              B        |L2.36|
+;;;589    
                           ENDP
 
 
@@ -88,7 +91,7 @@
 ;;;309    u16_t
 ;;;310    inet_chksum_pseudo(struct pbuf *p, u8_t proto, u16_t proto_len,
 000000  b430              PUSH     {r4,r5}
-;;;311           const ip4_addr_t *src, const ip4_addr_t *dest)
+;;;311                       const ip4_addr_t *src, const ip4_addr_t *dest)
 ;;;312    {
 000002  9d02              LDR      r5,[sp,#8]
 ;;;313      u32_t acc;
@@ -98,14 +101,14 @@
 000004  681b              LDR      r3,[r3,#0]
 ;;;317      acc = (addr & 0xffffUL);
 000006  b29c              UXTH     r4,r3
-;;;318      acc += ((addr >> 16) & 0xffffUL);
+;;;318      acc = (u32_t)(acc + ((addr >> 16) & 0xffffUL));
 000008  eb044413          ADD      r4,r4,r3,LSR #16
 ;;;319      addr = ip4_addr_get_u32(dest);
 00000c  682b              LDR      r3,[r5,#0]
-;;;320      acc += (addr & 0xffffUL);
+;;;320      acc = (u32_t)(acc + (addr & 0xffffUL));
 00000e  b29d              UXTH     r5,r3
 000010  442c              ADD      r4,r4,r5
-;;;321      acc += ((addr >> 16) & 0xffffUL);
+;;;321      acc = (u32_t)(acc + ((addr >> 16) & 0xffffUL));
 000012  eb044313          ADD      r3,r4,r3,LSR #16
 ;;;322      /* fold down to 16 bits */
 ;;;323      acc = FOLD_U32T(acc);
@@ -129,7 +132,7 @@
 ;;;455    u16_t
 ;;;456    inet_chksum_pseudo_partial(struct pbuf *p, u8_t proto, u16_t proto_len,
 000000  b5f8              PUSH     {r3-r7,lr}
-;;;457           u16_t chksum_len, const ip4_addr_t *src, const ip4_addr_t *dest)
+;;;457                               u16_t chksum_len, const ip4_addr_t *src, const ip4_addr_t *dest)
 ;;;458    {
 000002  e9dd4606          LDRD     r4,r6,[sp,#0x18]
 ;;;459      u32_t acc;
@@ -139,14 +142,14 @@
 000006  6824              LDR      r4,[r4,#0]
 ;;;463      acc = (addr & 0xffffUL);
 000008  b2a5              UXTH     r5,r4
-;;;464      acc += ((addr >> 16) & 0xffffUL);
+;;;464      acc = (u32_t)(acc + ((addr >> 16) & 0xffffUL));
 00000a  eb054514          ADD      r5,r5,r4,LSR #16
 ;;;465      addr = ip4_addr_get_u32(dest);
 00000e  6834              LDR      r4,[r6,#0]
-;;;466      acc += (addr & 0xffffUL);
+;;;466      acc = (u32_t)(acc + (addr & 0xffffUL));
 000010  b2a6              UXTH     r6,r4
 000012  4435              ADD      r5,r5,r6
-;;;467      acc += ((addr >> 16) & 0xffffUL);
+;;;467      acc = (u32_t)(acc + ((addr >> 16) & 0xffffUL));
 000014  eb054414          ADD      r4,r5,r4,LSR #16
 ;;;468      /* fold down to 16 bits */
 ;;;469      acc = FOLD_U32T(acc);
@@ -177,15 +180,15 @@
 000008  4690              MOV      r8,r2
 00000a  461c              MOV      r4,r3
 ;;;262      struct pbuf *q;
-;;;263      u8_t swapped = 0;
+;;;263      int swapped = 0;
 00000c  2600              MOVS     r6,#0
-00000e  e013              B        |L5.56|
+00000e  e012              B        |L5.54|
                   |L5.16|
 ;;;264    
 ;;;265      /* iterate through all pbuf in chain */
 ;;;266      for (q = p; q != NULL; q = q->next) {
 ;;;267        LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): checksumming pbuf %p (has next %p) \n",
-;;;268          (void *)q, (void *)q->next));
+;;;268                                 (void *)q, (void *)q->next));
 ;;;269        acc += LWIP_CHKSUM(q->payload, q->len);
 000010  8969              LDRH     r1,[r5,#0xa]
 000012  6868              LDR      r0,[r5,#4]
@@ -200,54 +203,58 @@
 ;;;274        if (q->len % 2 != 0) {
 000020  7aa8              LDRB     r0,[r5,#0xa]
 000022  07c0              LSLS     r0,r0,#31
-000024  d007              BEQ      |L5.54|
-;;;275          swapped = 1 - swapped;
-000026  f1c60001          RSB      r0,r6,#1
-00002a  b2c6              UXTB     r6,r0
+000024  d006              BEQ      |L5.52|
+;;;275          swapped = !swapped;
+000026  b1fe              CBZ      r6,|L5.104|
+000028  2600              MOVS     r6,#0
+                  |L5.42|
 ;;;276          acc = SWAP_BYTES_IN_WORD(acc);
-00002c  b2e0              UXTB     r0,r4
-00002e  f3c42107          UBFX     r1,r4,#8,#8
-000032  ea412400          ORR      r4,r1,r0,LSL #8
+00002a  b2e0              UXTB     r0,r4
+00002c  f3c42107          UBFX     r1,r4,#8,#8
+000030  ea412400          ORR      r4,r1,r0,LSL #8
+                  |L5.52|
+000034  682d              LDR      r5,[r5,#0]            ;266
                   |L5.54|
-000036  682d              LDR      r5,[r5,#0]            ;266
-                  |L5.56|
-000038  2d00              CMP      r5,#0                 ;266
-00003a  d1e9              BNE      |L5.16|
+000036  2d00              CMP      r5,#0                 ;266
+000038  d1ea              BNE      |L5.16|
 ;;;277        }
 ;;;278        /*LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): wrapped lwip_chksum()=%"X32_F" \n", acc));*/
 ;;;279      }
 ;;;280    
 ;;;281      if (swapped) {
-00003c  b126              CBZ      r6,|L5.72|
+00003a  b126              CBZ      r6,|L5.70|
 ;;;282        acc = SWAP_BYTES_IN_WORD(acc);
-00003e  b2e0              UXTB     r0,r4
-000040  f3c42107          UBFX     r1,r4,#8,#8
-000044  ea412400          ORR      r4,r1,r0,LSL #8
-                  |L5.72|
+00003c  b2e0              UXTB     r0,r4
+00003e  f3c42107          UBFX     r1,r4,#8,#8
+000042  ea412400          ORR      r4,r1,r0,LSL #8
+                  |L5.70|
 ;;;283      }
 ;;;284    
 ;;;285      acc += (u32_t)lwip_htons((u16_t)proto);
-000048  4638              MOV      r0,r7
-00004a  f7fffffe          BL       lwip_htons
-00004e  4404              ADD      r4,r4,r0
+000046  4638              MOV      r0,r7
+000048  f7fffffe          BL       lwip_htons
+00004c  4404              ADD      r4,r4,r0
 ;;;286      acc += (u32_t)lwip_htons(proto_len);
-000050  4640              MOV      r0,r8
-000052  f7fffffe          BL       lwip_htons
-000056  4420              ADD      r0,r0,r4
+00004e  4640              MOV      r0,r8
+000050  f7fffffe          BL       lwip_htons
+000054  4420              ADD      r0,r0,r4
 ;;;287    
 ;;;288      /* Fold 32-bit sum to 16 bits
 ;;;289         calling this twice is probably faster than if statements... */
 ;;;290      acc = FOLD_U32T(acc);
-000058  b281              UXTH     r1,r0
-00005a  eb014010          ADD      r0,r1,r0,LSR #16
+000056  b281              UXTH     r1,r0
+000058  eb014010          ADD      r0,r1,r0,LSR #16
 ;;;291      acc = FOLD_U32T(acc);
-00005e  eb004010          ADD      r0,r0,r0,LSR #16
+00005c  eb004010          ADD      r0,r0,r0,LSR #16
 ;;;292      LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): pbuf chain lwip_chksum()=%"X32_F"\n", acc));
 ;;;293      return (u16_t)~(acc & 0xffffUL);
-000062  43c0              MVNS     r0,r0
-000064  b280              UXTH     r0,r0
+000060  43c0              MVNS     r0,r0
+000062  b280              UXTH     r0,r0
 ;;;294    }
-000066  e8bd81f0          POP      {r4-r8,pc}
+000064  e8bd81f0          POP      {r4-r8,pc}
+                  |L5.104|
+000068  2601              MOVS     r6,#1                 ;275
+00006a  e7de              B        |L5.42|
 ;;;295    
                           ENDP
 
@@ -263,7 +270,7 @@
 ;;;398    static u16_t
 ;;;399    inet_cksum_pseudo_partial_base(struct pbuf *p, u8_t proto, u16_t proto_len,
 000000  e92d47f0          PUSH     {r4-r10,lr}
-;;;400           u16_t chksum_len, u32_t acc)
+;;;400                                   u16_t chksum_len, u32_t acc)
 ;;;401    {
 000004  9c08              LDR      r4,[sp,#0x20]
 000006  4605              MOV      r5,r0
@@ -271,16 +278,16 @@
 00000a  4692              MOV      r10,r2
 00000c  461e              MOV      r6,r3
 ;;;402      struct pbuf *q;
-;;;403      u8_t swapped = 0;
+;;;403      int swapped = 0;
 00000e  f04f0800          MOV      r8,#0
-000012  e025              B        |L6.96|
+000012  e026              B        |L6.98|
                   |L6.20|
 ;;;404      u16_t chklen;
 ;;;405    
 ;;;406      /* iterate through all pbuf in chain */
 ;;;407      for (q = p; (q != NULL) && (chksum_len > 0); q = q->next) {
 ;;;408        LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): checksumming pbuf %p (has next %p) \n",
-;;;409          (void *)q, (void *)q->next));
+;;;409                                 (void *)q, (void *)q->next));
 ;;;410        chklen = q->len;
 000014  896f              LDRH     r7,[r5,#0xa]
 ;;;411        if (chklen > chksum_len) {
@@ -295,17 +302,17 @@
 00001e  6868              LDR      r0,[r5,#4]
 000020  f7fffffe          BL       lwip_standard_chksum
 000024  4404              ADD      r4,r4,r0
-;;;415        chksum_len -= chklen;
+;;;415        chksum_len = (u16_t)(chksum_len - chklen);
 000026  1bf0              SUBS     r0,r6,r7
 000028  b286              UXTH     r6,r0
 ;;;416        LWIP_ASSERT("delete me", chksum_len < 0x7fff);
 00002a  f64770ff          MOV      r0,#0x7fff
 00002e  4286              CMP      r6,r0
 000030  d306              BCC      |L6.64|
-000032  a319              ADR      r3,|L6.152|
+000032  a31b              ADR      r3,|L6.160|
 000034  f44f72d0          MOV      r2,#0x1a0
-000038  a125              ADR      r1,|L6.208|
-00003a  a028              ADR      r0,|L6.220|
+000038  a127              ADR      r1,|L6.216|
+00003a  a02a              ADR      r0,|L6.228|
 00003c  f7fffffe          BL       __2printf
                   |L6.64|
 ;;;417        /*LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): unwrapped lwip_chksum()=%"X32_F" \n", acc));*/
@@ -316,94 +323,99 @@
 ;;;420        if (q->len % 2 != 0) {
 000046  7aa8              LDRB     r0,[r5,#0xa]
 000048  07c0              LSLS     r0,r0,#31
-00004a  d008              BEQ      |L6.94|
-;;;421          swapped = 1 - swapped;
-00004c  f1c80001          RSB      r0,r8,#1
-000050  f00008ff          AND      r8,r0,#0xff
+00004a  d009              BEQ      |L6.96|
+;;;421          swapped = !swapped;
+00004c  f1b80f00          CMP      r8,#0
+000050  d023              BEQ      |L6.154|
+000052  f04f0800          MOV      r8,#0
+                  |L6.86|
 ;;;422          acc = SWAP_BYTES_IN_WORD(acc);
-000054  b2e0              UXTB     r0,r4
-000056  f3c42107          UBFX     r1,r4,#8,#8
-00005a  ea412400          ORR      r4,r1,r0,LSL #8
-                  |L6.94|
-00005e  682d              LDR      r5,[r5,#0]            ;407
+000056  b2e0              UXTB     r0,r4
+000058  f3c42107          UBFX     r1,r4,#8,#8
+00005c  ea412400          ORR      r4,r1,r0,LSL #8
                   |L6.96|
-000060  b10d              CBZ      r5,|L6.102|
-000062  2e00              CMP      r6,#0                 ;407
-000064  d1d6              BNE      |L6.20|
-                  |L6.102|
+000060  682d              LDR      r5,[r5,#0]            ;407
+                  |L6.98|
+000062  b10d              CBZ      r5,|L6.104|
+000064  2e00              CMP      r6,#0                 ;407
+000066  d1d5              BNE      |L6.20|
+                  |L6.104|
 ;;;423        }
 ;;;424        /*LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): wrapped lwip_chksum()=%"X32_F" \n", acc));*/
 ;;;425      }
 ;;;426    
 ;;;427      if (swapped) {
-000066  f1b80f00          CMP      r8,#0
-00006a  d004              BEQ      |L6.118|
+000068  f1b80f00          CMP      r8,#0
+00006c  d004              BEQ      |L6.120|
 ;;;428        acc = SWAP_BYTES_IN_WORD(acc);
-00006c  b2e0              UXTB     r0,r4
-00006e  f3c42107          UBFX     r1,r4,#8,#8
-000072  ea412400          ORR      r4,r1,r0,LSL #8
-                  |L6.118|
+00006e  b2e0              UXTB     r0,r4
+000070  f3c42107          UBFX     r1,r4,#8,#8
+000074  ea412400          ORR      r4,r1,r0,LSL #8
+                  |L6.120|
 ;;;429      }
 ;;;430    
 ;;;431      acc += (u32_t)lwip_htons((u16_t)proto);
-000076  4648              MOV      r0,r9
-000078  f7fffffe          BL       lwip_htons
-00007c  4404              ADD      r4,r4,r0
+000078  4648              MOV      r0,r9
+00007a  f7fffffe          BL       lwip_htons
+00007e  4404              ADD      r4,r4,r0
 ;;;432      acc += (u32_t)lwip_htons(proto_len);
-00007e  4650              MOV      r0,r10
-000080  f7fffffe          BL       lwip_htons
-000084  4420              ADD      r0,r0,r4
+000080  4650              MOV      r0,r10
+000082  f7fffffe          BL       lwip_htons
+000086  4420              ADD      r0,r0,r4
 ;;;433    
 ;;;434      /* Fold 32-bit sum to 16 bits
 ;;;435         calling this twice is probably faster than if statements... */
 ;;;436      acc = FOLD_U32T(acc);
-000086  b281              UXTH     r1,r0
-000088  eb014010          ADD      r0,r1,r0,LSR #16
+000088  b281              UXTH     r1,r0
+00008a  eb014010          ADD      r0,r1,r0,LSR #16
 ;;;437      acc = FOLD_U32T(acc);
-00008c  eb004010          ADD      r0,r0,r0,LSR #16
+00008e  eb004010          ADD      r0,r0,r0,LSR #16
 ;;;438      LWIP_DEBUGF(INET_DEBUG, ("inet_chksum_pseudo(): pbuf chain lwip_chksum()=%"X32_F"\n", acc));
 ;;;439      return (u16_t)~(acc & 0xffffUL);
-000090  43c0              MVNS     r0,r0
-000092  b280              UXTH     r0,r0
+000092  43c0              MVNS     r0,r0
+000094  b280              UXTH     r0,r0
 ;;;440    }
-000094  e8bd87f0          POP      {r4-r10,pc}
+000096  e8bd87f0          POP      {r4-r10,pc}
+                  |L6.154|
+00009a  f04f0801          MOV      r8,#1                 ;421
+00009e  e7da              B        |L6.86|
 ;;;441    
                           ENDP
 
-                  |L6.152|
-000098  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\inet_chk"
-00009c  6964646c
-0000a0  65776172
-0000a4  65735c54
-0000a8  68697264
-0000ac  5f506172
-0000b0  74795c4c
-0000b4  7749505c
-0000b8  7372635c
-0000bc  636f7265
-0000c0  5c696e65
-0000c4  745f6368
-0000c8  6b      
-0000c9  73756d2e          DCB      "sum.c",0
-0000cd  6300    
-0000cf  00                DCB      0
-                  |L6.208|
-0000d0  64656c65          DCB      "delete me",0
-0000d4  7465206d
-0000d8  6500    
-0000da  00                DCB      0
-0000db  00                DCB      0
-                  |L6.220|
-0000dc  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
-0000e0  7274696f
-0000e4  6e202225
-0000e8  73222066
-0000ec  61696c65
-0000f0  64206174
-0000f4  206c696e
-0000f8  65202564
-0000fc  20696e20
-000100  25730a00
+                  |L6.160|
+0000a0  2e2e5c4d          DCB      "..\\Middlewares\\Third_Party\\LwIP\\src\\core\\inet_chk"
+0000a4  6964646c
+0000a8  65776172
+0000ac  65735c54
+0000b0  68697264
+0000b4  5f506172
+0000b8  74795c4c
+0000bc  7749505c
+0000c0  7372635c
+0000c4  636f7265
+0000c8  5c696e65
+0000cc  745f6368
+0000d0  6b      
+0000d1  73756d2e          DCB      "sum.c",0
+0000d5  6300    
+0000d7  00                DCB      0
+                  |L6.216|
+0000d8  64656c65          DCB      "delete me",0
+0000dc  7465206d
+0000e0  6500    
+0000e2  00                DCB      0
+0000e3  00                DCB      0
+                  |L6.228|
+0000e4  41737365          DCB      "Assertion ""%s"" failed at line %d in %s\n",0
+0000e8  7274696f
+0000ec  6e202225
+0000f0  73222066
+0000f4  61696c65
+0000f8  64206174
+0000fc  206c696e
+000100  65202564
+000104  20696e20
+000108  25730a00
 
                           AREA ||i.ip_chksum_pseudo||, CODE, READONLY, ALIGN=1
 
@@ -411,7 +423,7 @@
 ;;;378    u16_t
 ;;;379    ip_chksum_pseudo(struct pbuf *p, u8_t proto, u16_t proto_len,
 000000  b538              PUSH     {r3-r5,lr}
-;;;380           const ip_addr_t *src, const ip_addr_t *dest)
+;;;380                     const ip_addr_t *src, const ip_addr_t *dest)
 ;;;381    {
 000002  9c04              LDR      r4,[sp,#0x10]
 ;;;382    #if LWIP_IPV6
@@ -441,7 +453,7 @@
 ;;;525    u16_t
 ;;;526    ip_chksum_pseudo_partial(struct pbuf *p, u8_t proto, u16_t proto_len,
 000000  b57c              PUSH     {r2-r6,lr}
-;;;527           u16_t chksum_len, const ip_addr_t *src, const ip_addr_t *dest)
+;;;527                             u16_t chksum_len, const ip_addr_t *src, const ip_addr_t *dest)
 ;;;528    {
 000002  e9dd5406          LDRD     r5,r4,[sp,#0x18]
 ;;;529    #if LWIP_IPV6
