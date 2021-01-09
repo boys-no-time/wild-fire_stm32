@@ -38,7 +38,9 @@ void HSE_SetSysClock(uint32_t pllmul)
 	// 只有 HSE 稳定之后则继续往下执行
   if (HSEStartUpStatus == SUCCESS)
   {
-		/* RCC_ClockSecuritySystemCmd(ENABLE); //启动时钟安全系统 CSS   */
+		#ifdef RCC_CSS_EN 
+		RCC_ClockSecuritySystemCmd(ENABLE); //启动时钟安全系统 CSS   
+		#endif
 		
 //----------------------------------------------------------------------//
     // 使能FLASH 预存取缓冲区
@@ -82,7 +84,7 @@ void HSE_SetSysClock(uint32_t pllmul)
   { // 如果HSE开启失败，那么程序就会来到这里，用户可在这里添加出错的代码处理
 		// 当HSE开启失败或者故障的时候，单片机会自动把HSI设置为系统时钟，
 		// HSI是内部的高速时钟，8MHZ
-/*		
+		
         RCC_DeInit();  //复位RCC寄存器
         RCC_HSEConfig(RCC_HSE_OFF);       //关闭外部晶（HSE）
         RCC_HCLKConfig(RCC_SYSCLK_Div1);   //设置ABH时钟（HCLK）：HCLK=SYSCLK
@@ -98,7 +100,7 @@ void HSE_SetSysClock(uint32_t pllmul)
         //返回作用系统时钟的时钟源
         // Wait till PLL is used as system clock source
         while(RCC_GetSYSCLKSource() != 0x08);
-*/		
+		
   }
 }
 
@@ -203,7 +205,7 @@ void NMIException(void)
 {
     if(RCC_GetITStatus(RCC_IT_CSS) != RESET)
     {
-#if 0                 //内部晶振配置
+#ifdef RCC_CSS_EN                 //内部晶振配置
         RCC_DeInit();  //复位RCC寄存器
         RCC_HSEConfig(RCC_HSE_OFF);       //关闭外部晶（HSE）
         RCC_HCLKConfig(RCC_SYSCLK_Div1);   //设置ABH时钟（HCLK）：HCLK=SYSCLK

@@ -555,12 +555,12 @@ ARM Macro Assembler    Page 9
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M3 --apcs=interw
 ork --depend=.\stm3210c-eval\startup_stm32f10x_cl.d -o.\stm3210c-eval\startup_s
-tm32f10x_cl.o -I.\RTE\_STM3210C-EVAL -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.6.0\CMSI
+tm32f10x_cl.o -I.\RTE\_STM3210C-EVAL -IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.7.0\CMSI
 S\Core\Include -IC:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.3.0\Device\Include --
-predefine="__MICROLIB SETA 1" --predefine="__UVISION_VERSION SETA 526" --predef
-ine="_RTE_ SETA 1" --predefine="STM32F10X_CL SETA 1" --list=.\stm3210c-eval\sta
-rtup_stm32f10x_cl.lst ..\..\..\Libraries\CMSIS\CM3\DeviceSupport\ST\STM32F10x\s
-tartup\arm\startup_stm32f10x_cl.s
+predefine="__MICROLIB SETA 1" --predefine="__UVISION_VERSION SETA 530" --predef
+ine="_RTE_ SETA 1" --predefine="STM32F10X_CL SETA 1" --predefine="_RTE_ SETA 1"
+ --list=.\stm3210c-eval\startup_stm32f10x_cl.lst ..\..\..\Libraries\CMSIS\CM3\D
+eviceSupport\ST\STM32F10x\startup\arm\startup_stm32f10x_cl.s
 
 
 

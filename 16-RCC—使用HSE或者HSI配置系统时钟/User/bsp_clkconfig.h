@@ -1,6 +1,7 @@
 #ifndef __CLKCONFIG_H
 #define	__CLKCONFIG_H
 
+//#define RCC_CSS_EN 
 
 #include "stm32f10x.h"
 
