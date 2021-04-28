@@ -13,11 +13,15 @@ git@github.com: Permission denied (publickey).
 fatal: Could not read from remote repository.
 
 请执行以下指令，关联对应SSH KEY。再执行 push 指令。
+
 ssh-agent bash
+
 ssh-add "/c/Users/Administrator/.ssh/my_github"
 
 ssh-agent bash
+
 ssh-add "/c/Users/Administrator/.ssh/my_gitlab"
+
 ssh-add "/c/Users/Administrator/.ssh/my_github"
 
 ssh-add "/c/Users/linux_pan/.ssh/my_github"
