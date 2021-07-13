@@ -1,0 +1,28 @@
+--cpu Cortex-M3
+"f103vet\startup_stm32f103xe.o"
+"f103vet\main.o"
+"f103vet\gpio.o"
+"f103vet\usart.o"
+"f103vet\stm32f1xx_it.o"
+"f103vet\stm32f1xx_hal_msp.o"
+"f103vet\stm32f1xx_hal_gpio_ex.o"
+"f103vet\stm32f1xx_hal_tim.o"
+"f103vet\stm32f1xx_hal_tim_ex.o"
+"f103vet\stm32f1xx_hal.o"
+"f103vet\stm32f1xx_hal_rcc.o"
+"f103vet\stm32f1xx_hal_rcc_ex.o"
+"f103vet\stm32f1xx_hal_gpio.o"
+"f103vet\stm32f1xx_hal_dma.o"
+"f103vet\stm32f1xx_hal_cortex.o"
+"f103vet\stm32f1xx_hal_pwr.o"
+"f103vet\stm32f1xx_hal_flash.o"
+"f103vet\stm32f1xx_hal_flash_ex.o"
+"f103vet\stm32f1xx_hal_exti.o"
+"f103vet\stm32f1xx_hal_uart.o"
+"f103vet\system_stm32f1xx.o"
+"f103vet\bsp_breathing.o"
+"f103vet\ws2812b.o"
+--library_type=microlib --strict --scatter "F103VET\F103VET.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "F103VET.map" -o F103VET\F103VET.axf
