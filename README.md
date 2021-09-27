@@ -32,3 +32,16 @@ git remote set-url origin https://github.com/boys-no-time/wild-fire_stm32.git
 
 使用下面指令查看一下结果，提示origin URL （fetch）和 origin URL （puch）就是成功了：
 git remote -v
+
+
+
+
+
+
+
+忽略本地修改，强制拉取远程到本地
+git fetch --all
+
+git reset --hard origin
+
+git pull
