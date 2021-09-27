@@ -1,0 +1,5 @@
+ref_app_parking.c:123:6:acc_ref_app_parking	112	static
+ref_app_parking.c:271:6:service_recreate	16	static
+ref_app_parking.c:296:6:sensor_calibration	72	static
+ref_app_parking.c:314:6:configure_service	16	static
+ref_app_parking.c:326:6:parking_detection	96	static

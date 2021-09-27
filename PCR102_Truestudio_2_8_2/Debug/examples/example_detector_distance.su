@@ -1,0 +1,3 @@
+example_detector_distance.c:40:6:acc_example_detector_distance	80	dynamic
+example_detector_distance.c:124:6:update_configuration_distance	24	static
+example_detector_distance.c:136:13:print_distances	24	static

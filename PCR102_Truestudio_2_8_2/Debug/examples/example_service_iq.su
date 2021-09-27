@@ -1,0 +1,3 @@
+example_service_iq.c:45:6:acc_example_service_iq	80	dynamic
+example_service_iq.c:123:6:update_configuration	24	static
+example_service_iq.c:135:6:print_data	32	static

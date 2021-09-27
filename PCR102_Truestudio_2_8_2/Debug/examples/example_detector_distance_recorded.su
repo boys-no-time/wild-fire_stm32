@@ -1,0 +1,4 @@
+example_detector_distance_recorded.c:59:6:acc_example_detector_distance_recorded	16	static
+example_detector_distance_recorded.c:107:6:record_background	32	static
+example_detector_distance_recorded.c:142:6:measure_with_recorded_background	72	dynamic
+example_detector_distance_recorded.c:193:6:print_distances	24	static

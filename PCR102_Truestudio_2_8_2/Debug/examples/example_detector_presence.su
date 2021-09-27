@@ -1,0 +1,3 @@
+example_detector_presence.c:49:6:acc_example_detector_presence	56	static
+example_detector_presence.c:118:6:update_configuration	16	static
+example_detector_presence.c:128:6:print_result	32	static

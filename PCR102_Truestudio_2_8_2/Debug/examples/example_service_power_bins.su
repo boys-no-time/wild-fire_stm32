@@ -1,0 +1,3 @@
+example_service_power_bins.c:44:6:acc_example_service_power_bins	72	dynamic
+example_service_power_bins.c:122:6:update_configuration	24	static
+example_service_power_bins.c:132:6:print_data	24	static
