@@ -174,18 +174,15 @@ void EXTI0_IRQHandler(void)
   
 }
 
-extern uint8_t Rxflag;
-
-void  DEBUG_USART_IRQHandler(void)
+void USART1_IRQHandler(void)
 {
-  uint8_t ch=0; 
-  
-	if(__HAL_UART_GET_FLAG( &UartHandle, UART_FLAG_RXNE ) != RESET)
-	{		
-    ch=( uint16_t)READ_REG(UartHandle.Instance->DR);
-    WRITE_REG(UartHandle.Instance->DR,ch); 
- 
-	}
+  /* USER CODE BEGIN USART1_IRQn 0 */
+
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+  /* USER CODE BEGIN USART1_IRQn 1 */
+
+  /* USER CODE END USART1_IRQn 1 */
 }
 /**
   * @brief  This function handles PPP interrupt request.

@@ -4,14 +4,7 @@
   * @author  fire
   * @version V1.0
   * @date    2017-xx-xx
-  * @brief   GPIO输出--使用固件库点亮LED灯
-  ******************************************************************************
-  * @attention
-  *
-  * 实验平台:野火  STM32 F407 开发板 
-  * 论坛    :http://www.firebbs.cn
-  * 淘宝    :http://firestm32.taobao.com
-  *
+  * @brief   
   ******************************************************************************
   */
 
@@ -20,34 +13,40 @@
 #include "stm32f4xx.h"
 #include "./led/bsp_led.h"
 #include "./usart/bsp_debug_usart.h"
- 
-/**
-  * @brief  主函数
-  * @param  无
-  * @retval 无
-  */
+
+void MX_GPIO_Init(void);
+
 int main(void)
 {
   HAL_Init();        
   /* 配置系统时钟为180 MHz */ 
   SystemClock_Config();
-	   
+	
+	MX_GPIO_Init();   
   /*初始化USART 配置模式为 115200 8-N-1，中断接收*/
-  DEBUG_USART_Config();
+  MX_USART1_UART_Init();
   
 	/*调用printf函数，因为重定向了fputc，printf的内容会输出到串口*/
-	printf("欢迎使用野火开发板\n");	
+	printf("console print text !\n");	
 
 	/*自定义函数方式*/
-	Usart_SendString( (uint8_t *)"自定义函数输出：这是一个串口中断接收回显实验\n" );
+//	Usart_SendString( (uint8_t *)"自定义函数输出：这是一个串口中断接收回显实验\n" );
 	
   while(1)
 	{		
 	}
+	
 }
 
+void MX_GPIO_Init(void)
+{
 
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
+}
 
 /**
   * @brief  System Clock Configuration
@@ -116,4 +115,14 @@ int main(void)
   }
 }
 
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

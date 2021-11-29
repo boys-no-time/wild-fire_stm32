@@ -53,18 +53,6 @@ int __io_putchar(int ch)
 }
 #endif
 
-///重定向c库函数printf到串口DEBUG_USART，重定向后可使用printf函数
-//PUTCHAR_PROTOTYPE
-//{
-//		/* 发送一个字节数据到串口DEBUG_USART */
-//		USART_SendData(DEBUG_USART, (uint8_t) ch);
-//		
-//		/* 等待发送完毕 */
-//		while (USART_GetFlagStatus(DEBUG_USART, USART_FLAG_TXE) == RESET);		
-//	
-//		return (ch);
-//}
-
 PUTCHAR_PROTOTYPE 
 {
   return (sendchar(ch));
